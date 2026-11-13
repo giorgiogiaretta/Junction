@@ -35,3 +35,21 @@ def test_fallback_when_all_fail_and_on_bad_profile():
 def test_no_key_is_clean_fallback(monkeypatch):
     monkeypatch.delenv("NVIDIA_API_KEY", raising=False); monkeypatch.delenv("LLM_API_KEY", raising=False)
     r = pick_profile(ChatClient(api_key=None)); assert r["source"] == "fallback" and "no API key" in r["error"]
+
+
+def test_judge_parses_json_and_falls_back():
+    from ai.judge import judge_episode, agreement
+    good = (200, {"choices": [{"message": {"content": 'Sure: {"verdict": "good", "reason": "held", "phases": []}'}}]})
+    c, _ = client([good]); assert judge_episode(c, {"x": 1})["verdict"] == "good"
+    c2, _ = client([(200, {"choices": [{"message": {"content": "no json"}}]})]); r = judge_episode(c2, {})
+    assert r["verdict"] == "unclear" and r["source"] == "fallback"
+    a = agreement(["good", "bad", "good", "unclear"], [1, 0, 0, 1])
+    assert a["n"] == 3 and a["accuracy"] == 0.67 and a["unclear_or_unlabelled"] == 1
+
+
+def test_summarize_real_episode_if_present():
+    import glob
+    from ai.judge import summarize_episode
+    eps = sorted(glob.glob(str(pathlib.Path(__file__).parents[1] / "data" / "episodes" / "take_*.npz")))
+    if not eps: return
+    s = summarize_episode(eps[0]); assert s["duration_s"] > 1 and 0 <= s["closure_index_to_little"]["peak"] <= 1.5
