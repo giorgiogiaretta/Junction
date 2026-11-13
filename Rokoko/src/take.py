@@ -21,7 +21,7 @@ S = {
    "Solleva dolcemente senza schiacciare, riposa, torna a riposo."]),
  "C": ("HandOff: correzione errore (CRITICO)", 10, [
    "Avvicina la mano all'oggetto in modo VOLUTAMENTE SBAGLIATO (traiettoria storta o mano mezza chiusa).",
-   "Quando sei in errore premi Invio sul PC = MARK (e' Giorgio a premere, o tu col pulsante... qui solo Invio).",
+   "Resta un attimo nell'errore, poi di' 'ORA': chi sta al PC preme Invio = MARK (inizio della correzione).",
    "Dopo il MARK correggi la traiettoria, afferra bene e solleva.",
    "Riposa e torna a riposo. Poi Invio per STOP."]),
  "D": ("Rumore / movimenti spuri", 5, [
