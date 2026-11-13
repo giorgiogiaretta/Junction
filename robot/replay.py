@@ -15,7 +15,9 @@ def load_episode(path, hand="active", hz=60):
     z = np.load(path, allow_pickle=True)
     h = str(z["active_hand"]) if hand == "active" else hand
     if h not in ("left", "right"): h = "right"
-    t = z["t"].astype(float); f = z[f"{h}_fingers01"].astype(float); p = z[f"{h}_wrist_pos"].astype(float)
+    t = z["t"].astype(float); f = z[f"{h}_fingers01"].astype(float).copy(); p = z[f"{h}_wrist_pos"].astype(float)
+    if f"{h}_thumb01" in z.files and "thumb01_valid" in z.files and bool(z["thumb01_valid"]):
+        f[:, 0] = z[f"{h}_thumb01"].astype(float)   # calibrated solver thumb (series G, contract in docs/contracts.md) replaces column 0
     ok = ~np.isnan(p).any(1)
     g = np.arange(0, t[-1] - t[0], 1.0 / hz)
     fi = np.stack([np.interp(g, t - t[0], f[:, k]) for k in range(5)], 1)
