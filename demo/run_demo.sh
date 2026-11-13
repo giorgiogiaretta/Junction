@@ -10,7 +10,8 @@ while [ $# -gt 0 ]; do case "$1" in
 esac; shift; done
 PY=${PYTHON:-python3}
 trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
-$PY demo/fanout.py --in $IN --out 14044 14045 &
+$PY demo/fanout.py --in $IN --out 14044 14045 14046 &
+$PY -m robot.sim_server --port 14046 --obj egg $ASSIST &
 $PY -m robot.run_udp --backend "$BACKEND" --port 14045 --hand $HAND $ASSIST $DEV &
 [ $MOCK = 1 ] && $PY Rokoko/src/mock_stream.py &
 sleep 0.5
