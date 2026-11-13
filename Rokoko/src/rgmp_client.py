@@ -74,6 +74,7 @@ def run(a):
             dev, name, ts, items = decode(layouts[did], p)
             if name != "default": continue
             q = {s_["target_frame"]: quat(v) for s_, v in items if s_["measure_type"] == "TRANSFORM" and s_["target_frame"].endswith("finger_sensor")}
+            wr = next((v for s_, v in items if s_["measure_type"] == "TRANSFORM" and s_["target_frame"] == "arm_sensor" and s_.get("reference_frame") == "coil_pro" and len(v) == 7), None)
             ang = [angle_of(q[f + "_finger_sensor"]) if q.get(f + "_finger_sensor") else 0.0 for f in FINGERS]
             if out: out.write(json.dumps({"ts_us": ts, "dev": dev, "hand": hands[did], "angles": ang}) + "\n")
             lo, hi = cal.setdefault(did, ([9.0] * 5, [0.0] * 5))
@@ -82,7 +83,9 @@ def run(a):
             f01 = [round(min(1, max(0, (x - l) / (h - l + 1e-6))), 3) for x, l, h in zip(ang, lo, hi)]
             h_ = hands[did]; last[h_] = f01; now = time.time()
             if a.hand in ("any", h_):
-                udp.sendto(json.dumps({"fingers": f01, "t": now, "src": "rokoko", "hand": h_}).encode(), ("127.0.0.1", a.udp_port))
+                pkt = {"fingers": f01, "t": now, "src": "rokoko", "hand": h_}
+                if wr: pkt["wrist_position"] = wr[:3]; pkt["wrist_quaternion"] = [wr[6], wr[3], wr[4], wr[5]]  # assumed pos(3)+quat(xyzw) -> wxyz
+                udp.sendto(json.dumps(pkt).encode(), ("127.0.0.1", a.udp_port))
             if a.bimanual_port and last:
                 udp.sendto(json.dumps({"left": last.get("left"), "right": last.get("right"), "t": now}).encode(), ("127.0.0.1", a.bimanual_port))
         elif typ == 3:
