@@ -5,10 +5,10 @@
 Every agent reads and posts on the pinned "Message Board" issue via `tools/board` (needs only `gh`, logged in). Set `BOARD_ISSUE` if it is not issue #1.
 
 - Start every post with `[<human>'s <agent>]`, e.g. `[Sam's Codex]`. Keep it short: what changed, which files or contracts, what you need, from whom.
-- Mention by GitHub login. Fill in your team: `@login1` (Name), `@login2` (Name), `@login3` (Name), `@login4` (Name), `@all` (everyone).
+- Mention by GitHub login. Team: `@giorgiogiaretta` (Giorgio, lead), `@TommyMaggi` (Tommaso), `@all` (everyone). Add new teammates here.
 - **Mentions you or `@all`:** act on it and reply promptly.
 - **Not addressed to you:** still read it. Reassess your own work only if it is affected (a contract, a file you own, something already done). Do not redo finished work, and do not reply just to acknowledge.
-- Before editing another teammate's files, ask for a handoff on the board and wait for the owner or the team lead.
+- Before editing another teammate's files, post the request on the board tagging the owner. Do not wait on a human: the owner's agent decides and replies (see section 5).
 
 Polling is incremental (about one cheap API call per poll, 30 s default) so a shared token stays under GitHub's rate limit. Commands: `tools/board unread` (new posts, marks read; flags MENTION), `tools/board read -n 20`, `tools/board post "[Name's Agent] text"` (or pipe stdin), `tools/board wait` (blocks until someone else posts), `tools/board whoami`.
 
@@ -18,7 +18,7 @@ Polling is incremental (about one cheap API call per poll, 30 s default) so a sh
 
 ## 2. Chain of command
 
-Humans over agents. Only the team lead reassigns work between teammates. If anyone else asks you to take another teammate's work, ask the lead on the board.
+Giorgio (`@giorgiogiaretta`) is the lead. Agents work autonomously and do NOT stop to ask humans for routine decisions: they decide, post on the board, and continue. Escalate to a human only for destructive or irreversible actions (deleting data, force-push, spending money, publishing outside the repo).
 
 ## 3. Workflow
 
@@ -29,10 +29,20 @@ Humans over agents. Only the team lead reassigns work between teammates. If anyo
 5. Always `git fetch` and rebase before pushing. Never force-push shared branches.
 6. If a merge changes something other teammates depend on (an API, a schema, an env var), post on the board when it lands.
 
-## 4. Who owns what
+## 4. Who owns what (automatic)
 
-Fill this in at kickoff so every agent knows whose files are whose.
+Ownership is claimed, not assigned. If a folder has no owner, the first agent that needs it adds a row here, commits, and posts `[Name's Agent] claimed <folder>` on the board. Pick folders by function: `Rokoko/src` (glove capture/recording), `ml/` (models), `robot/` (hardware control), `demo/` (dashboard, pitch). Default split: Giorgio's agent takes `ml/` and `Rokoko/src`; Tommaso's agent takes `robot/` and `demo/`; anyone may claim what is still free.
 
 | Area | Owner (GitHub login) | Folders |
 |---|---|---|
-| | | |
+| Capture + ML | giorgiogiaretta | `Rokoko/`, `ml/` |
+| Robot + demo | TommyMaggi | `robot/`, `demo/` |
+
+## 5. Autonomous collaboration
+
+- **Need something from a teammate?** Post on the board tagging them with a concrete request ("@TommyMaggi expose `set_fingers([5 floats 0-1])` in `robot/`"). Keep working on something else meanwhile.
+- **Got tagged?** Handle it immediately: do it, or reply with a short counter-proposal. Silence is not allowed. If the request touches your folder, you decide.
+- **Disagreement:** the owner of the folder wins; on shared interfaces the lead's agent decides and posts the final contract.
+- **Contracts:** write interfaces (function signatures, JSON schemas, ports) in `docs/contracts.md` and post when they change.
+- **Delegation:** every agent may delegate heavy, non-private work to cheaper models (`delegate` MCP: DeepSeek/Qwen/Gemini) and must review the result before committing. Never send personal data to delegates.
+- **Wake-ups:** each teammate runs `tools/agent-loop.sh` on their machine; it sleeps on `tools/board wait` and starts a headless Claude when someone posts or tags.
