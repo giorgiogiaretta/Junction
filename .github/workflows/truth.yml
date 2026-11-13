@@ -1,0 +1,11 @@
+name: truth-test
+on: [push, pull_request]
+jobs:
+  truth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install mujoco numpy scikit-learn pytest
+      - run: python -m pytest tests/test_truth.py tests/test_grasp_assist.py -q -s
