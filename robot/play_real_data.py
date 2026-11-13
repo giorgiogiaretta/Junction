@@ -49,8 +49,10 @@ def pick_index(g, clo, z, pick="wrist", hz=60):
     (thumb excluded: its calibrated span is only 0.3-0.6 rad) reaches half of its peak, searched backwards from the peak."""
     if pick == "closure":
         c = clo[:, 1:].mean(1); k = max(1, int(0.3 * hz)); cs = np.convolve(c, np.ones(k) / k, mode="same")
-        pk = int(np.argmax(cs)); thr = cs.min() + 0.5 * (cs[pk] - cs.min()); i = pk
-        while i > 0 and cs[i - 1] >= thr: i -= 1
+        # peak searched in the middle 60% (takes often start half-closed); threshold from the 2 s before the peak
+        lo, hi = len(g) // 5, 4 * len(g) // 5; pk = lo + int(np.argmax(cs[lo:hi]))
+        base = cs[max(0, pk - 2 * hz):pk + 1].min(); thr = base + 0.5 * (cs[pk] - base); i = pk
+        while i > max(0, pk - 2 * hz) and cs[i - 1] >= thr: i -= 1
         return i
     mid = slice(len(g) // 5, 4 * len(g) // 5); return mid.start + int(np.argmin(z[mid]))
 
