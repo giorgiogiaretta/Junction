@@ -43,20 +43,23 @@ What the calibrated timelines show:
 - **Series A (empty box): the fingers stay open (~0) through the whole hold.** It is a flat-hand/palm hold, not a finger grasp, so a 5-finger closure replay of A on a small cube cannot work by design.
 - **Series C (can): a clear grip, 0.7-0.9 on index..little, at mid height, NOT at the lowest wrist point.** The old pick rule (lowest wrist) misses the grasp.
 
-New options: `--pick closure` (grasp moment = onset of the strongest grip, half-peak, smoothed 0.3 s) and `--fingers gain` (per take, strongest grip -> fully closed, since a can/box grip is only 0.3-0.6 of a fist and the sim cube is a different size).
+New options: `--pick closure` (grasp moment = onset of the strongest grip in the middle 60% of the take, half-peak over the 2 s before it, smoothed 0.3 s) and `--fingers gain` (per take, strongest grip -> fully closed, since a can/box grip is only 0.3-0.6 of a fist and the sim cube is a different size).
 
 | Cube, real wrist | A | B | C | D |
 |---|---|---|---|---|
 | real fingers, pick wrist | 0/11 | 0/11 | 0/10 | 0/5 |
-| real fingers, pick closure | 0/11 | 1/11 | 0/10 | 0/5 |
-| **gain fingers, pick closure** | **2/11** | **3/11** | **3/10** | 1/5 |
+| real fingers, pick closure | 0/11 | 0/11 | 0/10 | 0/5 |
+| gain fingers, pick closure | 1/11 | 1/11 | 0/10 | 0/5 |
 | gain fingers, pick wrist | 0/11 | 0/11 | 0/10 | 2/5 |
 | scripted grip, pick wrist | 8/11 | 9/11 | 9/10 | 1/5 |
-| scripted grip, pick closure | 5/11 | 2/11 | 2/10 | 1/5 |
+| scripted grip, pick closure | 1/11 | 0/11 | 3/10 | 0/5 |
 
-Egg, series B: gain fingers + pick closure: broken 10/11 without the cushion, **7/11 with `--assist egg`** (peak 0.6-10 N). Scripted grip: 10/11 -> 1/11 (unchanged).
+Egg, series B, gain fingers + pick closure: broken 4/11 with or without `--assist egg`. Scripted grip + pick wrist: 10/11 -> 1/11 with the cushion (unchanged).
+
+Erratum: a first version of `--pick closure` (no mid-window) reported 8/32 cube lifts and "cushion fails on real grips, 7/11 broken". Both were artifacts: in series B the hand starts half-closed, so the grip onset fired at t~0.1 s, the object was placed there and the wrist then went 13-39 cm BELOW it, crushing the egg against the table (an open hand broke it too). It was not a finger or cushion effect.
 
 Conclusions:
-1. Calibrated real fingers now produce real grasps in the sim for the first time (8/32 A-C lifts), but only with the grip-onset pick and a per-take gain. This is not a success rate: the object is still placed under the hand (no obj_pos), and the human grip is object-specific.
-2. **The Force Cushion, tuned on a scripted 0.5 s ramp, does not protect the egg against real human grip profiles** (7/11 still broken). The human closes faster/harder than the ramp: next for robot/ is to tune the cushion on these real closure profiles.
+1. Calibrated real fingers still do not produce grasps in the sim (2/32). Grip timing and wrist height do not line up with "object on the table under the hand": in the real takes the grip happens at mid height and the hand later goes lower. Without the object position (obj_pos) the pick point is a guess, so this is not evidence against the fingers.
+2. The Force Cushion result stands only for the scripted grip; on real grips it is untested until the pick point is right.
 3. Series A should not be used to train finger closure (palm hold); keep it for wrist/approach only.
+4. What unblocks it: obj_pos per series (coil-frame point of the object), or a take where the object starts on the table at a marked spot.
