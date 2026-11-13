@@ -22,11 +22,14 @@ NAMES = ["thumb", "index", "middle", "ring", "pinky"]
 OBJECTS = {
     "cube": '<geom name="obj" type="box" size="0.02 0.02 0.02" mass="0.05" rgba="0.2 0.4 0.9 1" friction="1.5 0.005 0.0001"/>',
     "egg": '<geom name="obj" type="ellipsoid" size="0.025 0.022 0.02" mass="0.06" rgba="0.95 0.92 0.8 1" friction="1.5 0.005 0.0001"/>',
+    # 330 ml can (series H): real size 66 x 115 mm. Sim mass 100 g, NOT the real ~15 g: the toy hand's finger forces topple a 15 g can
+    "can": '<geom name="obj" type="cylinder" size="0.033 0.0575" mass="0.1" rgba="0.8 0.1 0.1 1" friction="1.5 0.005 0.0001"/>',
 }
-OBJ_HALF_Z = {"cube": 0.02, "egg": 0.02}
+OBJ_HALF_Z = {"cube": 0.02, "egg": 0.02, "can": 0.0575}
+TABLE_Z = -0.06            # table plane height (the pedestal top is z=0)
 
 
-def _xml(obj):
+def _xml(obj, obj_xy=(0.0, 0.0), pedestal=True):
     fing = ""
     # four fingers on +y side (curl toward -y), thumb on -y side (curl toward +y)
     layout = [("thumb", 0.0, -0.08, 1.0), ("index", -0.03, 0.08, 1.0), ("middle", -0.01, 0.08, 1.0),
@@ -48,16 +51,18 @@ def _xml(obj):
     acts += ('<position name="wx" joint="hx" kp="400" kv="40" ctrlrange="-0.4 0.4"/>'
              '<position name="wy" joint="hy" kp="400" kv="40" ctrlrange="-0.4 0.4"/>'
              '<position name="wz" joint="hz" kp="400" kv="40" ctrlrange="0.05 0.4"/>')
+    ped = '<geom name="pedestal" type="box" pos="0 0 -0.02" size="0.03 0.015 0.02" friction="1.5 0.005 0.0001"/>' if pedestal else ""
+    base_z = 0.0 if pedestal else TABLE_Z
     return f"""<mujoco><compiler angle="radian"/><option timestep="0.002"/>
   <worldbody>
-    <geom name="table" type="plane" pos="0 0 -0.06" size="1 1 0.1" friction="1.5 0.005 0.0001"/>
-    <geom name="pedestal" type="box" pos="0 0 -0.02" size="0.03 0.015 0.02" friction="1.5 0.005 0.0001"/>
+    <geom name="table" type="plane" pos="0 0 {TABLE_Z}" size="1 1 0.1" friction="1.5 0.005 0.0001"/>
+    {ped}
     <body name="hand" pos="0 0 0" gravcomp="1">
       <joint name="hx" type="slide" axis="1 0 0" damping="1"/><joint name="hy" type="slide" axis="0 1 0" damping="1"/>
       <joint name="hz" type="slide" axis="0 0 1" damping="1"/>
       <geom name="palm" type="box" size="0.05 0.1 0.01" mass="0.3" rgba="0.5 0.5 0.5 1"/>{fing}
     </body>
-    <body name="object" pos="0 0 {OBJ_HALF_Z[obj] + 0.0005}"><freejoint/>{OBJECTS[obj]}</body>
+    <body name="object" pos="{obj_xy[0]} {obj_xy[1]} {base_z + OBJ_HALF_Z[obj] + 0.0005}"><freejoint/>{OBJECTS[obj]}</body>
   </worldbody>
   <actuator>{acts}</actuator></mujoco>"""
 
@@ -66,14 +71,15 @@ KP, KV = 1.0, 0.04
 
 
 class Scene:
-    def __init__(self, obj="cube", break_force=BREAK_FORCE_N):
+    def __init__(self, obj="cube", break_force=BREAK_FORCE_N, obj_xy=(0.0, 0.0), pedestal=True):
+        """obj_xy / pedestal=False: object at (x, y) on the bare table (series H square replay); default = on the pedestal at the origin."""
         assert obj in OBJECTS
         self.obj, self.break_force = obj, break_force
-        self.m = mujoco.MjModel.from_xml_string(_xml(obj))
+        self.m = mujoco.MjModel.from_xml_string(_xml(obj, obj_xy, pedestal))
         self.d = mujoco.MjData(self.m)
         self.g_obj = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_GEOM, "obj")
         self.b_obj = self.m.geom_bodyid[self.g_obj]
-        self.rest_z = OBJ_HALF_Z[obj]
+        self.rest_z = OBJ_HALF_Z[obj] + (0.0 if pedestal else TABLE_Z)
         self.reset()
 
     def reset(self):
