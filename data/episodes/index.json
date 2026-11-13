@@ -1,0 +1,298 @@
+[
+ {
+  "take": 1,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 10.9,
+  "t_mark": null,
+  "samples": 328
+ },
+ {
+  "take": 2,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 8.8,
+  "t_mark": null,
+  "samples": 265
+ },
+ {
+  "take": 3,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 9.1,
+  "t_mark": null,
+  "samples": 273
+ },
+ {
+  "take": 4,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 8.8,
+  "t_mark": null,
+  "samples": 265
+ },
+ {
+  "take": 5,
+  "series": "A",
+  "active_hand": "left",
+  "dur_s": 9.4,
+  "t_mark": null,
+  "samples": 282
+ },
+ {
+  "take": 6,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 12.6,
+  "t_mark": null,
+  "samples": 379
+ },
+ {
+  "take": 7,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 7.4,
+  "t_mark": null,
+  "samples": 224
+ },
+ {
+  "take": 8,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 9.1,
+  "t_mark": null,
+  "samples": 273
+ },
+ {
+  "take": 9,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 7.3,
+  "t_mark": null,
+  "samples": 219
+ },
+ {
+  "take": 10,
+  "series": "A",
+  "active_hand": "left",
+  "dur_s": 10.0,
+  "t_mark": null,
+  "samples": 302
+ },
+ {
+  "take": 11,
+  "series": "A",
+  "active_hand": "right",
+  "dur_s": 7.2,
+  "t_mark": null,
+  "samples": 217
+ },
+ {
+  "take": 12,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 8.8,
+  "t_mark": null,
+  "samples": 266
+ },
+ {
+  "take": 13,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 6.5,
+  "t_mark": null,
+  "samples": 197
+ },
+ {
+  "take": 14,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 8.9,
+  "t_mark": null,
+  "samples": 268
+ },
+ {
+  "take": 15,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 8.1,
+  "t_mark": null,
+  "samples": 245
+ },
+ {
+  "take": 16,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 7.7,
+  "t_mark": null,
+  "samples": 232
+ },
+ {
+  "take": 17,
+  "series": "B",
+  "active_hand": "left",
+  "dur_s": 8.5,
+  "t_mark": null,
+  "samples": 256
+ },
+ {
+  "take": 18,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 7.4,
+  "t_mark": null,
+  "samples": 223
+ },
+ {
+  "take": 19,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 8.0,
+  "t_mark": null,
+  "samples": 241
+ },
+ {
+  "take": 20,
+  "series": "B",
+  "active_hand": "right",
+  "dur_s": 7.7,
+  "t_mark": null,
+  "samples": 231
+ },
+ {
+  "take": 21,
+  "series": "B",
+  "active_hand": "left",
+  "dur_s": 6.3,
+  "t_mark": null,
+  "samples": 189
+ },
+ {
+  "take": 22,
+  "series": "B",
+  "active_hand": "left",
+  "dur_s": 6.8,
+  "t_mark": null,
+  "samples": 206
+ },
+ {
+  "take": 23,
+  "series": "C",
+  "active_hand": "right",
+  "dur_s": 14.1,
+  "t_mark": 5.717894792556763,
+  "samples": 423
+ },
+ {
+  "take": 24,
+  "series": "C",
+  "active_hand": "right",
+  "dur_s": 17.2,
+  "t_mark": 6.78244686126709,
+  "samples": 517
+ },
+ {
+  "take": 25,
+  "series": "C",
+  "active_hand": "right",
+  "dur_s": 15.1,
+  "t_mark": 5.15986442565918,
+  "samples": 453
+ },
+ {
+  "take": 26,
+  "series": "C",
+  "active_hand": "right",
+  "dur_s": 15.5,
+  "t_mark": 5.860323190689087,
+  "samples": 465
+ },
+ {
+  "take": 27,
+  "series": "C",
+  "active_hand": "right",
+  "dur_s": 14.8,
+  "t_mark": 5.608532667160034,
+  "samples": 444
+ },
+ {
+  "take": 28,
+  "series": "C",
+  "active_hand": "right",
+  "dur_s": 13.5,
+  "t_mark": 4.686131000518799,
+  "samples": 405
+ },
+ {
+  "take": 29,
+  "series": "C",
+  "active_hand": "right",
+  "dur_s": 15.6,
+  "t_mark": 6.784083843231201,
+  "samples": 470
+ },
+ {
+  "take": 30,
+  "series": "C",
+  "active_hand": "left",
+  "dur_s": 12.6,
+  "t_mark": 4.733967065811157,
+  "samples": 379
+ },
+ {
+  "take": 31,
+  "series": "C",
+  "active_hand": "left",
+  "dur_s": 12.9,
+  "t_mark": 5.805778741836548,
+  "samples": 389
+ },
+ {
+  "take": 32,
+  "series": "C",
+  "active_hand": "left",
+  "dur_s": 12.7,
+  "t_mark": 4.723738193511963,
+  "samples": 381
+ },
+ {
+  "take": 33,
+  "series": "D",
+  "active_hand": "right",
+  "dur_s": 15.1,
+  "t_mark": null,
+  "samples": 453
+ },
+ {
+  "take": 34,
+  "series": "D",
+  "active_hand": "right",
+  "dur_s": 20.8,
+  "t_mark": null,
+  "samples": 625
+ },
+ {
+  "take": 35,
+  "series": "D",
+  "active_hand": "right",
+  "dur_s": 20.2,
+  "t_mark": null,
+  "samples": 608
+ },
+ {
+  "take": 36,
+  "series": "D",
+  "active_hand": "right",
+  "dur_s": 10.0,
+  "t_mark": null,
+  "samples": 300
+ },
+ {
+  "take": 37,
+  "series": "D",
+  "active_hand": "right",
+  "dur_s": 15.6,
+  "t_mark": null,
+  "samples": 469
+ }
+]
