@@ -43,11 +43,9 @@ def closure(angi, polarity, wrist_z=None):
     return (c, "client") if c[lift].mean() >= inv[lift].mean() else (inv, "inverted")
 
 
-def play(path, obj="cube", hand="right", polarity="auto", assist=None, hz=60, fingers="real"):
-    g, angi, posi = load_take(path, hand, hz)
-    if posi is None: return {"take": os.path.basename(path), "error": "no Coil Pro position"}
+def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="", hand="right", fingers="real"):
+    """Common core: closure (N,5) + Coil wrist (N,3) on a time grid g (s) -> Scene. Object is placed under the hand at the lowest wrist point."""
     z = posi[:, 2]
-    clo, pol = closure(angi, polarity, z)
     mid = slice(len(g) // 5, 4 * len(g) // 5); ip = mid.start + int(np.argmin(z[mid]))   # pick point = lowest wrist in the middle
     if fingers == "synthetic":
         # real Coil Pro wrist path + SYNTHETIC grip: fist ramps closed over 0.5 s from the pick, opens when the wrist is back down after the lift
@@ -64,21 +62,30 @@ def play(path, obj="cube", hand="right", polarity="auto", assist=None, hz=60, fi
     ga = None
     if assist:
         from ml.grasp_assist import GraspAssist; ga = GraspAssist(profile=assist)
-    first_touch = None; max_rise = 0.0; held_frames = 0; peak = 0.0; held_after_pick = False
+    first_touch = None; max_rise = 0.0; held_frames = 0
+    lift_mask = np.zeros(len(g), bool); lift_mask[ip + 15:] = z[ip + 15:] > z[ip] + 0.05
     for i in range(len(g)):
         f = clo[i].tolist()
         if ga: f, _ = ga.apply(f)
-        s = sc.step(f, tuple(wrist[i]), 1.0 / hz)
-        if first_touch is None and s["force"] > 0.05: first_touch = float(g[i])
-        rise = s["obj_z"] - sc.rest_z; max_rise = max(max_rise, rise)
-        if i > ip and s["held"]: held_frames += 1
-    s = sc.state()
-    return {"take": os.path.basename(path), "hand": hand, "obj": obj, "polarity": pol,
-            "closure_at_pick": round(float(clo[ip].mean()), 2), "closure_in_lift": round(float(clo[ip + 15:][z[ip + 15:] > z[ip] + 0.05].mean()) if (z[ip + 15:] > z[ip] + 0.05).any() else float("nan"), 2), "dur_s": round(float(g[-1]), 1),
-            "pick_t_s": round(float(g[ip]), 1), "wrist_rise_m": round(float(z.max() - z[ip]), 2),
+        s_ = sc.step(f, tuple(wrist[i]), 1.0 / hz)
+        if first_touch is None and s_["force"] > 0.05: first_touch = float(g[i])
+        max_rise = max(max_rise, s_["obj_z"] - sc.rest_z)
+        if i > ip and s_["held"]: held_frames += 1
+    s_ = sc.state()
+    return {"take": name, "hand": hand, "obj": obj, "polarity": pol,
+            "closure_at_pick": round(float(clo[ip].mean()), 2),
+            "closure_in_lift": round(float(clo[lift_mask].mean()), 2) if lift_mask.any() else None,
+            "dur_s": round(float(g[-1]), 1), "pick_t_s": round(float(g[ip]), 1), "wrist_rise_m": round(float(z.max() - z[ip]), 2),
             "touched": first_touch is not None, "first_touch_s": None if first_touch is None else round(first_touch, 1),
-            "peak_force_N": round(s["peak_force"], 2), "max_obj_rise_m": round(max_rise, 3),
-            "lifted": max_rise > LIFT_MIN, "held_s": round(held_frames / hz, 1), "broken": s["broken"]}
+            "peak_force_N": round(s_["peak_force"], 2), "max_obj_rise_m": round(max_rise, 3),
+            "lifted": max_rise > LIFT_MIN, "held_s": round(held_frames / hz, 1), "broken": s_["broken"]}
+
+
+def play(path, obj="cube", hand="right", polarity="auto", assist=None, hz=60, fingers="real"):
+    g, angi, posi = load_take(path, hand, hz)
+    if posi is None: return {"take": os.path.basename(path), "error": "no Coil Pro position"}
+    clo, pol = closure(angi, polarity, posi[:, 2])
+    return run_sim(g, clo, posi, obj, assist, hz, pol, os.path.basename(path), hand, fingers)
 
 
 if __name__ == "__main__":

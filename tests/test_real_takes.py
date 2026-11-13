@@ -20,3 +20,17 @@ def test_real_fingers_run_end_to_end_both_polarities():
     for pol in ("client", "inverted"):
         r = play(str(TAKES[0]), "cube", "right", polarity=pol)
         assert "error" not in r and r["dur_s"] > 5, r
+
+
+EPI = [ROOT / "data" / "episodes" / f"take_{i:02d}.npz" for i in (12, 13, 14, 15, 16)]
+
+
+@pytest.mark.skipif(not all(e.exists() for e in EPI), reason="episodes not built")
+def test_episode_replay_cushion_protects_egg_on_real_wrist_paths():
+    """Series B (fragile) real wrist paths + scripted grip: Force Cushion cuts egg breakage (real fingers still not usable)."""
+    from robot.replay import replay
+    no = [replay(str(e), "egg", fingers="synthetic") for e in EPI]
+    yes = [replay(str(e), "egg", fingers="synthetic", assist="egg") for e in EPI]
+    assert sum(r["broken"] for r in no) >= 4, no
+    assert sum(r["broken"] for r in yes) <= 1, yes
+    assert sum(r["lifted"] for r in yes) >= 3, yes

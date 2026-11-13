@@ -24,3 +24,14 @@ Input: Series A (11 takes, right glove used, Coil Pro present, 83.5 Hz). Decodin
 - A 10 s labelled recording: **5 s flat open hand, 5 s tight fist** (per glove). That fixes polarity and normalisation without guessing.
 - An object position per take (e.g. a mark at a known coil-frame point) so the approach can be tested too.
 - Real latency is not measured here: sim step time only.
+
+## Update: all 37 episodes (`python -m robot.replay data/episodes/take_NN.npz`, PLAN 2.3)
+Same method on Giorgio's 30 Hz episodes (series A rigid, B fragile, C hand-off, D noise). Cube, wrist = real Coil Pro:
+| Fingers | Touched | Lifted (A / B / C / D) |
+|---|---|---|
+| as recorded (`fingers01`) | 31/37 | 0 / 0 / 0 / 0 |
+| inverted (`--invert`) | 23/37 | 0 / 0 / 0 / 0 |
+| scripted grip | 35/37 | 8/11 / 9/11 / 9/10 / 1/5 |
+
+Egg, series B (11 takes), real wrist + scripted grip: **no cushion: broken 10/11; with `--assist egg`: broken 1/11, lifted 8/11.** Toy-calibrated threshold (3 N) and scripted grip, so this shows the Force Cushion works on realistic wrist motion, not that the real fingers do.
+Series D (noise) is not a grasp task; ignore its numbers. Still blocked on finger polarity (record series E: 5 s open hand + 5 s fist per glove). `data/calib.json` {"invert": bool} is applied automatically by `robot.replay` once it exists.
