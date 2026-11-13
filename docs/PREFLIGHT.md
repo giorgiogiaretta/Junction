@@ -10,5 +10,5 @@ NOT verified (needs a human check on the day): Inspire register addresses/units 
 4. Only then the empty can. Abort on: any error flag, heat, jitter, fingers not following, anything unexpected. Log every command.
 ## G1, single attempt (hands only, arms never commanded)
 1. A mentor present, e-stop in hand. Start the policy server (`g1/glove_policy.py --source udp:14043`) and the organisers' runner on the real backend with the safety filter ON.
-2. First targets = the measured hand_q (no jump). Close each finger a little (10 %) and check the direction on the robot BEFORE the full range: if a direction is wrong, stop and flip the sign in robot/g1_dex3.py.
+2. First targets = the measured hand_q (no jump). Close each finger a little (10 %) and check the direction on the robot BEFORE the full range: if a direction is wrong, stop and flip the sign in robot/g1_dex3.py. Enforced in code: run with `G1_MAX_CLOSURE=0.1` (or `G1Dex3Retargeter(max_closure=0.1)`) so a full glove fist commands at most 10 % of each joint's range, thumb included; unset it (default 1.0) only after the directions are checked.
 3. Then the cube. Abort on any safety stop or clipped step.

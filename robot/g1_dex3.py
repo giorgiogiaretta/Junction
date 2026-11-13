@@ -16,8 +16,13 @@ def _load():
 
 
 class G1Dex3Retargeter:
-    def __init__(self, pinch_gain=0.6):
+    def __init__(self, pinch_gain=0.6, max_closure=None):
+        """max_closure: hardware safety scale, a full fist commands this fraction of each joint's open->closed range (thumb included).
+        First run on the robot: max_closure=0.1 (PREFLIGHT: 10% per finger, verify thumb directions), then raise.
+        None -> env G1_MAX_CLOSURE (default 1.0), so callers that build the retargeter with defaults (g1/glove_policy.py) can be capped."""
+        if max_closure is None: max_closure = os.environ.get("G1_MAX_CLOSURE", "1.0")
         self.joints, self.rate, self.cap = _load()
+        self.max_closure = max(0.0, min(1.0, float(max_closure)))
         self.max_step = self.cap / self.rate
         self.pinch = pinch_gain
         self.idx = {j["joint"]: j for j in self.joints}
@@ -35,7 +40,7 @@ class G1Dex3Retargeter:
 
     def _target(self, joint_name, c):
         j = self.idx[joint_name]; o, k = self._open(j), self._closed(j)
-        return o + max(0.0, min(1.0, c)) * (k - o)
+        return o + self.max_closure * max(0.0, min(1.0, c)) * (k - o)
 
     def targets(self, side, fingers):
         """Unclamped-by-slew targets for one hand: {joint_name: rad}. fingers = 5 closure values or None (hold open)."""

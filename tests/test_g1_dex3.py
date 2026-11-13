@@ -37,6 +37,19 @@ def test_all_episodes_within_filter_bounds_and_slew():
     print(f"{len(eps)} episodes, 0 out-of-bounds, worst per-tick step {worst_step:.3f} rad (cap {rt.max_step:.3f})")
 
 
+def test_max_closure_caps_every_joint(monkeypatch):
+    """PREFLIGHT first robot run: full fist must command at most 10% of each joint's open->closed range (thumb included)."""
+    full = G1Dex3Retargeter(max_closure=1.0); cap = G1Dex3Retargeter(max_closure=0.1)
+    monkeypatch.setenv("G1_MAX_CLOSURE", "0.1"); env = G1Dex3Retargeter()
+    for _ in range(60):
+        qf = full.step(left=[1] * 5, right=[1] * 5); qc = cap.step(left=[1] * 5, right=[1] * 5); qe = env.step(left=[1] * 5, right=[1] * 5)
+    assert qc == qe
+    for j, f, c in zip(full.joints, qf, qc):
+        o = G1Dex3Retargeter._open(j)
+        assert abs(c - o) <= 0.1 * abs(f - o) + 1e-9, j["joint"]
+    assert any(abs(c - G1Dex3Retargeter._open(j)) > 0 for j, c in zip(full.joints, qc))   # still moves
+
+
 def test_dry_backend():
     from robot.hand import make_hand
     h = make_hand("g1dex3", hand="left"); h.set_fingers([0, 1, 1, 0, 0])
