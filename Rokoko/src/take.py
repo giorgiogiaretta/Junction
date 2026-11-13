@@ -29,6 +29,9 @@ S = {
    "Entrambe le mani con i guanti, davanti a te.",
    "5 secondi: mano APERTA, piatta, dita tese e ferme. Poi Invio = MARK.",
    "5 secondi: PUGNO stretto, tutte le dita chiuse e ferme. Poi Invio = STOP."]),
+ "F": ("Mani a riposo (rumore dei sensori)", 2, [
+   "Entrambe le mani con i guanti appoggiate ferme sul tavolo, rilassate, senza muovere le dita.",
+   "Resta fermo 10 secondi, poi Invio = STOP. Serve a misurare il rumore dei sensori a riposo."]),
  "D": ("Rumore / movimenti spuri", 5, [
    "Fai movimenti a caso: grattarti la testa, mano che trema, dita a caso.",
    "Nessun compito preciso: serve a insegnare cosa scartare."]),
