@@ -106,7 +106,7 @@ def main():
         if sim:
             force_bar.setOpts(height=[sim["force"]], brush="r" if sim.get("broken") else "g")
             peak_bar.setOpts(height=[sim["peak_force"]])
-            force_p.setTitle("%s contact force (N): %s" % (sim.get("obj", "object"), "BROKEN" if sim.get("broken") else "intact"))
+            force_p.setTitle("%s contact force (N): %s | cushion profile: %s (cap %.2f)" % (sim.get("obj", "object"), "BROKEN" if sim.get("broken") else "intact", sim.get("profile", "-"), sim.get("cap", 1.0)))
         else:
             force_bar.setOpts(height=[0]); peak_bar.setOpts(height=[0])
         status.setText("HANDOFF: %s" % ("HUMAN in control" if (st["button"] or st["manual"]) else "robot / auto (H = take over)"))
