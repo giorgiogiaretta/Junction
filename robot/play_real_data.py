@@ -57,8 +57,10 @@ def pick_index(g, clo, z, pick="wrist", hz=60):
     mid = slice(len(g) // 5, 4 * len(g) // 5); return mid.start + int(np.argmin(z[mid]))
 
 
-def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="", hand="right", fingers="real", pick="wrist"):
-    """Common core: closure (N,5) + Coil wrist (N,3) on a time grid g (s) -> Scene. Object is placed under the hand at the pick point (see pick_index)."""
+def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="", hand="right", fingers="real", pick="wrist", floor=False):
+    """Common core: closure (N,5) + Coil wrist (N,3) on a time grid g (s) -> Scene. Object is placed under the hand at the pick point (see pick_index).
+    floor=True: the wrist never goes below the grasp height (z at the pick). The human wrist often dips lower before the grip onset,
+    which in the sim pushes the hand onto the object placed at the pick point (egg crushed against the pedestal, not by the grip)."""
     z = posi[:, 2]
     ip = pick_index(g, clo, z, pick, hz)
     if fingers == "synthetic":
@@ -71,12 +73,12 @@ def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="",
         for i in range(len(g)): clo[i] = np.clip((i - ip) / (0.5 * hz), 0, 1) if i < rel_i else 0.0
         pol = "synthetic"
     rel = posi - posi[ip]
-    wrist = np.stack([rel[:, 0], rel[:, 1], GRASP_Z + rel[:, 2]], 1)
+    wrist = np.stack([rel[:, 0], rel[:, 1], GRASP_Z + (np.maximum(rel[:, 2], 0.0) if floor else rel[:, 2])], 1)
     sc = Scene(obj); sc.place_hand(*wrist[0])
     ga = None
     if assist:
         from ml.grasp_assist import GraspAssist; ga = GraspAssist(profile=assist)
-    first_touch = None; max_rise = 0.0; held_frames = 0
+    first_touch = None; max_rise = 0.0; held_frames = 0; broken_t = None
     lift_mask = np.zeros(len(g), bool); lift_mask[ip + 15:] = z[ip + 15:] > z[ip] + 0.05
     for i in range(len(g)):
         f = clo[i].tolist()
@@ -85,6 +87,7 @@ def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="",
         if first_touch is None and s_["force"] > 0.05: first_touch = float(g[i])
         max_rise = max(max_rise, s_["obj_z"] - sc.rest_z)
         if i > ip and s_["held"]: held_frames += 1
+        if broken_t is None and s_["broken"]: broken_t = float(g[i])
     s_ = sc.state()
     return {"take": name, "hand": hand, "obj": obj, "polarity": pol,
             "pick": pick, "closure_at_pick": round(float(clo[ip].mean()), 2), "closure4_peak": round(float(clo[:, 1:].mean(1).max()), 2),
@@ -92,7 +95,8 @@ def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="",
             "dur_s": round(float(g[-1]), 1), "pick_t_s": round(float(g[ip]), 1), "wrist_rise_m": round(float(z.max() - z[ip]), 2),
             "touched": first_touch is not None, "first_touch_s": None if first_touch is None else round(first_touch, 1),
             "peak_force_N": round(s_["peak_force"], 2), "max_obj_rise_m": round(max_rise, 3),
-            "lifted": max_rise > LIFT_MIN, "held_s": round(held_frames / hz, 1), "broken": s_["broken"]}
+            "lifted": max_rise > LIFT_MIN, "held_s": round(held_frames / hz, 1), "broken": s_["broken"],
+            "broken_t_s": None if broken_t is None else round(broken_t, 2), "floor": floor}
 
 
 def play(path, obj="cube", hand="right", polarity="auto", assist=None, hz=60, fingers="real"):
