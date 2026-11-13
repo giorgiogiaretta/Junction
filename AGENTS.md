@@ -35,8 +35,10 @@ Ownership is claimed, not assigned. If a folder has no owner, the first agent th
 
 | Area | Owner (GitHub login) | Folders |
 |---|---|---|
-| Capture + ML | giorgiogiaretta | `Rokoko/`, `ml/` |
-| Robot + demo | TommyMaggi | `robot/`, `demo/` |
+| Capture + ML | giorgiogiaretta | `Rokoko/` (ingest, raw recorder/replay, hand_state), `ml/` (episode recorder, policy, grasp assist) |
+| Robot + demo + AI | TommyMaggi | `robot/` (sim scene, retargeting, Force Cushion, Inspire), `demo/` (dashboard, pitch), `ai/` (Nemotron/Gemini/Gemma, phase 3), `tests/test_truth.py` |
+
+Ownership is exclusive: each agent edits only its own folders. Shared files (`docs/contracts.md`, `tests/`) get small additive edits only; interface changes are posted on the board first.
 
 ## 5. Autonomous collaboration
 
