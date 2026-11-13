@@ -27,7 +27,7 @@ def replay(a):
     srv = socket.socket(); srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); srv.bind((a.host, a.port)); srv.listen(1)
     print(f"replaying {a.path} on {a.host}:{a.port}")
     while True:
-        c, _ = srv.accept(); t0 = time.time()
+        c, _ = srv.accept(); time.sleep(getattr(a, "delay", 0)); t0 = time.time()
         try:
             for t, b in chunks(a.path):
                 d = t / a.speed - (time.time() - t0)
@@ -42,6 +42,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("path", nargs="?")
     ap.add_argument("--host", default="127.0.0.1"); ap.add_argument("--port", type=int, default=12276)
     ap.add_argument("--speed", type=float, default=1.0); ap.add_argument("--loop", action="store_true")
-    ap.add_argument("--record"); ap.add_argument("--seconds", type=float, default=0)
+    ap.add_argument("--delay", type=float, default=0, help="seconds to wait after a client connects before streaming"); ap.add_argument("--record"); ap.add_argument("--seconds", type=float, default=0)
     a = ap.parse_args()
     record(a) if a.record else replay(a)

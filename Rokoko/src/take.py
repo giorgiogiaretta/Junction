@@ -32,6 +32,10 @@ S = {
  "F": ("Mani a riposo (rumore dei sensori)", 2, [
    "Entrambe le mani con i guanti appoggiate ferme sul tavolo, rilassate, senza muovere le dita.",
    "Resta fermo 10 secondi, poi Invio = STOP. Serve a misurare il rumore dei sensori a riposo."]),
+ "G": ("Pollice: opposizione e pinza", 2, [
+   "Entrambe le mani con i guanti davanti a te, palmi verso l'alto o di lato, mani ferme.",
+   "Con il pollice tocca in sequenza la punta di indice, medio, anulare, mignolo (2 secondi ciascuno), poi riapri il pollice del tutto.",
+   "Poi: pollice che si apre e si chiude da solo (flessione) per 5 volte. Invio = STOP. Serve per calibrare il pollice."]),
  "D": ("Rumore / movimenti spuri", 5, [
    "Fai movimenti a caso: grattarti la testa, mano che trema, dita a caso.",
    "Nessun compito preciso: serve a insegnare cosa scartare."]),
