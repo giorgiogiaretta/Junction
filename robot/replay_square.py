@@ -5,10 +5,13 @@ Table frame: corners (Coil frame) from Rokoko/src/square_calib.py (wrist pose at
 via --calib); origin = square centre, x = BL->BR (right), y = BL->TL (forward), z = table normal (up, sign fixed by the clockwise
 corner order). One 6x6 cm pad per measured corner (the A4 markers), the object starts on BL.
 Object: the 4 cm sim CUBE stands in for the can: the toy hand cannot hold a 66 mm, 15 g can (ejected at every grasp height
-tried, 0.10-0.18 m), so this tests the wrist path + table frame + grip timing, not can grasping. Height: palm at GRASP_Z_FOR[obj] when the wrist is at
+tried, 0.10-0.18 m), so this tests the wrist path + table frame + grip timing, not can grasping. Grip events from the thumb or index..little, whichever moves more (H is thumb-driven). The square is rescaled to --true-side
+(0.297 m) per take, since Coil metres read ~0.84 of real ones. Height: palm at GRASP_Z_FOR[obj] when the wrist is at
 its median grasp/release height. Score: after each release, distance of the object from the target corner (TL, TR, BR, BL).
 Pads are 6 cm wide because the toy hand's grip is asymmetric (1 thumb vs 4 fingers) and shifts the object ~2.5 cm toward
-the thumb; on the 3 cm default pedestal it would fall off at the first release. Limits: the hand is a 3-DOF slide (no wrist rotation), so orientation of the real hand is ignored; the sim can/hand are idealised.
+the thumb; on the 3 cm default pedestal it would fall off at the first release. Self-measured corners (no --calib entry) are NOT reliable on real H takes yet: grip events do not pair cleanly with corners
+(hand returns to a rest point between legs; sides 0.02-0.4 m). Use corners published by Rokoko/src (square_fit/square_calib).
+Limits: the hand is a 3-DOF slide (no wrist rotation), so orientation of the real hand is ignored; the sim can/hand are idealised.
 """
 import argparse, json, os, sys
 import numpy as np
@@ -48,15 +51,24 @@ def synthetic_grip(n, ev, hz, ramp_s=0.3):
     w = max(1, int(ramp_s * hz)); return np.clip(np.convolve(c, np.ones(w) / w, mode="full")[:n], 0, 1)
 
 
-def replay_square(path, obj="cube", fingers="real", calib=None, hz=60, hand="active"):
+def grip_channel(f):
+    """Grip signal for event detection: thumb or mean(index..little), whichever has the larger 5-95 pct span in this take.
+    Series H (empty can) is a thumb-driven grip: thumb 0.25 -> 0.9 while index..little stay 0.13-0.30."""
+    c4 = f[:, 1:].mean(1); th = f[:, 0]
+    span = lambda x: float(np.percentile(x, 95) - np.percentile(x, 5))
+    return (th, "thumb") if span(th) > span(c4) else (c4, "index_to_little")
+
+
+def replay_square(path, obj="cube", fingers="real", calib=None, hz=60, hand="active", true_side=0.297):
     from square_calib import corners_from
     g, f, p, h, series, calibrated = load_episode(path, hand, hz)
     if fingers == "gain": f = np.clip(f / max(np.percentile(f[:, 1:].mean(1), 98), 0.15), 0, 1)
-    c4 = f[:, 1:].mean(1); ev = grip_events(c4, hz)
+    c4, chan = grip_channel(f); ev = grip_events(c4, hz)
     take = int(os.path.basename(path).split("_")[1].split(".")[0])
     corners, src = None, "self"
     if calib and os.path.exists(calib):
-        d = json.load(open(calib)); e = d.get(str(take))
+        d = {k: v for k, v in json.load(open(calib)).items() if isinstance(v, dict) and "corners" in v}   # square_fit.json has no corners yet
+        e = d.get(str(take))
         if e: corners, src = e["corners"], calib
         elif d: corners, src = {k: np.mean([v["corners"][k] for v in d.values()], 0).tolist() for k in ORDER}, calib + " (mean of takes)"
     if corners is None:
@@ -64,9 +76,14 @@ def replay_square(path, obj="cube", fingers="real", calib=None, hz=60, hand="act
         if corners is None: return {"take": os.path.basename(path), "error": f"not enough grasp/release events {info}"}
     ctr, R, finfo = table_frame(corners, p)
     q = (p - ctr) @ R.T
+    cq = {k: ((np.asarray(corners[k]) - ctr) @ R.T)[:2] for k in ORDER}
+    side_meas = float(np.mean([np.linalg.norm(cq[a] - cq[b]) for a, b in zip(ORDER, ORDER[1:] + ORDER[:1])]))
+    scale = true_side / side_meas if true_side else 1.0   # Coil metres are not real metres (~0.84, Giorgio square_fit): normalise per take
+    q = q * scale; cq = {k: v * scale for k, v in cq.items()}
+    sides = [float(np.linalg.norm(cq[a] - cq[b])) for a, b in zip(ORDER, ORDER[1:] + ORDER[:1])]
+    reliable = bool(np.std(sides) / np.mean(sides) < 0.15)   # a square: four similar sides
     gi = [i for _, i in ev]; h0 = float(np.median(q[gi, 2])) if gi else float(np.min(q[:, 2]))
     wrist = np.stack([q[:, 0], q[:, 1], GRASP_Z_FOR[obj] + (q[:, 2] - h0)], 1)
-    cq = {k: ((np.asarray(corners[k]) - ctr) @ R.T)[:2] for k in ORDER}
     if fingers == "synthetic": f = np.repeat(synthetic_grip(len(g), ev, hz)[:, None], 5, 1)
     sc = Scene(obj, obj_xy=tuple(cq["BL"]), pedestals=tuple(tuple(v) for v in cq.values()), ped_half=(0.03, 0.03))
     sc.place_hand(*wrist[0])
@@ -78,10 +95,9 @@ def replay_square(path, obj="cube", fingers="real", calib=None, hz=60, hand="act
             tgt = TARGETS[checks[i]]; o = sc.obj_pos(); err = float(np.linalg.norm(o[:2] - cq[tgt]))
             legs.append({"target": tgt, "err_m": round(err, 3), "ok": err < TOL_M})
     o = sc.obj_pos()
-    side = np.mean([np.linalg.norm(cq[a] - cq[b]) for a, b in zip(ORDER, ORDER[1:] + ORDER[:1])])
     clipped = float(np.mean((np.abs(wrist[:, 0]) > 0.4) | (np.abs(wrist[:, 1]) > 0.4) | (wrist[:, 2] < 0.05) | (wrist[:, 2] > 0.4)))
     return {"take": os.path.basename(path), "series": series, "hand": h, "obj": obj, "fingers": fingers, "calib_src": src,
-            "events": len(ev), "square_side_m": round(float(side), 3), **finfo, "wrist_clipped_frac": round(clipped, 3),
+            "grip_channel": chan, "events": len(ev), "square_side_m": round(side_meas, 3), "scale": round(scale, 3), "corners_reliable": reliable, **finfo, "wrist_clipped_frac": round(clipped, 3),
             "legs": legs, "legs_ok": sum(l["ok"] for l in legs), "final_obj_xy": np.round(o[:2], 3).tolist(),
             "peak_force_N": round(sc.peak_force, 2)}
 
@@ -90,5 +106,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("episode", nargs="+")
     ap.add_argument("--obj", default="cube", choices=["cube", "egg"]); ap.add_argument("--fingers", default="real", choices=["real", "gain", "synthetic"])
     ap.add_argument("--calib", default=os.path.join(ROOT, "data", "square_calib.json")); ap.add_argument("--hand", default="active", choices=["active", "left", "right"])
+    ap.add_argument("--true-side", type=float, default=0.297, help="rescale the measured square to this side (m); 0 = keep Coil metres")
     a = ap.parse_args()
-    for e in a.episode: print(json.dumps(replay_square(e, a.obj, a.fingers, a.calib, hand=a.hand)))
+    for e in a.episode: print(json.dumps(replay_square(e, a.obj, a.fingers, a.calib, hand=a.hand, true_side=a.true_side)))
