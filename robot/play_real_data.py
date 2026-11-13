@@ -43,10 +43,22 @@ def closure(angi, polarity, wrist_z=None):
     return (c, "client") if c[lift].mean() >= inv[lift].mean() else (inv, "inverted")
 
 
-def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="", hand="right", fingers="real"):
-    """Common core: closure (N,5) + Coil wrist (N,3) on a time grid g (s) -> Scene. Object is placed under the hand at the lowest wrist point."""
+def pick_index(g, clo, z, pick="wrist", hz=60):
+    """Grasp moment. 'wrist': lowest wrist in the middle 60% of the take (original heuristic).
+    'closure': onset of the strongest sustained grip = first frame where the 0.3 s-smoothed mean closure of index..little
+    (thumb excluded: its calibrated span is only 0.3-0.6 rad) reaches half of its peak, searched backwards from the peak."""
+    if pick == "closure":
+        c = clo[:, 1:].mean(1); k = max(1, int(0.3 * hz)); cs = np.convolve(c, np.ones(k) / k, mode="same")
+        pk = int(np.argmax(cs)); thr = cs.min() + 0.5 * (cs[pk] - cs.min()); i = pk
+        while i > 0 and cs[i - 1] >= thr: i -= 1
+        return i
+    mid = slice(len(g) // 5, 4 * len(g) // 5); return mid.start + int(np.argmin(z[mid]))
+
+
+def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="", hand="right", fingers="real", pick="wrist"):
+    """Common core: closure (N,5) + Coil wrist (N,3) on a time grid g (s) -> Scene. Object is placed under the hand at the pick point (see pick_index)."""
     z = posi[:, 2]
-    mid = slice(len(g) // 5, 4 * len(g) // 5); ip = mid.start + int(np.argmin(z[mid]))   # pick point = lowest wrist in the middle
+    ip = pick_index(g, clo, z, pick, hz)
     if fingers == "synthetic":
         # real Coil Pro wrist path + SYNTHETIC grip: fist ramps closed over 0.5 s from the pick, opens when the wrist is back down after the lift
         rose = np.where(z[ip:] > z[ip] + 0.05)[0]; rel_i = len(g) - 1
@@ -73,7 +85,7 @@ def run_sim(g, clo, posi, obj="cube", assist=None, hz=60, pol="client", name="",
         if i > ip and s_["held"]: held_frames += 1
     s_ = sc.state()
     return {"take": name, "hand": hand, "obj": obj, "polarity": pol,
-            "closure_at_pick": round(float(clo[ip].mean()), 2),
+            "pick": pick, "closure_at_pick": round(float(clo[ip].mean()), 2), "closure4_peak": round(float(clo[:, 1:].mean(1).max()), 2),
             "closure_in_lift": round(float(clo[lift_mask].mean()), 2) if lift_mask.any() else None,
             "dur_s": round(float(g[-1]), 1), "pick_t_s": round(float(g[ip]), 1), "wrist_rise_m": round(float(z.max() - z[ip]), 2),
             "touched": first_touch is not None, "first_touch_s": None if first_touch is None else round(first_touch, 1),
