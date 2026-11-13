@@ -3,8 +3,8 @@
  "task": "Move an empty standard low Coca-Cola can around a square, clockwise, starting bottom-left: BL -> TL -> TR -> BR -> BL (4 pick-and-place legs). Hands rest on the table 2 s before starting and again before pressing stop (last second trimmed).",
  "markers": {
   "count": 4,
-  "square_side_m": 0.294,
-  "side_note": "measured by the user on the A4 sheet used as ruler: 29.4 cm (not 29.7)",
+  "square_side_m": 0.297,
+  "side_note": "tape measure (2026-11-14): sides 29.7-30 cm, diagonals 41-42 cm (=> side 29.4-29.7 from diag/1.414): use 29.7 cm +-0.5. Earlier A4-based 29.4 was an estimate.",
   "corner_order_clockwise_from_operator": [
    "BL",
    "TL",

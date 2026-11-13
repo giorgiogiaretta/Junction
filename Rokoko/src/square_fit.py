@@ -1,12 +1,12 @@
-"""Fit the 29.4 cm table square to the wrist path of series H (robust: no grasp events needed).
+"""Fit the 29.7 cm table square to the wrist path of series H (robust: no grasp events needed).
 Project the moving wrist samples on their best plane (PCA), fit a square outline (centre, rotation, half-side) by least squares on the distance
-to the outline. Reports free side (scale check vs 29.4 cm), residual, plane tilt, square centre in the Coil frame.  python Rokoko/src/square_fit.py
+to the outline. Reports free side (scale check vs 29.7 cm), residual, plane tilt, square centre in the Coil frame.  python Rokoko/src/square_fit.py
 """
 import json
 import numpy as np
 from scipy.optimize import minimize
 
-SIDE = 0.294
+SIDE = 0.297
 
 def dist_to_square(P, c, th, a):
     R = np.array([[np.cos(th), np.sin(th)], [-np.sin(th), np.cos(th)]]); q = (P - c) @ R.T
@@ -50,5 +50,5 @@ if __name__ == "__main__":
         print(f"take {i['take']} {h:5s} side {r['side_free_m']:.3f} m (rms {r['rms_free_m']:.3f}, fixed-297 rms {r['rms_fixed_297_m']:.3f}) tilt {r['plane_tilt_from_z_deg']:4.1f} deg centre {r['square_center_coil_m']}")
     for h in ("right", "left"):
         s = [v["side_free_m"] for v in out.values() if v["hand"] == h]
-        if s: print(f"{h}: side {np.mean(s):.3f} +- {np.std(s):.3f} m over {len(s)} takes (true 0.294)")
+        if s: print(f"{h}: side {np.mean(s):.3f} +- {np.std(s):.3f} m over {len(s)} takes (true 0.297)")
     json.dump(out, open("data/square_fit.json", "w"), indent=1)

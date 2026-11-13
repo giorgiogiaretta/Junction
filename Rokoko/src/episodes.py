@@ -38,6 +38,8 @@ for t in takes:
         fl = a[:, 1:].mean(1); act[h] = float(np.percentile(fl, 95) - np.percentile(fl, 5))   # raw flexion span (index..little), same metric as analyze_takes
     if tt is None: continue
     ah = max(act, key=act.get)
+    hu = t.get('hand_used')                       # H/I/J: the operator states the hand; finger motion cannot tell (flat hand in J)
+    if hu in ('R', 'L') and ('right' if hu == 'R' else 'left') in act: ah = 'right' if hu == 'R' else 'left'
     tm = (t["t_mark"] - t["t_start"]) if t.get("t_mark") else None
     np.savez_compressed(f"data/episodes/take_{t['take']:02d}.npz", t=(tt - float(t.get('lead_s', 0))).astype(np.float32), series=t["series"], active_hand=ah, t_mark=-1.0 if tm is None else tm,
              success=-1 if t.get("success") is None else int(t["success"]), obj_pos=np.array(t.get("obj_pos") or [np.nan] * 3, dtype=np.float32), calibrated=bool(cal), **out)

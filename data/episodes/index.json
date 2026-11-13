@@ -558,5 +558,45 @@
   "samples": 312,
   "success": null,
   "obj_pos": null
+ },
+ {
+  "take": 57,
+  "series": "J",
+  "active_hand": "right",
+  "dur_s": 31.9,
+  "t_mark": null,
+  "samples": 899,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 58,
+  "series": "J",
+  "active_hand": "right",
+  "dur_s": 32.5,
+  "t_mark": null,
+  "samples": 917,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 59,
+  "series": "J",
+  "active_hand": "left",
+  "dur_s": 31.1,
+  "t_mark": null,
+  "samples": 874,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 60,
+  "series": "J",
+  "active_hand": "left",
+  "dur_s": 32.0,
+  "t_mark": null,
+  "samples": 901,
+  "success": null,
+  "obj_pos": null
  }
 ]
