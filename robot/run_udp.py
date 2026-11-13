@@ -6,8 +6,12 @@ from robot.hand import make_hand
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--backend", default="dry"); ap.add_argument("--port", type=int, default=14043)
-ap.add_argument("--dev"); a = ap.parse_args()
-h = make_hand(a.backend, **({"port": a.dev} if a.backend == "serial" else {}))
+ap.add_argument("--dev"); ap.add_argument("--host", default="192.168.123.210")
+ap.add_argument("--live", action="store_true", help="inspire: really send (default dry)")
+ap.add_argument("--close-cap", type=float, default=1.0); a = ap.parse_args()
+kw = {"port": a.dev} if a.backend == "serial" else {}
+if a.backend == "inspire": kw = {"host": a.host, "dry": not a.live, "close_cap": a.close_cap}
+h = make_hand(a.backend, **kw)
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.bind(("0.0.0.0", a.port))
 while True:
     try:
