@@ -1,10 +1,13 @@
 """Live demo dashboard: finger values, gesture label, latency/rate.
-Listens UDP JSON {"fingers":[5 floats 0..1], optional "t": sender time.time()}.
+Listens UDP JSON: single hand {"fingers":[5],"hand":"left|right","t":..} (14043) or bimanual {"left":[5]|null,"right":[5]|null,"t":..} (14053).
 Latency = now - t if "t" present (same-machine or synced clocks), else shows inter-arrival gap.
 Run: python demo/dashboard.py [--port 14043]   (mock: python Rokoko/src/mock_stream.py)
 """
 import argparse, json, socket, sys, time, collections
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import numpy as np
+from robot.parse import parse_hands
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtWidgets
 
@@ -33,17 +36,20 @@ def main():
     lbl = win.addLabel("waiting for stream...", row=0, col=0, colspan=2, size="28pt")
     bars_p = win.addPlot(row=1, col=0, title="Fingers (0 open - 1 closed)")
     bars_p.setYRange(0, 1); bars_p.getAxis("bottom").setTicks([list(enumerate(NAMES))])
-    bars = pg.BarGraphItem(x=list(range(5)), height=[0] * 5, width=0.6, brush="c"); bars_p.addItem(bars)
+    bars = {"left": pg.BarGraphItem(x=[i - 0.2 for i in range(5)], height=[0] * 5, width=0.35, brush="m"),
+            "right": pg.BarGraphItem(x=[i + 0.2 for i in range(5)], height=[0] * 5, width=0.35, brush="c")}
+    for b in bars.values(): bars_p.addItem(b)
     lat_p = win.addPlot(row=1, col=1, title="Latency / frame gap (ms)")
     lat_curve = lat_p.plot(pen="y")
     hist_p = win.addPlot(row=2, col=0, colspan=2, title="Finger history")
-    curves = [hist_p.plot(pen=pg.intColor(i, 5), name=n) for i, n in enumerate(NAMES)]
+    curves = {h: [hist_p.plot(pen=pg.mkPen(pg.intColor(i, 5), style=QtCore.Qt.PenStyle.SolidLine if h == "right" else QtCore.Qt.PenStyle.DashLine),
+                              name="%s %s" % (h[0].upper(), n)) for i, n in enumerate(NAMES)] for h in ("left", "right")}
     hist_p.setYRange(0, 1); hist_p.addLegend()
 
     N = 300
-    hist = [collections.deque([0.0] * N, maxlen=N) for _ in range(5)]
+    hist = {h: [collections.deque([0.0] * N, maxlen=N) for _ in range(5)] for h in ("left", "right")}
     lat = collections.deque([0.0] * N, maxlen=N)
-    st = {"f": [0] * 5, "n": 0, "t0": time.time(), "rate": 0, "last": None, "lat": 0.0, "kind": "gap"}
+    st = {"f": {"left": None, "right": None}, "n": 0, "t0": time.time(), "rate": 0, "last": None, "lat": 0.0, "kind": "gap"}
 
     def tick():
         got = False
@@ -51,22 +57,27 @@ def main():
             try: data, _ = sock.recvfrom(1 << 16)
             except BlockingIOError: break
             now = time.time()
-            try: m = json.loads(data.decode()); f = [float(x) for x in m["fingers"][:5]]
+            try: m = json.loads(data.decode()); hands = parse_hands(m)
             except Exception: continue
-            if len(f) < 5: continue
-            got = True; st["f"] = f; st["n"] += 1
+            if hands["left"] is None and hands["right"] is None: continue
+            got = True; st["n"] += 1
+            for h, f in hands.items():
+                if f is not None:
+                    st["f"][h] = f
+                    for i in range(5): hist[h][i].append(f[i])
             if "t" in m: st["lat"] = (now - float(m["t"])) * 1000; st["kind"] = "latency"
             elif st["last"] is not None: st["lat"] = (now - st["last"]) * 1000; st["kind"] = "frame gap"
             st["last"] = now
-            for i in range(5): hist[i].append(f[i])
             lat.append(st["lat"])
         now = time.time()
         if now - st["t0"] >= 1: st["rate"] = st["n"] / (now - st["t0"]); st["n"] = 0; st["t0"] = now
         if got:
-            bars.setOpts(height=st["f"])
-            for c, h in zip(curves, hist): c.setData(np.array(h))
+            for h in ("left", "right"):
+                bars[h].setOpts(height=st["f"][h] or [0] * 5)
+                for c, d in zip(curves[h], hist[h]): c.setData(np.array(d))
             lat_curve.setData(np.array(lat))
-            lbl.setText("%s   |   %.1f ms %s   |   %.0f fps" % (gesture(st["f"]).upper(), st["lat"], st["kind"], st["rate"]))
+            gs = "  ".join("%s: %s" % (h[0].upper(), gesture(st["f"][h]).upper()) for h in ("left", "right") if st["f"][h])
+            lbl.setText("%s   |   %.1f ms %s   |   %.0f fps" % (gs, st["lat"], st["kind"], st["rate"]))
 
     t = QtCore.QTimer(); t.timeout.connect(tick); t.start(16)
     if "--selftest" in sys.argv: QtCore.QTimer.singleShot(1500, app.quit)
