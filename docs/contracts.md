@@ -3,3 +3,5 @@
 Interfaces between teammates (functions, JSON schemas, ports). Update and post on the board when they change.
 
 - Glove stream: Rokoko Studio -> UDP 127.0.0.1:14043 (JSON v3). Parsed fingers: 5 floats 0..1 (TBD after seeing a real frame).
+- Robot hand (`robot/hand.py`): `make_hand(kind, **kw)` -> `Hand.set_fingers([5 floats 0..1])`, 0=open, 1=closed, order thumb,index,middle,ring,pinky. kinds: `dry`, `sim` (MuJoCo), `serial` (Arduino, `port=`; line `a,b,c,d,e\n` ints 0-180 @115200), `pca9685` (channels 0-4).
+- UDP driver: `python -m robot.run_udp --backend sim --port 14043` accepts `{"fingers":[5]}` JSON (mock_stream / forward_to_jetson format).
