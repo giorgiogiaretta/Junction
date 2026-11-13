@@ -20,18 +20,19 @@ def load_episode(path, hand="active", hz=60):
     g = np.arange(0, t[-1] - t[0], 1.0 / hz)
     fi = np.stack([np.interp(g, t - t[0], f[:, k]) for k in range(5)], 1)
     pi = np.stack([np.interp(g, (t - t[0])[ok], p[ok, k]) for k in range(3)], 1)
-    return g, np.clip(fi, 0, 1), pi, h, str(z["series"])
+    return g, np.clip(fi, 0, 1), pi, h, str(z["series"]), bool(z["calibrated"]) if "calibrated" in z.files else False
 
 
 def replay(path, obj="cube", hand="active", invert=None, fingers="real", assist=None, hz=60, use_calib=True):
-    g, f, p, h, series = load_episode(path, hand, hz)
+    g, f, p, h, series, calibrated = load_episode(path, hand, hz)
+    if invert is None and calibrated: invert = False   # fingers01 already uses data/calib.json (open/closed + sign from series E)
     if invert is None:
         invert = False
         cp = os.path.join(ROOT, "data", "calib.json")
         if use_calib and os.path.exists(cp): invert = bool(json.load(open(cp)).get("invert", False))
     if invert: f = 1 - f
     r = run_sim(g, f, p, obj, assist, hz, "inverted" if invert else "as_recorded", os.path.basename(path), h, fingers)
-    r["series"] = series
+    r["series"] = series; r["calibrated"] = calibrated
     return r
 
 
