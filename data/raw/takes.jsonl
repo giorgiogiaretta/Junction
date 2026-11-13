@@ -41,3 +41,6 @@
 {"take": 41, "series": "F", "file": "data/raw/take_41.rgmp", "t_start": 1794604121.6051466, "t_stop": 1794604134.5822902, "t_mark": null, "chunks": 4326, "bytes": 1541057}
 {"take": 42, "series": "F", "file": "data/raw/take_42.rgmp", "t_start": 1794604143.51458, "t_stop": 1794604154.297817, "t_mark": null, "chunks": 3595, "bytes": 1283405}
 {"take": 43, "series": "F", "file": "data/raw/take_43.rgmp", "t_start": 1794604159.4041796, "t_stop": 1794604167.8177142, "t_mark": null, "chunks": 2805, "bytes": 1005325}
+{"take": 44, "series": "G", "file": "data/raw/take_44.rgmp", "t_start": 1794606449.7606714, "t_stop": 1794606467.190979, "t_mark": null, "lead_s": 2.0, "tail_trim_s": 1.0, "pos_id": null, "chunks": 5809, "bytes": 2063413}
+{"take": 45, "series": "G", "file": "data/raw/take_45.rgmp", "t_start": 1794606472.424045, "t_stop": 1794606493.0090806, "t_mark": null, "lead_s": 2.0, "tail_trim_s": 1.0, "pos_id": null, "chunks": 6861, "bytes": 2433037}
+{"take": 46, "series": "G", "file": "data/raw/take_46.rgmp", "t_start": 1794606501.694062, "t_stop": 1794606521.5786843, "t_mark": null, "lead_s": 2.0, "tail_trim_s": 1.0, "pos_id": null, "chunks": 6629, "bytes": 2351373}
