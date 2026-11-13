@@ -45,3 +45,13 @@ Our project: **safe teleop for fragile objects + demo recorder + small learned p
 4. Our client: `python Rokoko/src/rgmp_client.py` (calibrate: open/close hand for 8 s) -> UDP {"fingers":[5],"t":..} on 14043 -> dashboard / robot.run_udp / Jetson.
 5. No hardware: `python Rokoko/src/mock_rgmp_server.py` then the client (tested end-to-end).
 SDK hand solver (26 joints, pure-Python option): https://sdk.rokoko.com/examples/rgmp_hand_solver/ - better source of finger angles once licensed.
+
+## 3D hand viewer (Rokoko SDK web example) + second glove
+- Viewer = SDK example `examples/web/rgmp-ws-bridge-web` (3D skinned hand, sensors, joint angles; each glove appears when discovered).
+- Setup done once: copy `%LOCALAPPDATA%\Rokoko Device SDK\examples\web` to `C:\Users\<you>\rokoko-viewer`, `corepack pnpm install`.
+- Run (driver `rokoko-sdk --auto-stream-usb` already running):
+  1. `rkk-ws-bridge.exe --rgmp-only`  (ws://127.0.0.1:8138)
+  2. `cd rokoko-viewer\rgmp-ws-bridge-web; corepack pnpm dev --host 127.0.0.1 --port 5180` -> http://127.0.0.1:5180 -> Connect.
+- Solved hand skeleton as RGMP (26 joints, better than our flexion hack): `rkk-hand-solver.exe --no-driver --emit world --emit-openxr` -> 127.0.0.1:12277.
+- Two gloves: plug 2nd glove into another USB port; the driver streams both. `python Rokoko/src/rgmp_client.py --hand right --bimanual-port 14053` (left+right JSON on 14053).
+- SDK also has examples for Isaac Sim (`examples/python/isaac`) and pinch detection.
