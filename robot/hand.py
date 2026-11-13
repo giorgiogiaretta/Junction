@@ -1,6 +1,6 @@
 """Robot hand abstraction. Contract: set_fingers([5 floats 0..1]) (0=open, 1=closed).
 Order: thumb, index, middle, ring, pinky.
-Backends: sim (MuJoCo), serial (Arduino, line "f0,f1,f2,f3,f4\n" as 0-180 ints), pca9685 (I2C servos), dry (print).
+Backends: inspire (G1/Inspire RH56, see inspire.py), sim (MuJoCo), serial (Arduino, line "f0,f1,f2,f3,f4\n" as 0-180 ints), pca9685 (I2C servos), dry (print).
 Usage: from robot.hand import make_hand; h = make_hand("sim"); h.set_fingers([0,.5,1,1,0])
 """
 import time
@@ -55,4 +55,7 @@ def make_hand(kind="dry", **kw):
     if kind == "sim":
         from robot.sim import SimHand
         return SimHand(**kw)
+    if kind == "inspire":
+        from robot.inspire import InspireHand
+        return InspireHand(**kw)
     return {"dry": DryHand, "serial": SerialHand, "pca9685": PCA9685Hand}[kind](**kw)
