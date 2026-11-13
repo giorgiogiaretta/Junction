@@ -12,12 +12,16 @@ def derive(d="data/raw"):
     takes = [json.loads(l) for l in open(f"{d}/takes.jsonl")]
     acc = {"left": ([], []), "right": ([], [])}
     for t in takes:
-        if t["series"] != "E" or not t.get("t_mark"): continue
+        if t["series"] != "E": continue
         for h, rows in parse(t["file"]).items():
             if h not in acc or len(rows) < 20: continue
             ts = np.array([x[0] for x in rows]); a = np.array([x[1] for x in rows])
-            tm = t["t_mark"] - t["t_start"]
-            o = (ts > ts[0] + 1) & (ts < tm - 1); c = (ts > tm + 1) & (ts < ts[-1] - 0.5)
+            ts = ts - ts[0]; fl = a[:, 1:].mean(1)           # index..little mean flexion
+            lo, hi = np.percentile(fl, 10), np.percentile(fl, 90)
+            if hi - lo < 0.5 or not (fl > (lo + hi) / 2).any(): continue
+            tm = ts[np.argmax(fl > (lo + hi) / 2)]            # fist start detected from the DATA (the human MARK is not used: Giorgio pressed it
+                                                              # sometimes just before, sometimes just after closing the fist)
+            o = (ts > 1) & (ts < tm - 0.7); c = (ts > tm + 1.0) & (ts < ts[-1] - 0.5)
             if o.sum() > 10 and c.sum() > 10: acc[h][0].append(np.median(a[o], 0)); acc[h][1].append(np.median(a[c], 0))
     out = {}
     for h, (o, c) in acc.items():
