@@ -24,3 +24,12 @@ Physical Intelligence, Skild AI, Generalist, Sunday, Genesis AI, Origami Robotic
 
 ## Notes
 (team, chosen idea, plan go here)
+
+## Setup (code in `src/`)
+1. `pip install -r requirements.txt` (Python 3.11+; the Rokoko SDK examples want 3.12+).
+2. Rokoko Studio: connect gloves, Livestream > Custom forward > UDP 127.0.0.1:14043, JSON v3.
+3. `python src/listen.py --show` to see the real frame keys, then adapt a parser.
+4. No hardware yet: `python src/mock_stream.py` in another terminal.
+5. Record: `python src/listen.py --out data/demo1.jsonl`.
+
+Docs: https://sdk.rokoko.com/guides/streaming-data/ (RGMP, Smartgloves II USB) · https://support.rokoko.com/hc/en-us/articles/4410416376977-Custom-Streaming · Studio Command API (HTTP, default port 14053, key 1234) for start/stop recording.
