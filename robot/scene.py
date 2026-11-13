@@ -86,6 +86,12 @@ class Scene:
         self.t = 0.0
         mujoco.mj_forward(self.m, self.d)
 
+    def place_hand(self, x, y, z):
+        """Teleport the hand (and its wrist targets) to a pose, e.g. the first sample of a recorded take."""
+        self.d.qpos[0:3] = (x, y, z)
+        self.d.ctrl[-3:] = (max(-0.4, min(0.4, x)), max(-0.4, min(0.4, y)), max(0.05, min(0.4, z)))
+        mujoco.mj_forward(self.m, self.d)
+
     # --- state
     def obj_pos(self):
         return self.d.xpos[self.b_obj].copy()
