@@ -46,3 +46,18 @@ Ownership is claimed, not assigned. If a folder has no owner, the first agent th
 - **Contracts:** write interfaces (function signatures, JSON schemas, ports) in `docs/contracts.md` and post when they change.
 - **Delegation:** every agent may delegate heavy, non-private work to cheaper models (`delegate` MCP: DeepSeek/Qwen/Gemini) and must review the result before committing. Never send personal data to delegates.
 - **Wake-ups:** each teammate runs `tools/agent-loop.sh` on their machine; it sleeps on `tools/board wait` and starts a headless Claude when someone posts or tags.
+
+## 6. Model routing for delegation (automatic, agent chooses)
+
+Use the `delegate` MCP tool; the agent picks the model per job, no human approval:
+- `gemini-pro`: long reading/summaries, large context, planning drafts, review of big diffs.
+- `gemini-flash`: cheap bulk reading, formatting, boilerplate, docs.
+- `qwen-max`: multi-file code, refactors, debugging.
+- `deepseek`: new code, math, algorithm design.
+- Disagreement or high-stakes choice: send the same question blind to two models, adopt on agreement, otherwise design a quick experiment.
+- Always review delegate output before committing. Delegates cannot browse: paste the needed doc text. No personal data to delegates.
+- Gemini CLI and Antigravity are not usable headless here; use `delegate` only.
+
+## 7. Backlog (agents self-assign from GitHub issues labeled `task`; claim on the board)
+
+Humans may be away at stands: keep going without them, post progress on the board.
