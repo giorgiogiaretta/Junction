@@ -7,6 +7,8 @@ import json, os, sys
 import numpy as np
 sys.path.insert(0, os.path.dirname(__file__))
 from analyze_takes import parse
+import calib
+cal = calib.load()   # data/calib.json from series E; without it fingers01 uses the global percentile range and polarity is UNKNOWN
 
 hz = float(sys.argv[sys.argv.index("--hz") + 1]) if "--hz" in sys.argv else 30.0
 d = next((x for x in sys.argv[1:] if not x.startswith("--") and not x.replace(".", "").isdigit()), "data/raw")
@@ -25,7 +27,9 @@ for t in takes:
         if not rows or len(rows) < 20: continue
         ts = np.array([x[0] for x in rows]); ts = ts - ts[0]
         if tt is None: tt = np.arange(0, ts[-1], 1 / hz)
-        lo, hi = rng[h]; a = np.array([x[1] for x in rows]); f01 = np.clip((a - lo) / (hi - lo + 1e-6), 0, 1)
+        lo, hi = rng[h]; a = np.array([x[1] for x in rows])
+        f01 = calib.to01(a, cal[h]) if h in cal else np.clip((a - lo) / (hi - lo + 1e-6), 0, 1)
+        out[h + "_polarity"] = np.array(cal[h]["sign"] if h in cal else [0] * 5, dtype=np.int8)   # +1 bigger angle=closed, -1 inverted, 0 unknown (no calib)
         pos = np.array([x[2] if x[2] else [np.nan] * 3 for x in rows], dtype=float)
         coil = np.array([(x[3] >> 9) & 1 for x in rows], dtype=float)
         out[f"{h}_fingers01"] = np.stack([np.interp(tt, ts, f01[:, k]) for k in range(5)], 1).astype(np.float32)
@@ -35,8 +39,9 @@ for t in takes:
     if tt is None: continue
     ah = max(act, key=act.get)
     tm = (t["t_mark"] - t["t_start"]) if t.get("t_mark") else None
-    np.savez_compressed(f"data/episodes/take_{t['take']:02d}.npz", t=tt.astype(np.float32), series=t["series"], active_hand=ah, t_mark=-1.0 if tm is None else tm, **out)
-    index.append({"take": t["take"], "series": t["series"], "active_hand": ah, "dur_s": round(float(tt[-1]), 1), "t_mark": tm, "samples": len(tt)})
+    np.savez_compressed(f"data/episodes/take_{t['take']:02d}.npz", t=tt.astype(np.float32), series=t["series"], active_hand=ah, t_mark=-1.0 if tm is None else tm,
+             success=-1 if t.get("success") is None else int(t["success"]), obj_pos=np.array(t.get("obj_pos") or [np.nan] * 3, dtype=np.float32), calibrated=bool(cal), **out)
+    index.append({"take": t["take"], "series": t["series"], "active_hand": ah, "dur_s": round(float(tt[-1]), 1), "t_mark": tm, "samples": len(tt), "success": t.get("success"), "obj_pos": t.get("obj_pos")})
 json.dump(index, open("data/episodes/index.json", "w"), indent=1)
 from collections import Counter
 print("episodes:", len(index), dict(Counter(i["series"] for i in index)), "| active hand:", dict(Counter(i["active_hand"] for i in index)))

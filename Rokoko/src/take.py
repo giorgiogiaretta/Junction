@@ -1,7 +1,8 @@
 """Take recorder with on-screen instructions. One raw RGMP file per take + log data/raw/takes.jsonl.
 Run:  python Rokoko/src/take.py        (driver rokoko-sdk --auto-stream-usb must be running)
-Menu: A B C D = choose series (shows instructions), Enter = repeat last series, L = list, U = undo (delete) last take, Q = quit.
-Series C has a MARK: press Enter when the CORRECTION starts (stored as t_mark), because the glove button is not in the RGMP stream.
+Menu: A B C D E = choose series (shows instructions), Enter = repeat last series, L = list, U = undo (delete) last take, Q = quit.
+Series E = calibration (5 s flat open hand, MARK, 5 s tight fist; both gloves) -> python Rokoko/src/calib.py.
+Series C and E have a MARK: press Enter when the CORRECTION starts (stored as t_mark), because the glove button is not in the RGMP stream.
 """
 import json, os, socket, threading, time
 
@@ -24,6 +25,10 @@ S = {
    "Resta un attimo nell'errore, poi di' 'ORA': chi sta al PC preme Invio = MARK (inizio della correzione).",
    "Dopo il MARK correggi la traiettoria, afferra bene e solleva.",
    "Riposa e torna a riposo. Poi Invio per STOP."]),
+ "E": ("Calibrazione: mano aperta / pugno", 3, [
+   "Entrambe le mani con i guanti, davanti a te.",
+   "5 secondi: mano APERTA, piatta, dita tese e ferme. Poi Invio = MARK.",
+   "5 secondi: PUGNO stretto, tutte le dita chiuse e ferme. Poi Invio = STOP."]),
  "D": ("Rumore / movimenti spuri", 5, [
    "Fai movimenti a caso: grattarti la testa, mano che trema, dita a caso.",
    "Nessun compito preciso: serve a insegnare cosa scartare."]),
@@ -71,8 +76,8 @@ while True:
     th = threading.Thread(target=rec, daemon=True); th.start()
     print(f"  >>> REC {path}  -- AZIONE! --")
     tm = None
-    if last == "C":
-        input("  (errore in corso) Invio = MARK quando inizia la CORREZIONE "); tm = time.time(); print("  mark salvato")
+    if last in ("C", "E"):
+        input("  Invio = MARK (C: inizia la CORREZIONE; E: inizia il PUGNO) "); tm = time.time(); print("  mark salvato")
     input("  Invio = STOP ")
     stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
     rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "chunks": cnt[0], "bytes": os.path.getsize(path)}
