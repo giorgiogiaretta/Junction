@@ -1,0 +1,14 @@
+{
+ "series": "H",
+ "task": "Move an empty standard low Coca-Cola can around a square, clockwise, starting bottom-left: BL -> TL -> TR -> BR -> BL (4 pick-and-place legs). Hands rest on the table 2 s before starting and again before pressing stop (last second trimmed).",
+ "markers": {"count": 4, "square_side_m": 0.297, "side_note": "long side of an A4 sheet = 29.7 cm", "corner_order_clockwise_from_operator": ["BL", "TL", "TR", "BR"]},
+ "coil_pro_estimate_by_user": {
+   "height_above_table_m": [0.30, 0.35],
+   "back_m": 0.40,
+   "left_m": [0.65, 0.70],
+   "reference": "relative to the bottom-left marker",
+   "ambiguity": "'back' (indietro) = farther from the operator or behind the BL marker towards the operator? To confirm. Estimate is rough: the wrist track itself is used to measure it (Rokoko/src/square_calib.py)."
+ },
+ "coil_frame": "arm_sensor TRANSFORM relative to coil_pro (metres); axis orientation vs table is estimated from the data",
+ "object": "coke_can_empty_standard_low (likely 330 ml, not confirmed)"
+}

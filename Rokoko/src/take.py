@@ -36,6 +36,11 @@ S = {
    "Entrambe le mani con i guanti davanti a te, palmi verso l'alto o di lato, mani ferme.",
    "Con il pollice tocca in sequenza la punta di indice, medio, anulare, mignolo (2 secondi ciascuno), poi riapri il pollice del tutto.",
    "Poi: pollice che si apre e si chiude da solo (flessione) per 5 volte. Invio = STOP. Serve per calibrare il pollice."]),
+ "H": ("Quadrato: lattina nei 4 angoli (senso orario)", 10, [
+   "Lattina Coca-Cola vuota sul marker IN BASSO A SINISTRA. Mani FERME sul tavolo (hai 2 s dopo Invio per metterti in posizione).",
+   "Prendi la lattina e portala: BASSO-SX -> ALTO-SX -> ALTO-DX -> BASSO-DX -> di nuovo BASSO-SX (senso orario, 4 spostamenti).",
+   "In ogni angolo POSA la lattina, lasciala un attimo (mano aperta), riprendila e vai al successivo. Muovi sempre con la stessa mano.",
+   "Finito: rimetti le mani FERME sul tavolo e solo dopo premi Invio = STOP (l'ultimo secondo viene scartato)."]),
  "D": ("Rumore / movimenti spuri", 5, [
    "Fai movimenti a caso: grattarti la testa, mano che trema, dita a caso.",
    "Nessun compito preciso: serve a insegnare cosa scartare."]),
@@ -73,6 +78,7 @@ while True:
     elif c != "": print("  scelta non valida"); continue
     show(last)
     pos_id = input("Posizione oggetto (P1-P5 segnata sul tavolo, Invio = salta): ").strip().upper() or None if last in ("A", "B", "C") else None
+    hand_used = (input("Mano che muove la lattina (R/L): ").strip().upper() or None) if last == "H" else None
     n = len(load()) + 1; path = f"{RAW}/take_{n:02d}.rgmp"
     input("Pronto? Invio = START (poi hai 2 secondi per metterti in posizione) ")
     sock = socket.create_connection(("127.0.0.1", 12276)); stop = threading.Event(); cnt = [0]; t0 = time.time()
@@ -90,6 +96,6 @@ while True:
     tm = None
     input("  Invio = STOP ")
     stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
-    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "pos_id": pos_id, "chunks": cnt[0], "bytes": os.path.getsize(path)}
+    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "pos_id": pos_id, "hand_used": hand_used, "object": ("coke_can_empty_standard_low" if last == "H" else None), "chunks": cnt[0], "bytes": os.path.getsize(path)}
     open(LOG, "a").write(json.dumps(rec_) + "\n")
     print(f"  salvata take {n:02d}: {t1-t0:.1f}s, {rec_['bytes']//1024} KB")
