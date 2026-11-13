@@ -1,0 +1,382 @@
+{
+ "source": "aaltonomous-humanoid docs/participants/INTERFACE.md (read 2026-11-13)",
+ "units": "rad",
+ "rate_hz": 30,
+ "speed_caps_rad_s": {
+  "arm": 1.0,
+  "hand": 3.0
+ },
+ "conventions": [
+  "Left hand closes with NEGATIVE angles, right with POSITIVE; thumb_0 mirrored too (doc, measured on the real robot 2026-11-10)",
+  "DDS order differs per hand: left = thumb0-2, middle0-1, index0-1; right = thumb0-2, index0-1, middle0-1",
+  "hand_q (14) = left 7 then right 7; targets must stay inside 'filter' bounds, else clipped steps (gate: 0 clips)"
+ ],
+ "arm_q": [
+  {
+   "idx": 0,
+   "joint": "left_shoulder_pitch_joint",
+   "dds": "rt/lowcmd[15]",
+   "urdf": [
+    -3.0892,
+    2.6704
+   ],
+   "filter": [
+    -3.0392,
+    2.6204
+   ]
+  },
+  {
+   "idx": 1,
+   "joint": "left_shoulder_roll_joint",
+   "dds": "rt/lowcmd[16]",
+   "urdf": [
+    -1.5882,
+    2.2515
+   ],
+   "filter": [
+    -1.5382,
+    2.2015
+   ]
+  },
+  {
+   "idx": 2,
+   "joint": "left_shoulder_yaw_joint",
+   "dds": "rt/lowcmd[17]",
+   "urdf": [
+    -2.618,
+    2.618
+   ],
+   "filter": [
+    -2.568,
+    2.568
+   ]
+  },
+  {
+   "idx": 3,
+   "joint": "left_elbow_joint",
+   "dds": "rt/lowcmd[18]",
+   "urdf": [
+    -1.0472,
+    2.0944
+   ],
+   "filter": [
+    -0.9972,
+    2.0444
+   ]
+  },
+  {
+   "idx": 4,
+   "joint": "left_wrist_roll_joint",
+   "dds": "rt/lowcmd[19]",
+   "urdf": [
+    -1.9722,
+    1.9722
+   ],
+   "filter": [
+    -1.9222,
+    1.9222
+   ]
+  },
+  {
+   "idx": 5,
+   "joint": "left_wrist_pitch_joint",
+   "dds": "rt/lowcmd[20]",
+   "urdf": [
+    -1.6144,
+    1.6144
+   ],
+   "filter": [
+    -1.5644,
+    1.5644
+   ]
+  },
+  {
+   "idx": 6,
+   "joint": "left_wrist_yaw_joint",
+   "dds": "rt/lowcmd[21]",
+   "urdf": [
+    -1.6144,
+    1.6144
+   ],
+   "filter": [
+    -1.5644,
+    1.5644
+   ]
+  },
+  {
+   "idx": 7,
+   "joint": "right_shoulder_pitch_joint",
+   "dds": "rt/lowcmd[22]",
+   "urdf": [
+    -3.0892,
+    2.6704
+   ],
+   "filter": [
+    -3.0392,
+    2.6204
+   ]
+  },
+  {
+   "idx": 8,
+   "joint": "right_shoulder_roll_joint",
+   "dds": "rt/lowcmd[23]",
+   "urdf": [
+    -2.2515,
+    1.5882
+   ],
+   "filter": [
+    -2.2015,
+    1.5382
+   ]
+  },
+  {
+   "idx": 9,
+   "joint": "right_shoulder_yaw_joint",
+   "dds": "rt/lowcmd[24]",
+   "urdf": [
+    -2.618,
+    2.618
+   ],
+   "filter": [
+    -2.568,
+    2.568
+   ]
+  },
+  {
+   "idx": 10,
+   "joint": "right_elbow_joint",
+   "dds": "rt/lowcmd[25]",
+   "urdf": [
+    -1.0472,
+    2.0944
+   ],
+   "filter": [
+    -0.9972,
+    2.0444
+   ]
+  },
+  {
+   "idx": 11,
+   "joint": "right_wrist_roll_joint",
+   "dds": "rt/lowcmd[26]",
+   "urdf": [
+    -1.9722,
+    1.9722
+   ],
+   "filter": [
+    -1.9222,
+    1.9222
+   ]
+  },
+  {
+   "idx": 12,
+   "joint": "right_wrist_pitch_joint",
+   "dds": "rt/lowcmd[27]",
+   "urdf": [
+    -1.6144,
+    1.6144
+   ],
+   "filter": [
+    -1.5644,
+    1.5644
+   ]
+  },
+  {
+   "idx": 13,
+   "joint": "right_wrist_yaw_joint",
+   "dds": "rt/lowcmd[28]",
+   "urdf": [
+    -1.6144,
+    1.6144
+   ],
+   "filter": [
+    -1.5644,
+    1.5644
+   ]
+  }
+ ],
+ "hand_q": [
+  {
+   "idx": 0,
+   "joint": "left_hand_thumb_0_joint",
+   "dds": "rt/dex3/left/cmd[0]",
+   "urdf": [
+    -1.0472,
+    1.0472
+   ],
+   "filter": [
+    -1.0272,
+    1.0272
+   ]
+  },
+  {
+   "idx": 1,
+   "joint": "left_hand_thumb_1_joint",
+   "dds": "rt/dex3/left/cmd[1]",
+   "urdf": [
+    -0.7243,
+    1.0472
+   ],
+   "filter": [
+    -0.7043,
+    1.0272
+   ]
+  },
+  {
+   "idx": 2,
+   "joint": "left_hand_thumb_2_joint",
+   "dds": "rt/dex3/left/cmd[2]",
+   "urdf": [
+    0.0,
+    1.7453
+   ],
+   "filter": [
+    0.02,
+    1.7253
+   ]
+  },
+  {
+   "idx": 3,
+   "joint": "left_hand_middle_0_joint",
+   "dds": "rt/dex3/left/cmd[3]",
+   "urdf": [
+    -1.5708,
+    0.0
+   ],
+   "filter": [
+    -1.5508,
+    -0.02
+   ]
+  },
+  {
+   "idx": 4,
+   "joint": "left_hand_middle_1_joint",
+   "dds": "rt/dex3/left/cmd[4]",
+   "urdf": [
+    -1.7453,
+    0.0
+   ],
+   "filter": [
+    -1.7253,
+    -0.02
+   ]
+  },
+  {
+   "idx": 5,
+   "joint": "left_hand_index_0_joint",
+   "dds": "rt/dex3/left/cmd[5]",
+   "urdf": [
+    -1.5708,
+    0.0
+   ],
+   "filter": [
+    -1.5508,
+    -0.02
+   ]
+  },
+  {
+   "idx": 6,
+   "joint": "left_hand_index_1_joint",
+   "dds": "rt/dex3/left/cmd[6]",
+   "urdf": [
+    -1.7453,
+    0.0
+   ],
+   "filter": [
+    -1.7253,
+    -0.02
+   ]
+  },
+  {
+   "idx": 7,
+   "joint": "right_hand_thumb_0_joint",
+   "dds": "rt/dex3/right/cmd[0]",
+   "urdf": [
+    -1.0472,
+    1.0472
+   ],
+   "filter": [
+    -1.0272,
+    1.0272
+   ]
+  },
+  {
+   "idx": 8,
+   "joint": "right_hand_thumb_1_joint",
+   "dds": "rt/dex3/right/cmd[1]",
+   "urdf": [
+    -1.0472,
+    0.7243
+   ],
+   "filter": [
+    -1.0272,
+    0.7043
+   ]
+  },
+  {
+   "idx": 9,
+   "joint": "right_hand_thumb_2_joint",
+   "dds": "rt/dex3/right/cmd[2]",
+   "urdf": [
+    -1.7453,
+    0.0
+   ],
+   "filter": [
+    -1.7253,
+    -0.02
+   ]
+  },
+  {
+   "idx": 10,
+   "joint": "right_hand_index_0_joint",
+   "dds": "rt/dex3/right/cmd[3]",
+   "urdf": [
+    0.0,
+    1.5708
+   ],
+   "filter": [
+    0.02,
+    1.5508
+   ]
+  },
+  {
+   "idx": 11,
+   "joint": "right_hand_index_1_joint",
+   "dds": "rt/dex3/right/cmd[4]",
+   "urdf": [
+    0.0,
+    1.7453
+   ],
+   "filter": [
+    0.02,
+    1.7253
+   ]
+  },
+  {
+   "idx": 12,
+   "joint": "right_hand_middle_0_joint",
+   "dds": "rt/dex3/right/cmd[5]",
+   "urdf": [
+    0.0,
+    1.5708
+   ],
+   "filter": [
+    0.02,
+    1.5508
+   ]
+  },
+  {
+   "idx": 13,
+   "joint": "right_hand_middle_1_joint",
+   "dds": "rt/dex3/right/cmd[6]",
+   "urdf": [
+    0.0,
+    1.7453
+   ],
+   "filter": [
+    0.02,
+    1.7253
+   ]
+  }
+ ]
+}
