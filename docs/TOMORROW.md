@@ -7,7 +7,7 @@ Principle: **one vertical slice first** (real glove -> retarget -> real hand hol
 |---|---|---|
 | Tommaso | NVIDIA key on build.nvidia.com + exact Nemotron 3.5 Super VL model id (booth / catalogue); `export NVIDIA_API_KEY=... LLM_MODEL=...` | `python -c "from ai.llm import ChatClient; print(ChatClient().chat([{'role':'user','content':'ping'}]))"` answers |
 | Tommaso | Google AI Studio key (Gemini) as second backend | same call with `LLM_BASE_URL` of the Gemini OpenAI-compatible endpoint |
-| Giorgio | Connect repo to CRACI (owner) and Entire | CI check from CRACI visible on a PR |
+| ~~Giorgio~~ | ~~Connect repo to CRACI and Entire~~ SKIPPED, not on the critical path: the CRACI app needs a CRACI-reserved org and an org-owned repo ("github app owner does not match the reserved organization"); optional for the challenge | n/a |
 | Tommaso | Aalto Robotics Club: Inspire model, IP/port, Modbus registers (ANGLE_SET, FORCE_ACT), can it sit on our table? G1 slot with Erkka? | registers written into robot/inspire.py comments + docs/contracts.md |
 
 ## 1. Hardware slice (the demo that wins)
