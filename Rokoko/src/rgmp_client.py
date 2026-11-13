@@ -5,7 +5,7 @@ Run: rokoko-sdk --auto-stream-usb   (driver)   then   python src/rgmp_client.py 
 ASSUMPTIONS to verify on real hardware: group_id = index in definition "groups"; transform layout (see quat()).
 Finger values are CALIBRATED: hold hand open ~3 s, then closed ~3 s (--calibrate) so layout details don't matter.
 """
-import argparse, json, math, os, socket, struct, sys, time
+import argparse, json, math, socket, struct, sys, time
 
 SIZES = {"INT32": 4, "UINT32": 4, "FLOAT": 4, "INT64": 8, "UINT64": 8, "DOUBLE": 8}
 FMT = {"INT32": "i", "UINT32": "I", "FLOAT": "f", "INT64": "q", "UINT64": "Q", "DOUBLE": "d"}
@@ -61,10 +61,7 @@ def run(a):
     s = socket.create_connection((a.host, a.port)); udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     out = open(a.jsonl, "a") if a.jsonl else None
     layouts, hands, cal, last = {}, {}, {}, {}
-    saved = {}
-    if a.load_cal and os.path.exists(a.load_cal):
-        saved = json.load(open(a.load_cal)); print("loaded calibration for:", list(saved), file=sys.stderr)
-    t_start, wrote = time.time(), False
+    t_start = time.time()
     while True:
         typ, ln = struct.unpack("<II", recv_exact(s, 8)); p = recv_exact(s, ln)
         if typ == 1:
@@ -79,15 +76,9 @@ def run(a):
             q = {s_["target_frame"]: quat(v) for s_, v in items if s_["measure_type"] == "TRANSFORM" and s_["target_frame"].endswith("finger_sensor")}
             ang = [angle_of(q[f + "_finger_sensor"]) if q.get(f + "_finger_sensor") else 0.0 for f in FINGERS]
             if out: out.write(json.dumps({"ts_us": ts, "dev": dev, "hand": hands[did], "angles": ang}) + "\n")
-            hk = hands[did]
-            if hk in saved: lo, hi = saved[hk]["lo"], saved[hk]["hi"]
-            else:
-                lo, hi = cal.setdefault(did, ([9.0] * 5, [0.0] * 5))
-                if time.time() - t_start < a.calibrate:   # open/close sweep to learn per-finger range
-                    cal[did] = ([min(x, y) for x, y in zip(lo, ang)], [max(x, y) for x, y in zip(hi, ang)]); continue
-                if a.save_cal and not wrote:
-                    for d_, (l_, h_) in cal.items(): saved[hands[d_]] = {"lo": l_, "hi": h_}
-                    json.dump(saved, open(a.save_cal, "w")); wrote = True; print("calibration saved:", a.save_cal, file=sys.stderr)
+            lo, hi = cal.setdefault(did, ([9.0] * 5, [0.0] * 5))
+            if time.time() - t_start < a.calibrate:   # open/close sweep to learn per-finger range
+                cal[did] = ([min(x, y) for x, y in zip(lo, ang)], [max(x, y) for x, y in zip(hi, ang)]); continue
             f01 = [round(min(1, max(0, (x - l) / (h - l + 1e-6))), 3) for x, l, h in zip(ang, lo, hi)]
             h_ = hands[did]; last[h_] = f01; now = time.time()
             if a.hand in ("any", h_):
@@ -103,7 +94,5 @@ if __name__ == "__main__":
     ap.add_argument("--udp-port", type=int, default=14043); ap.add_argument("--jsonl")
     ap.add_argument("--hand", default="any", choices=["any", "left", "right"], help="which glove drives the single-hand stream")
     ap.add_argument("--bimanual-port", type=int, default=0, help="e.g. 14053: send {left,right} for both gloves")
-    ap.add_argument("--save-cal", help="write calibration (per hand) to this json after the calibration window")
-    ap.add_argument("--load-cal", help="reuse a saved calibration: no open/close sweep needed")
     ap.add_argument("--calibrate", type=float, default=8.0, help="seconds: open and close your hand repeatedly")
     run(ap.parse_args())
