@@ -34,3 +34,16 @@ def test_episode_replay_cushion_protects_egg_on_real_wrist_paths():
     assert sum(r["broken"] for r in no) >= 4, no
     assert sum(r["broken"] for r in yes) <= 1, yes
     assert sum(r["lifted"] for r in yes) >= 3, yes
+
+
+CAL = [ROOT / "data" / "episodes" / f"take_{i:02d}.npz" for i in (4, 12, 26)]
+
+
+@pytest.mark.skipif(not all(e.exists() for e in CAL), reason="episodes not built")
+def test_calibrated_real_fingers_lift_cube_with_closure_pick_and_gain():
+    """Calibrated (series E) real fingers, grasp moment = grip onset, per-take gain: the cube is lifted on known-good takes.
+    Not a success rate: 8/32 A-C overall, see docs/PHASE1_REAL_DATA.md."""
+    from robot.replay import replay
+    res = [replay(str(e), "cube", fingers="gain", pick="closure") for e in CAL]
+    assert all(r["calibrated"] for r in res), res
+    assert sum(r["lifted"] for r in res) >= 2, res
