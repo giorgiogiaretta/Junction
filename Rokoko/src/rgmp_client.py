@@ -56,29 +56,35 @@ def recv_exact(s, n):
     return b
 
 def run(a):
+    """Supports 1-2 gloves: layouts/calibration are per device_id. Primary hand (--hand left|right|any) -> UDP {"fingers"}
+    on --udp-port (teleop contract); both hands -> UDP {"left","right"} on --bimanual-port."""
     s = socket.create_connection((a.host, a.port)); udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     out = open(a.jsonl, "a") if a.jsonl else None
-    layout, lo, hi, t_start = None, [9.0] * 5, [0.0] * 5, time.time()
+    layouts, hands, cal, last = {}, {}, {}, {}
+    t_start = time.time()
     while True:
         typ, ln = struct.unpack("<II", recv_exact(s, 8)); p = recv_exact(s, ln)
         if typ == 1:
-            sd = json.loads(p.decode("utf-8")); layout = build_layout(sd)
-            print("stream def:", sd.get("device_type"), sd.get("device_info"), [g["name"] for g in sd["groups"]], file=sys.stderr)
-        elif typ == 2 and layout:
-            dev, name, ts, items = decode(layout, p)
+            sd = json.loads(p.decode("utf-8")); did = sd.get("device_id")
+            layouts[did] = build_layout(sd); hands[did] = (sd.get("device_info") or {}).get("hand", "?")
+            print("stream def:", did, sd.get("device_type"), hands[did], file=sys.stderr)
+        elif typ == 2:
+            did = struct.unpack_from("<I", p, 0)[0]
+            if did not in layouts: continue
+            dev, name, ts, items = decode(layouts[did], p)
             if name != "default": continue
             q = {s_["target_frame"]: quat(v) for s_, v in items if s_["measure_type"] == "TRANSFORM" and s_["target_frame"].endswith("finger_sensor")}
-            ang = []
-            for f in FINGERS:
-                k = f + "_finger_sensor"
-                ang.append(angle_of(q[k]) if k in q and q[k] else 0.0)
-            if out: out.write(json.dumps({"ts_us": ts, "dev": dev, "angles": ang}) + "\n")
-            el = time.time() - t_start
-            if el < a.calibrate:        # phase 1: open+closed sweep to learn per-finger range
-                lo = [min(x, y) for x, y in zip(lo, ang)]; hi = [max(x, y) for x, y in zip(hi, ang)]
-                continue
+            ang = [angle_of(q[f + "_finger_sensor"]) if q.get(f + "_finger_sensor") else 0.0 for f in FINGERS]
+            if out: out.write(json.dumps({"ts_us": ts, "dev": dev, "hand": hands[did], "angles": ang}) + "\n")
+            lo, hi = cal.setdefault(did, ([9.0] * 5, [0.0] * 5))
+            if time.time() - t_start < a.calibrate:   # open/close sweep to learn per-finger range
+                cal[did] = ([min(x, y) for x, y in zip(lo, ang)], [max(x, y) for x, y in zip(hi, ang)]); continue
             f01 = [round(min(1, max(0, (x - l) / (h - l + 1e-6))), 3) for x, l, h in zip(ang, lo, hi)]
-            udp.sendto(json.dumps({"fingers": f01, "t": time.time(), "src": "rokoko"}).encode(), ("127.0.0.1", a.udp_port))
+            h_ = hands[did]; last[h_] = f01; now = time.time()
+            if a.hand in ("any", h_):
+                udp.sendto(json.dumps({"fingers": f01, "t": now, "src": "rokoko", "hand": h_}).encode(), ("127.0.0.1", a.udp_port))
+            if a.bimanual_port and last:
+                udp.sendto(json.dumps({"left": last.get("left"), "right": last.get("right"), "t": now}).encode(), ("127.0.0.1", a.bimanual_port))
         elif typ == 3:
             print("device disconnected", file=sys.stderr)
 
@@ -86,5 +92,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1"); ap.add_argument("--port", type=int, default=12276)
     ap.add_argument("--udp-port", type=int, default=14043); ap.add_argument("--jsonl")
+    ap.add_argument("--hand", default="any", choices=["any", "left", "right"], help="which glove drives the single-hand stream")
+    ap.add_argument("--bimanual-port", type=int, default=0, help="e.g. 14053: send {left,right} for both gloves")
     ap.add_argument("--calibrate", type=float, default=8.0, help="seconds: open and close your hand repeatedly")
     run(ap.parse_args())
