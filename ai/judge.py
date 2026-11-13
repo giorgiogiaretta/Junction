@@ -22,7 +22,15 @@ def summarize_episode(path):
             "calibrated": bool(z["calibrated"]), "closure_index_to_little": {"peak": round(float(c4.max()), 2), "mean": round(float(c4.mean()), 2),
             "t_of_peak_s": round(float(t[int(np.argmax(c4))]), 1)},
             "wrist_range_m": [round(float(b - a), 2) for a, b in zip(lo, hi)], "wrist_rise_m": round(float(hi[2] - lo[2]), 2),
-            "handoff_mark_s": None if float(z["t_mark"]) < 0 else round(float(z["t_mark"]), 1)}
+            "handoff_mark_s": _mark(z)}
+
+
+def _mark(z):
+    """Human MARK time (old takes only). New takes (lead-in, no markers) have no/NaN t_mark -> None: judge segments from the data."""
+    if "t_mark" not in z.files: return None
+    try: m = float(z["t_mark"])
+    except (TypeError, ValueError): return None
+    return None if not np.isfinite(m) or m < 0 else round(m, 1)
 
 
 def judge_episode(client, summary):
