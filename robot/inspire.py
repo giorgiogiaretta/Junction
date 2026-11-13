@@ -9,6 +9,17 @@ from robot.retarget import Smoother, to_inspire
 ANGLE_SET, FORCE_SET, SPEED_SET = 1486, 1498, 1522
 
 
+def _write(client, addr, vals, unit):
+    """pymodbus renamed the unit kwarg across versions (unit -> slave -> device_id): try each; found by the fake-server preflight test."""
+    last = None
+    for kw in ("device_id", "slave", "unit"):
+        try:
+            return client.write_registers(addr, vals, **{kw: unit})
+        except TypeError as e:
+            last = e
+    raise last
+
+
 class InspireHand(Hand):
     def __init__(self, host="192.168.123.210", port=6000, unit=1, dry=True, close_cap=1.0, force_limit=None, speed=500):
         self.sm, self.cap, self.dry, self.unit = Smoother(), close_cap, dry, unit
@@ -17,13 +28,13 @@ class InspireHand(Hand):
             from pymodbus.client import ModbusTcpClient
             self.c = ModbusTcpClient(host, port=port); self.c.connect()
             if force_limit is not None:  # per-finger grams, 0..1000
-                self.c.write_registers(FORCE_SET, [int(force_limit)] * 6, slave=unit)
-            self.c.write_registers(SPEED_SET, [int(speed)] * 6, slave=unit)
+                _write(self.c, FORCE_SET, [int(force_limit)] * 6, unit)
+            _write(self.c, SPEED_SET, [int(speed)] * 6, unit)
 
     def set_fingers(self, fingers):
         cmd = to_inspire(self.sm(clamp5(fingers)), close_cap=self.cap)
         if self.dry: print("inspire", cmd)
-        else: self.c.write_registers(ANGLE_SET, cmd, slave=self.unit)
+        else: _write(self.c, ANGLE_SET, cmd, self.unit)
 
     def close(self):
         if self.c: self.c.close()
