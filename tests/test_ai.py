@@ -32,8 +32,14 @@ def test_fallback_when_all_fail_and_on_bad_profile():
     c2, _ = client([ok("lava")]); assert pick_profile(c2)["source"] == "fallback"
 
 
+def test_verda_env_selects_endpoint_and_model(monkeypatch):
+    for k in ("NVIDIA_API_KEY", "LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL"): monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("VERDA_INFERENCE_KEY", "dummy")
+    c = ChatClient(); assert "datacrunch.io" in c.url and c.model == "nemotron-3.5-super-vl" and c.key == "dummy"
+
+
 def test_no_key_is_clean_fallback(monkeypatch):
-    monkeypatch.delenv("NVIDIA_API_KEY", raising=False); monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False); monkeypatch.delenv("LLM_API_KEY", raising=False); monkeypatch.delenv("VERDA_INFERENCE_KEY", raising=False)
     r = pick_profile(ChatClient(api_key=None)); assert r["source"] == "fallback" and "no API key" in r["error"]
 
 
