@@ -20,9 +20,9 @@ if a.mock:
     while True:
         t = time.time() - t0
         f = [0.5 + 0.5 * math.sin(2 * t + i) for i in range(5)]
-        out.sendto(json.dumps({"fingers": f}).encode(), (a.jetson, a.port)); time.sleep(1 / 60)
+        out.sendto(json.dumps({"fingers": f, "t": time.time()}).encode(), (a.jetson, a.port)); time.sleep(1 / 60)
 inp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); inp.bind(("0.0.0.0", a.rokoko_port))
 while True:
     data, _ = inp.recvfrom(1 << 20)
     f = extract_fingers(json.loads(data.decode("ascii", "ignore")))
-    out.sendto(json.dumps({"fingers": f}).encode(), (a.jetson, a.port))
+    out.sendto(json.dumps({"fingers": f, "t": time.time()}).encode(), (a.jetson, a.port))
