@@ -66,6 +66,7 @@ while True:
     if c in S: last = c
     elif c != "": print("  scelta non valida"); continue
     show(last)
+    pos_id = input("Posizione oggetto (P1-P5 segnata sul tavolo, Invio = salta): ").strip().upper() or None if last in ("A", "B", "C") else None
     n = len(load()) + 1; path = f"{RAW}/take_{n:02d}.rgmp"
     input("Pronto? Invio = START ")
     sock = socket.create_connection(("127.0.0.1", 12276)); stop = threading.Event(); cnt = [0]; t0 = time.time()
@@ -83,6 +84,6 @@ while True:
         input("  Invio = MARK (C: inizia la CORREZIONE; E: inizia il PUGNO) "); tm = time.time(); print("  mark salvato")
     input("  Invio = STOP ")
     stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
-    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "chunks": cnt[0], "bytes": os.path.getsize(path)}
+    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "pos_id": pos_id, "chunks": cnt[0], "bytes": os.path.getsize(path)}
     open(LOG, "a").write(json.dumps(rec_) + "\n")
     print(f"  salvata take {n:02d}: {t1-t0:.1f}s, {rec_['bytes']//1024} KB")
