@@ -8,7 +8,7 @@ MOCK=1; BACKEND=dry; DEV=""; ASSIST=""; IN=14043; HAND=right
 while [ $# -gt 0 ]; do case "$1" in
   --real) MOCK=0;; --bimanual) IN=14053;; --hand) HAND="$2"; shift;; --assist) ASSIST="--assist $2"; shift;; --backend) BACKEND="$2"; shift;; --dev) DEV="--dev $2"; shift;;
 esac; shift; done
-PY=${PYTHON:-python3}
+PY=${PYTHON:-$(command -v python3 || command -v python)}   # Windows Git Bash has no python3
 trap 'kill $(jobs -p) 2>/dev/null' EXIT INT TERM
 $PY demo/fanout.py --in $IN --out 14044 14045 14046 &
 $PY -m robot.sim_server --port 14046 --obj egg $ASSIST &
