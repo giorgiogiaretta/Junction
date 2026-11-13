@@ -14,7 +14,14 @@ class Pipeline:
         from ml.grasp_assist import GraspAssist
         self.scene, self.dt, self.fallback, self.scale = Scene(obj), dt, wrist_fallback, coil_scale
         self.assist = GraspAssist(profile=profile) if profile and profile != "none" else None
+        self.profile = profile or "none"
         self.origin, self.n, self.latencies_ms, self.button = None, 0, [], False
+
+    def set_profile(self, profile):
+        """Switch the Force Cushion profile at runtime (cup|egg|can|none)."""
+        from ml.grasp_assist import GraspAssist
+        self.profile = profile
+        self.assist = GraspAssist(profile=profile) if profile and profile != "none" else None
 
     def process(self, packet):
         """Apply one packet; returns scene state + latency_ms (receive-to-applied compute time) + cap + button."""
