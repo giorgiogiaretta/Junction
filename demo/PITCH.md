@@ -10,7 +10,7 @@
    - Robot (or sim) hand mirrors it.
    - Pick up the fragile object (cup/egg) with `--close-cap 0.6`; contrast with uncapped closure.
    - Show the recorded episode and the policy replaying it (Giorgio's recorder/policy, #13/#15).
-4. **Glove vs webcam (30 s):** run the webcam baseline (Rokoko/src, MediaPipe) side by side. Talking points: occlusion-proof, ~1 kHz-class sensor data vs ~30 fps camera, works in the dark, measured joint angles rather than inferred. Show the latency numbers from the dashboard for both.
+4. **Glove vs webcam (30 s):** run the webcam baseline (Rokoko/src, MediaPipe) side by side. Talking points: occlusion-proof, glove sample rate vs a ~30 fps camera (quote the real figure from the Rokoko spec once confirmed), works in the dark, measured joint angles rather than inferred. Show the latency numbers from the dashboard for both.
 5. **Business model (1 min):**
    - *Data-collection-as-a-service:* sell expert demonstration hours (skilled trades, lab handling) to robotics labs/startups (Physical Intelligence, Skild, Generalist type buyers). Price per demo-hour + dataset licence.
    - *Teleop kit:* glove + retargeting software subscription for remote operation of hazardous or remote tasks.
