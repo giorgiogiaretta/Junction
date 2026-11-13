@@ -55,7 +55,21 @@ def make_hand(kind="dry", **kw):
     if kind == "sim":
         from robot.sim import SimHand
         return SimHand(**kw)
+    if kind == "g1dex3":
+        return G1Dex3Hand(**kw)
     if kind == "inspire":
         from robot.inspire import InspireHand
         return InspireHand(**kw)
     return {"dry": DryHand, "serial": SerialHand, "pca9685": PCA9685Hand}[kind](**kw)
+
+
+class G1Dex3Hand(Hand):
+    """DRY backend: computes the 14-value G1 Dex3 hand_q (robot/g1_dex3.py) and keeps it in `last_q`; no DDS output yet. hand = 'left'|'right' = which side this glove drives."""
+    def __init__(self, hand="right", verbose=False):
+        from robot.g1_dex3 import G1Dex3Retargeter
+        self.rt, self.hand, self.verbose, self.last_q = G1Dex3Retargeter(), hand, verbose, None
+
+    def set_fingers(self, fingers):
+        f = clamp5(fingers)
+        self.last_q = self.rt.step(left=f if self.hand == "left" else None, right=f if self.hand == "right" else None)
+        if self.verbose: print("g1dex3 hand_q", [round(v, 2) for v in self.last_q])
