@@ -36,7 +36,7 @@ def _mark(z):
 def judge_episode(client, summary):
     """Returns {'verdict','reason','phases','source'}; source='fallback' (verdict 'unclear') on any failure."""
     try:
-        msg = client.chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(summary)}], max_tokens=300)
+        msg = client.chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(summary)}], max_tokens=6000)
         txt = (msg.get("content") or "").strip()
         txt = txt[txt.index("{"): txt.rindex("}") + 1]
         r = json.loads(txt)
