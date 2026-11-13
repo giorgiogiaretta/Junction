@@ -1,0 +1,182 @@
+{
+ "47": {
+  "hand": "right",
+  "side_free_m": 0.245,
+  "rms_free_m": 0.025,
+  "rms_fixed_297_m": 0.035,
+  "plane_normal_coil": [
+   0.41499999165534973,
+   0.035999998450279236,
+   -0.9089999794960022
+  ],
+  "plane_tilt_from_z_deg": 24.6,
+  "square_center_coil_m": [
+   0.976,
+   -0.441,
+   0.484
+  ],
+  "n_moving": 290
+ },
+ "48": {
+  "hand": "right",
+  "side_free_m": 0.253,
+  "rms_free_m": 0.024,
+  "rms_fixed_297_m": 0.031,
+  "plane_normal_coil": [
+   0.4000000059604645,
+   0.012000000104308128,
+   -0.9169999957084656
+  ],
+  "plane_tilt_from_z_deg": 23.6,
+  "square_center_coil_m": [
+   0.978,
+   -0.442,
+   0.495
+  ],
+  "n_moving": 270
+ },
+ "49": {
+  "hand": "right",
+  "side_free_m": 0.248,
+  "rms_free_m": 0.028,
+  "rms_fixed_297_m": 0.036,
+  "plane_normal_coil": [
+   0.40799999237060547,
+   0.010999999940395355,
+   -0.9129999876022339
+  ],
+  "plane_tilt_from_z_deg": 24.1,
+  "square_center_coil_m": [
+   0.968,
+   -0.44,
+   0.495
+  ],
+  "n_moving": 253
+ },
+ "50": {
+  "hand": "right",
+  "side_free_m": 0.251,
+  "rms_free_m": 0.029,
+  "rms_fixed_297_m": 0.036,
+  "plane_normal_coil": [
+   0.3840000033378601,
+   0.023000000044703484,
+   -0.9229999780654907
+  ],
+  "plane_tilt_from_z_deg": 22.6,
+  "square_center_coil_m": [
+   0.97,
+   -0.441,
+   0.498
+  ],
+  "n_moving": 237
+ },
+ "51": {
+  "hand": "right",
+  "side_free_m": 0.253,
+  "rms_free_m": 0.03,
+  "rms_fixed_297_m": 0.035,
+  "plane_normal_coil": [
+   0.4000000059604645,
+   0.03799999877810478,
+   -0.9160000085830688
+  ],
+  "plane_tilt_from_z_deg": 23.7,
+  "square_center_coil_m": [
+   0.964,
+   -0.44,
+   0.488
+  ],
+  "n_moving": 252
+ },
+ "52": {
+  "hand": "left",
+  "side_free_m": 0.252,
+  "rms_free_m": 0.029,
+  "rms_fixed_297_m": 0.036,
+  "plane_normal_coil": [
+   0.2240000069141388,
+   0.05000000074505806,
+   -0.9729999899864197
+  ],
+  "plane_tilt_from_z_deg": 13.3,
+  "square_center_coil_m": [
+   0.673,
+   -0.469,
+   0.399
+  ],
+  "n_moving": 227
+ },
+ "53": {
+  "hand": "left",
+  "side_free_m": 0.244,
+  "rms_free_m": 0.027,
+  "rms_fixed_297_m": 0.036,
+  "plane_normal_coil": [
+   0.20900000631809235,
+   0.03799999877810478,
+   -0.9769999980926514
+  ],
+  "plane_tilt_from_z_deg": 12.3,
+  "square_center_coil_m": [
+   0.664,
+   -0.458,
+   0.401
+  ],
+  "n_moving": 226
+ },
+ "54": {
+  "hand": "left",
+  "side_free_m": 0.252,
+  "rms_free_m": 0.027,
+  "rms_fixed_297_m": 0.035,
+  "plane_normal_coil": [
+   0.21299999952316284,
+   0.05900000035762787,
+   -0.9750000238418579
+  ],
+  "plane_tilt_from_z_deg": 12.7,
+  "square_center_coil_m": [
+   0.662,
+   -0.461,
+   0.398
+  ],
+  "n_moving": 229
+ },
+ "55": {
+  "hand": "left",
+  "side_free_m": 0.239,
+  "rms_free_m": 0.029,
+  "rms_fixed_297_m": 0.039,
+  "plane_normal_coil": [
+   0.17599999904632568,
+   0.004999999888241291,
+   -0.984000027179718
+  ],
+  "plane_tilt_from_z_deg": 10.2,
+  "square_center_coil_m": [
+   0.654,
+   -0.471,
+   0.397
+  ],
+  "n_moving": 239
+ },
+ "56": {
+  "hand": "left",
+  "side_free_m": 0.247,
+  "rms_free_m": 0.031,
+  "rms_fixed_297_m": 0.037,
+  "plane_normal_coil": [
+   0.1509999930858612,
+   0.02800000086426735,
+   -0.9879999756813049
+  ],
+  "plane_tilt_from_z_deg": 8.8,
+  "square_center_coil_m": [
+   0.66,
+   -0.483,
+   0.387
+  ],
+  "n_moving": 243
+ }
+}

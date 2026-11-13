@@ -41,6 +41,11 @@ S = {
    "Prendi la lattina e portala: BASSO-SX -> ALTO-SX -> ALTO-DX -> BASSO-DX -> di nuovo BASSO-SX (senso orario, 4 spostamenti).",
    "In ogni angolo POSA la lattina, lasciala un attimo (mano aperta), riprendila e vai al successivo. Muovi sempre con la stessa mano.",
    "Finito: rimetti le mani FERME sul tavolo e solo dopo premi Invio = STOP (l'ultimo secondo viene scartato)."]),
+ "I": ("Scala: righello (linee rette di distanza nota)", 2, [
+   "Appoggia un foglio A4 sul tavolo (lato lungo 29,7 cm) davanti a te. Metti il polso (cinturino) su un estremo del lato lungo, mano piatta, ferma. Hai 2 s dopo Invio.",
+   "Scorri il polso in linea retta fino all'altro estremo (29,7 cm), fermati 2 s, torna indietro: 3 andate e ritorni sinistra-destra.",
+   "Poi 3 andate e ritorni AVANTI-INDIETRO (lato corto 21 cm, se usi lo stesso foglio girato), poi alza la mano in verticale di 20 cm con un righello accanto, fermati 2 s, riabbassa: 3 volte.",
+   "Mani ferme sul tavolo, poi Invio = STOP. Fai 1 presa con la destra e 1 con la sinistra (indica la mano quando la chiede)."]),
  "D": ("Rumore / movimenti spuri", 5, [
    "Fai movimenti a caso: grattarti la testa, mano che trema, dita a caso.",
    "Nessun compito preciso: serve a insegnare cosa scartare."]),
@@ -78,7 +83,7 @@ while True:
     elif c != "": print("  scelta non valida"); continue
     show(last)
     pos_id = input("Posizione oggetto (P1-P5 segnata sul tavolo, Invio = salta): ").strip().upper() or None if last in ("A", "B", "C") else None
-    hand_used = (input("Mano che muove la lattina (R/L): ").strip().upper() or None) if last == "H" else None
+    hand_used = (input("Mano che muove la lattina (R/L): ").strip().upper() or None) if last in ("H", "I") else None
     n = len(load()) + 1; path = f"{RAW}/take_{n:02d}.rgmp"
     input("Pronto? Invio = START (poi hai 2 secondi per metterti in posizione) ")
     sock = socket.create_connection(("127.0.0.1", 12276)); stop = threading.Event(); cnt = [0]; t0 = time.time()

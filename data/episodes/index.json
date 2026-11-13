@@ -428,5 +428,135 @@
   "samples": 252,
   "success": null,
   "obj_pos": null
+ },
+ {
+  "take": 44,
+  "series": "G",
+  "active_hand": "right",
+  "dur_s": 16.4,
+  "t_mark": null,
+  "samples": 433,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 45,
+  "series": "G",
+  "active_hand": "right",
+  "dur_s": 19.5,
+  "t_mark": null,
+  "samples": 527,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 46,
+  "series": "G",
+  "active_hand": "right",
+  "dur_s": 18.8,
+  "t_mark": null,
+  "samples": 506,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 47,
+  "series": "H",
+  "active_hand": "right",
+  "dur_s": 15.4,
+  "t_mark": null,
+  "samples": 402,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 48,
+  "series": "H",
+  "active_hand": "right",
+  "dur_s": 13.9,
+  "t_mark": null,
+  "samples": 357,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 49,
+  "series": "H",
+  "active_hand": "right",
+  "dur_s": 12.6,
+  "t_mark": null,
+  "samples": 319,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 50,
+  "series": "H",
+  "active_hand": "right",
+  "dur_s": 12.9,
+  "t_mark": null,
+  "samples": 327,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 51,
+  "series": "H",
+  "active_hand": "right",
+  "dur_s": 12.4,
+  "t_mark": null,
+  "samples": 314,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 52,
+  "series": "H",
+  "active_hand": "left",
+  "dur_s": 11.7,
+  "t_mark": null,
+  "samples": 293,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 53,
+  "series": "H",
+  "active_hand": "left",
+  "dur_s": 12.9,
+  "t_mark": null,
+  "samples": 329,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 54,
+  "series": "H",
+  "active_hand": "left",
+  "dur_s": 11.8,
+  "t_mark": null,
+  "samples": 296,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 55,
+  "series": "H",
+  "active_hand": "left",
+  "dur_s": 12.6,
+  "t_mark": null,
+  "samples": 319,
+  "success": null,
+  "obj_pos": null
+ },
+ {
+  "take": 56,
+  "series": "H",
+  "active_hand": "left",
+  "dur_s": 12.4,
+  "t_mark": null,
+  "samples": 312,
+  "success": null,
+  "obj_pos": null
  }
 ]
