@@ -1,12 +1,12 @@
 """Estimate the table square in the Coil Pro frame from series H episodes (can moved BL -> TL -> TR -> BR -> BL, clockwise).
 Idea: a photo cannot give the coil offset precisely, but the wrist pose in the Coil frame at each grasp/release does: 4 corners, each visited twice.
-  python Rokoko/src/square_calib.py [take ...]  -> data/square_calib.json (+ printed report vs the known 29.7 cm side)
+  python Rokoko/src/square_calib.py [take ...]  -> data/square_calib.json (+ printed report vs the known 29.4 cm side)
 Uses data/episodes/take_NN.npz (calibrated fingers01 of the active hand, wrist_pos). Closure edges = grasp (up) / release (down).
 """
 import json, os, sys
 import numpy as np
 
-SIDE = 0.297
+SIDE = 0.294
 
 def events(closure, hz=30, hi_frac=0.55, lo_frac=0.35, min_gap_s=1.0):
     c = np.convolve(closure, np.ones(5) / 5, mode="same"); top = np.percentile(c, 95); bot = np.percentile(c, 5)

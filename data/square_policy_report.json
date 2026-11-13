@@ -1,0 +1,215 @@
+{
+  "device": "cuda",
+  "skipped": [],
+  "folds": [
+    {
+      "test_take": "47",
+      "hand": "right",
+      "n_train": 2794,
+      "n_test": 394,
+      "pos_mae_cm": 1.147750973701477,
+      "grip_mae": 0.08362026512622833,
+      "base_vel_pos_mae_cm": 1.5964356660842896,
+      "base_grip_mae": 0.05800658091902733,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 318.83570036282947
+      }
+    },
+    {
+      "test_take": "48",
+      "hand": "right",
+      "n_train": 2839,
+      "n_test": 349,
+      "pos_mae_cm": 0.761442244052887,
+      "grip_mae": 0.05361740663647652,
+      "base_vel_pos_mae_cm": 1.9464505910873413,
+      "base_grip_mae": 0.06931203603744507,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 747.6610100889553
+      }
+    },
+    {
+      "test_take": "49",
+      "hand": "right",
+      "n_train": 2877,
+      "n_test": 311,
+      "pos_mae_cm": 0.7927120923995972,
+      "grip_mae": 0.07238243520259857,
+      "base_vel_pos_mae_cm": 2.2050108909606934,
+      "base_grip_mae": 0.0758390873670578,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 4933.997454435664
+      }
+    },
+    {
+      "test_take": "50",
+      "hand": "right",
+      "n_train": 2869,
+      "n_test": 319,
+      "pos_mae_cm": 0.7732316255569458,
+      "grip_mae": 0.06103081628680229,
+      "base_vel_pos_mae_cm": 2.241969347000122,
+      "base_grip_mae": 0.07799277454614639,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 8501.710381536423
+      }
+    },
+    {
+      "test_take": "51",
+      "hand": "right",
+      "n_train": 2882,
+      "n_test": 306,
+      "pos_mae_cm": 0.812987208366394,
+      "grip_mae": 0.06341474503278732,
+      "base_vel_pos_mae_cm": 2.1381053924560547,
+      "base_grip_mae": 0.0791085809469223,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 1987.8662685395393
+      }
+    },
+    {
+      "test_take": "52",
+      "hand": "left",
+      "n_train": 2903,
+      "n_test": 285,
+      "pos_mae_cm": 0.78786301612854,
+      "grip_mae": 0.08086336404085159,
+      "base_vel_pos_mae_cm": 2.513751983642578,
+      "base_grip_mae": 0.1258036494255066,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 4228.812837097894
+      }
+    },
+    {
+      "test_take": "53",
+      "hand": "left",
+      "n_train": 2867,
+      "n_test": 321,
+      "pos_mae_cm": 0.8054385185241699,
+      "grip_mae": 0.10516956448554993,
+      "base_vel_pos_mae_cm": 2.2847325801849365,
+      "base_grip_mae": 0.1316322237253189,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 3473.1998548215843
+      }
+    },
+    {
+      "test_take": "54",
+      "hand": "left",
+      "n_train": 2900,
+      "n_test": 288,
+      "pos_mae_cm": 1.2771106958389282,
+      "grip_mae": 0.11165934056043625,
+      "base_vel_pos_mae_cm": 2.464099884033203,
+      "base_grip_mae": 0.12594400346279144,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 1233.0088875473007
+      }
+    },
+    {
+      "test_take": "55",
+      "hand": "left",
+      "n_train": 2877,
+      "n_test": 311,
+      "pos_mae_cm": 0.9341516494750977,
+      "grip_mae": 0.09746909886598587,
+      "base_vel_pos_mae_cm": 2.3792548179626465,
+      "base_grip_mae": 0.12144207954406738,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 2482.806392521339
+      }
+    },
+    {
+      "test_take": "56",
+      "hand": "left",
+      "n_train": 2884,
+      "n_test": 304,
+      "pos_mae_cm": 1.0497339963912964,
+      "grip_mae": 0.10638955980539322,
+      "base_vel_pos_mae_cm": 2.533083200454712,
+      "base_grip_mae": 0.1196678951382637,
+      "rollout": {
+        "legs_reached": [
+          false,
+          false,
+          false,
+          false
+        ],
+        "corners_reached": 0,
+        "final_err_cm": 5245.26579776744
+      }
+    }
+  ],
+  "means": {
+    "n_folds": 10,
+    "pos_mae_cm": 0.9142422020435333,
+    "base_vel_pos_mae_cm": 2.230289435386658,
+    "grip_mae": 0.08356165960431099,
+    "base_grip_mae": 0.0984748911112547,
+    "rollout_corners_reached": 0.0,
+    "rollout_final_err_cm": 3315.316458471897
+  }
+}

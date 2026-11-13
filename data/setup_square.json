@@ -3,8 +3,8 @@
  "task": "Move an empty standard low Coca-Cola can around a square, clockwise, starting bottom-left: BL -> TL -> TR -> BR -> BL (4 pick-and-place legs). Hands rest on the table 2 s before starting and again before pressing stop (last second trimmed).",
  "markers": {
   "count": 4,
-  "square_side_m": 0.297,
-  "side_note": "long side of an A4 sheet = 29.7 cm",
+  "square_side_m": 0.294,
+  "side_note": "measured by the user on the A4 sheet used as ruler: 29.4 cm (not 29.7)",
   "corner_order_clockwise_from_operator": [
    "BL",
    "TL",
