@@ -1,8 +1,8 @@
 """Take recorder with on-screen instructions. One raw RGMP file per take + log data/raw/takes.jsonl.
 Run:  python Rokoko/src/take.py        (driver rokoko-sdk --auto-stream-usb must be running)
 Menu: A B C D E = choose series (shows instructions), Enter = repeat last series, L = list, U = undo (delete) last take, Q = quit.
-Series E = calibration (5 s flat open hand, MARK, 5 s tight fist; both gloves) -> python Rokoko/src/calib.py.
-Series C and E have a MARK: press Enter when the CORRECTION starts (stored as t_mark), because the glove button is not in the RGMP stream.
+Series E = calibration (5 s flat open hand, then 5 s tight fist; both gloves) -> python Rokoko/src/calib.py.
+No markers. Every take has a 2 s lead-in after START (lead_s) and its last second (Invio to stop) is dropped downstream (tail_trim_s); episodes.py applies both.
 """
 import json, os, socket, threading, time
 
@@ -22,13 +22,13 @@ S = {
    "Solleva dolcemente senza schiacciare, riposa, torna a riposo."]),
  "C": ("HandOff: correzione errore (CRITICO)", 10, [
    "Avvicina la mano all'oggetto in modo VOLUTAMENTE SBAGLIATO (traiettoria storta o mano mezza chiusa).",
-   "Resta un attimo nell'errore, poi di' 'ORA': chi sta al PC preme Invio = MARK (inizio della correzione).",
-   "Dopo il MARK correggi la traiettoria, afferra bene e solleva.",
-   "Riposa e torna a riposo. Poi Invio per STOP."]),
+   "Resta 2-3 secondi nell'errore (senza segnali).",
+   "Poi correggi la traiettoria, afferra bene e solleva.",
+   "Riposa e torna a riposo. Poi Invio per STOP. (Nessun marker: l'inizio della correzione si ricava dai dati.)"]),
  "E": ("Calibrazione: mano aperta / pugno", 3, [
    "Entrambe le mani con i guanti, davanti a te.",
-   "5 secondi: mano APERTA, piatta, dita tese e ferme. Poi Invio = MARK.",
-   "5 secondi: PUGNO stretto, tutte le dita chiuse e ferme. Poi Invio = STOP."]),
+   "5 secondi: mano APERTA, piatta, dita tese e ferme.",
+   "Poi 5 secondi: PUGNO stretto, tutte le dita chiuse e ferme. Poi Invio = STOP (nessun marker)."]),
  "F": ("Mani a riposo (rumore dei sensori)", 2, [
    "Entrambe le mani con i guanti appoggiate ferme sul tavolo, rilassate, senza muovere le dita.",
    "Resta fermo 10 secondi, poi Invio = STOP. Serve a misurare il rumore dei sensori a riposo."]),
@@ -40,6 +40,8 @@ S = {
    "Fai movimenti a caso: grattarti la testa, mano che trema, dita a caso.",
    "Nessun compito preciso: serve a insegnare cosa scartare."]),
 }
+LEAD = 2.0   # seconds between START (Invio) and the move: you get into position
+TAIL = 1.0   # last second (pressing Invio to stop) is discarded downstream
 def load():
     return [json.loads(l) for l in open(LOG)] if os.path.exists(LOG) else []
 def counts():
@@ -72,7 +74,7 @@ while True:
     show(last)
     pos_id = input("Posizione oggetto (P1-P5 segnata sul tavolo, Invio = salta): ").strip().upper() or None if last in ("A", "B", "C") else None
     n = len(load()) + 1; path = f"{RAW}/take_{n:02d}.rgmp"
-    input("Pronto? Invio = START ")
+    input("Pronto? Invio = START (poi hai 2 secondi per metterti in posizione) ")
     sock = socket.create_connection(("127.0.0.1", 12276)); stop = threading.Event(); cnt = [0]; t0 = time.time()
     def rec():
         with open(path, "wb") as f:
@@ -82,12 +84,12 @@ while True:
                 if not b: break
                 f.write(H.pack(time.time() - t0, len(b)) + b); cnt[0] += 1
     th = threading.Thread(target=rec, daemon=True); th.start()
-    print(f"  >>> REC {path}  -- AZIONE! --")
+    print(f"  >>> REC {path}  - mettiti in posizione: ", end="", flush=True)
+    for k in range(int(LEAD), 0, -1): print(f"{k}... ", end="", flush=True); time.sleep(1)
+    print("VIA! (fai il movimento, poi Invio = STOP)")
     tm = None
-    if last in ("C", "E"):
-        input("  Invio = MARK (C: inizia la CORREZIONE; E: inizia il PUGNO) "); tm = time.time(); print("  mark salvato")
     input("  Invio = STOP ")
     stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
-    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "pos_id": pos_id, "chunks": cnt[0], "bytes": os.path.getsize(path)}
+    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "pos_id": pos_id, "chunks": cnt[0], "bytes": os.path.getsize(path)}
     open(LOG, "a").write(json.dumps(rec_) + "\n")
     print(f"  salvata take {n:02d}: {t1-t0:.1f}s, {rec_['bytes']//1024} KB")

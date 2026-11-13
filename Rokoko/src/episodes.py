@@ -26,7 +26,7 @@ for t in takes:
         rows = r.get(h)
         if not rows or len(rows) < 20: continue
         ts = np.array([x[0] for x in rows]); ts = ts - ts[0]
-        if tt is None: tt = np.arange(0, ts[-1], 1 / hz)
+        if tt is None: tt = np.arange(float(t.get('lead_s', 0)), ts[-1] - float(t.get('tail_trim_s', 0)), 1 / hz)   # drop lead-in and the last second (Invio to stop)
         lo, hi = rng[h]; a = np.array([x[1] for x in rows])
         f01 = calib.to01(a, cal[h]) if h in cal else np.clip((a - lo) / (hi - lo + 1e-6), 0, 1)
         out[h + "_polarity"] = np.array(cal[h]["sign"] if h in cal else [0] * 5, dtype=np.int8)   # +1 bigger angle=closed, -1 inverted, 0 unknown (no calib)
@@ -39,7 +39,7 @@ for t in takes:
     if tt is None: continue
     ah = max(act, key=act.get)
     tm = (t["t_mark"] - t["t_start"]) if t.get("t_mark") else None
-    np.savez_compressed(f"data/episodes/take_{t['take']:02d}.npz", t=tt.astype(np.float32), series=t["series"], active_hand=ah, t_mark=-1.0 if tm is None else tm,
+    np.savez_compressed(f"data/episodes/take_{t['take']:02d}.npz", t=(tt - float(t.get('lead_s', 0))).astype(np.float32), series=t["series"], active_hand=ah, t_mark=-1.0 if tm is None else tm,
              success=-1 if t.get("success") is None else int(t["success"]), obj_pos=np.array(t.get("obj_pos") or [np.nan] * 3, dtype=np.float32), calibrated=bool(cal), **out)
     index.append({"take": t["take"], "series": t["series"], "active_hand": ah, "dur_s": round(float(tt[-1]), 1), "t_mark": tm, "samples": len(tt), "success": t.get("success"), "obj_pos": t.get("obj_pos")})
 json.dump(index, open("data/episodes/index.json", "w"), indent=1)
