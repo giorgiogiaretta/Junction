@@ -106,7 +106,24 @@ class ArmsGlove:
         os.makedirs(os.path.join(ROOT, "data", "live"), exist_ok=True)
         self.log = open(os.path.join(ROOT, "data", "live", "arms_glove.jsonl"), "a")
         self.viz = Viz() if viz else None
+        self.tap = os.path.join(ROOT, "data", "live", "head_latest.jpg"); self.t_tap = 0.0; self.cam_seen = False; self.tap_busy = False
         self.reset()
+
+    def _save_head(self, obs):
+        """Head camera FEEDBACK only (not used for control): every 0.3 s write data/live/head_latest.jpg for the console."""
+        rgb = obs.get("head_rgb"); now = time.time()
+        if rgb is None or now - self.t_tap < 0.3 or self.tap_busy: return
+        rgb = np.asarray(rgb)
+        if not rgb.any(): return                      # blank = no camera (PC2 192.168.123.164 off)
+        self.t_tap = now; self.tap_busy = True
+        if not self.cam_seen: self.cam_seen = True; self.log.write(json.dumps({"event": "CAMERA", "shape": list(rgb.shape)}) + "\n")
+        def w(img):
+            try:
+                import cv2
+                tmp = self.tap + ".tmp.jpg"; cv2.imwrite(tmp, cv2.cvtColor(img, cv2.COLOR_RGB2BGR)); os.replace(tmp, self.tap)
+            except Exception: pass
+            finally: self.tap_busy = False
+        threading.Thread(target=w, args=(rgb.copy(),), daemon=True).start()
 
     def metadata(self):
         return {"name": "g1-arms-glove-v2", "action_horizon": CHUNK}
@@ -143,6 +160,7 @@ class ArmsGlove:
     def act(self, obs):
         from robot.g1_dex3 import G1Dex3Retargeter
         arm = np.asarray(obs["arm_q"], float); hand = np.asarray(obs["hand_q"], float)
+        self._save_head(obs)
         if self.cmd is None:
             self.cmd = np.clip(arm, ALO, AHI); self.rest = self.cmd.copy(); self.down, self.up = build(self.rest)
             self.log.write(json.dumps({"event": "START", "v_max": V_MAX, "a_max": A_MAX, "rest": self.rest.round(4).tolist(),
@@ -176,7 +194,8 @@ class ArmsGlove:
             self.cmd = self._safe(self._profile(tgt))
             arms.append(self.cmd.copy()); hands.append(np.asarray(self.r.step(left=fingers["left"], right=fingers["right"]), float))
         self.log.write(json.dumps({"t": round(now - self.t0, 2), "state": dict(self.state), "viol": round(WS.violation(self.cmd), 4),
-                                   "vmax": round(float(np.abs(self.vel).max()), 3), "fingers": {k: round(v[0], 3) for k, v in fingers.items()}}) + "\n")
+                                   "vmax": round(float(np.abs(self.vel).max()), 3), "fingers": {k: round(v[0], 3) for k, v in fingers.items()},
+                                   "arm_q_target": np.round(arms[-1], 4).tolist(), "hand_q_target": np.round(hands[-1], 4).tolist()}) + "\n")
         self.log.flush()
         if self.viz is not None: self.viz.push(arms[-1], hands[-1], f"L {self.state['left']}   R {self.state['right']}")
         return {"arm_q_target": np.array(arms), "hand_q_target": np.array(hands)}
@@ -184,6 +203,7 @@ class ArmsGlove:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--source", default="udp:14043"); ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--host", default="127.0.0.1"); ap.add_argument("--viz", action="store_true"); a = ap.parse_args()
+    ap.add_argument("--host", default="127.0.0.1"); ap.add_argument("--viz", action="store_true")
+    a, _ignored = ap.parse_known_args()          # the console also passes --right/--left/--right-xy...: not used here
     from aaltonomous.deploy.policy_server import Policy, serve
     serve(type("ArmsGloveServed", (ArmsGlove, Policy), {})(a.source, viz=a.viz), port=a.port, host=a.host)
