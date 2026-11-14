@@ -62,6 +62,22 @@ def apply_robust_caps():
 
 
 apply_robust_caps()
+
+# --- Ball at FULL force (1.0), only when we are sure it is a ball -----------------------------------------------------------
+FULL_FORCE = {"stress_ball": 1.0}      # closure allowed for a CONFIRMED ball (nothing breaks in the sim; the glove operator squeezes as hard as they want)
+FULL_FORCE_MIN_CONF = 0.9
+FULL_FORCE_MIN_AGREE = 2               # independent recognisers (e.g. Gemini + Gemma/Nemotron/CLIP probe/orange-colour check) that must say stress_ball
+
+
+def cap_for(label, confidence=None, agree=1, manual=False):
+    """Closure cap to use now. A 'stress_ball' gets FULL force only if confidence >= 0.9 AND >= 2 recognisers agree (or the operator set it by hand
+    with manual=True, e.g. `--set stress_ball`); otherwise the shared egg/ball cap (0.70). Egg and unknown objects NEVER get full force: an egg called a
+    ball with full force breaks (109 N peak in the sim), so a single confident-but-wrong model must not unlock 1.0."""
+    key = normalize(label); b = behaviour(label)
+    if key in FULL_FORCE and b.get("supported", True):
+        sure = isinstance(confidence, (int, float)) and confidence >= FULL_FORCE_MIN_CONF and agree >= FULL_FORCE_MIN_AGREE
+        if manual or sure: return FULL_FORCE[key]
+    return b["max_closure"]
 SYNONYMS = {
     "egg": ("egg", "hen egg", "raw egg", "eggshell", "ovo"),
     "stress_ball": ("stress ball", "stress_ball", "squeeze ball", "foam ball", "ball", "sphere", "pallina"),
