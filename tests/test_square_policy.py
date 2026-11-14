@@ -62,3 +62,17 @@ def test_pick_place_schedule_grips_only_at_grasp_height():
     assert len(on) == 4 and len(off) == 4
     assert np.all(p[on, 2] <= 0.01) and np.all(p[off, 2] <= 0.01)
     assert np.allclose(p[off, :2], G, atol=0.02)
+
+
+def test_pick_place_schedule_home_snaps_only_near_misses():
+    # --home: a leg ending within home_m of its pad is carried onto it before release; a farther miss is left alone
+    G = np.array([[0.0, 0.15], [0.15, 0.15]])
+    xyz = np.array([[0, -0.15, 0], [0, 0.10, 0], [0, 0.10, 0], [0.15, 0.0, 0]])   # leg 0 ends 5 cm short, leg 1 15 cm short
+    leg = np.array([0, 0, 1, 1])
+    p, g = SP.pick_place_schedule(xyz, leg, goals=G, home_m=0.08)
+    off = np.where((g[:-1] >= 0.5) & (g[1:] < 0.5))[0] + 1
+    assert len(off) == 2 and np.allclose(p[off[0], :2], G[0], atol=1e-6)
+    assert np.allclose(p[off[1], :2], [0.15, 0.0], atol=1e-6) and np.all(p[off, 2] <= 0.01)
+    p0, g0 = SP.pick_place_schedule(xyz, leg, goals=G)
+    off0 = np.where((g0[:-1] >= 0.5) & (g0[1:] < 0.5))[0] + 1
+    assert np.allclose(p0[off0[0], :2], [0, 0.10], atol=1e-6)
