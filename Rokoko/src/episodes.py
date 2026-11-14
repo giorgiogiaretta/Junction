@@ -14,7 +14,7 @@ hz = float(sys.argv[sys.argv.index("--hz") + 1]) if "--hz" in sys.argv else 30.0
 d = next((x for x in sys.argv[1:] if not x.startswith("--") and not x.replace(".", "").isdigit()), "data/raw")
 takes = [json.loads(l) for l in open(f"{d}/takes.jsonl")]
 raw = {t["take"]: parse(t["file"]) for t in takes}
-allang = {"left": [], "right": []}
+allang = {"left": [], "right": [], "head": []}
 for r in raw.values():
     for h, rows in r.items():
         if h in allang: allang[h] += [x[1] for x in rows]
@@ -22,7 +22,7 @@ rng = {h: (np.percentile(np.array(a), 5, axis=0), np.percentile(np.array(a), 95,
 os.makedirs("data/episodes", exist_ok=True); index = []
 for t in takes:
     r = raw[t["take"]]; tt = None; out = {}; act = {}
-    for h in ("left", "right"):
+    for h in ("left", "right", "head"):
         rows = r.get(h)
         if not rows or len(rows) < 20: continue
         ts = np.array([x[0] for x in rows]); ts = ts - ts[0]
@@ -35,15 +35,37 @@ for t in takes:
         out[f"{h}_fingers01"] = np.stack([np.interp(tt, ts, f01[:, k]) for k in range(5)], 1).astype(np.float32)
         out[f"{h}_wrist_pos"] = np.stack([np.interp(tt, ts, pos[:, k]) for k in range(3)], 1).astype(np.float32)
         out[f"{h}_coil_ok"] = np.interp(tt, ts, coil).astype(np.float32)
+        q = np.array([x[4] if len(x) > 4 and x[4] else [np.nan] * 4 for x in rows], dtype=float)          # xyzw, Coil frame
+        prev = None
+        for i in range(len(q)):                                                                              # sign continuity (q ~ -q) before interpolation
+            if np.isnan(q[i]).any(): continue
+            if prev is not None and np.dot(q[i], prev) < 0: q[i] = -q[i]
+            prev = q[i]
+        qi = np.stack([np.interp(tt, ts, q[:, k]) for k in range(4)], 1); qi /= np.linalg.norm(qi, axis=1, keepdims=True) + 1e-12
+        out[f"{h}_wrist_quat"] = qi[:, [3, 0, 1, 2]].astype(np.float32)                                    # stored wxyz
         fl = a[:, 1:].mean(1); act[h] = float(np.percentile(fl, 95) - np.percentile(fl, 5))   # raw flexion span (index..little), same metric as analyze_takes
     if tt is None: continue
-    ah = max(act, key=act.get)
+    hg = t.get("head_glove")                      # series O/P/K/S: one glove on the hand, the OTHER on the head (GoPro) -> rename it to head_*
+    if hg in ("left", "right") and f"{hg}_fingers01" in out:
+        out = {(("head" + k[len(hg):]) if k.startswith(hg + "_") else k): v for k, v in out.items()}; act.pop(hg, None)
+    if "head_wrist_pos" in out and "right_wrist_pos" in out or "head_wrist_pos" in out and "left_wrist_pos" in out:
+        hand_k = "right" if hg == "left" else "left"
+        if f"{hand_k}_wrist_pos" in out:                           # hand pose in the HEAD sensor frame: p = R_head^T (p_hand - p_head), q = q_head^-1 * q_hand (wxyz)
+            ph, qh, pw, qw = (out[k].astype(float) for k in ("head_wrist_pos", "head_wrist_quat", f"{hand_k}_wrist_pos", f"{hand_k}_wrist_quat"))
+            def qmat(q):
+                w, x, y, z = q.T
+                return np.stack([np.stack([1-2*(y*y+z*z), 2*(x*y-w*z), 2*(x*z+w*y)], -1), np.stack([2*(x*y+w*z), 1-2*(x*x+z*z), 2*(y*z-w*x)], -1),
+                                 np.stack([2*(x*z-w*y), 2*(y*z+w*x), 1-2*(x*x+y*y)], -1)], 1)
+            Rh = qmat(qh); out["hand_in_head_pos"] = np.einsum("nji,nj->ni", Rh, pw - ph).astype(np.float32)
+            w1, x1, y1, z1 = qh.T; w2, x2, y2, z2 = qw.T; x1, y1, z1 = -x1, -y1, -z1
+            out["hand_in_head_quat"] = np.stack([w1*w2-x1*x2-y1*y2-z1*z2, w1*x2+x1*w2+y1*z2-z1*y2, w1*y2-x1*z2+y1*w2+z1*x2, w1*z2+x1*y2-y1*x2+z1*w2], 1).astype(np.float32)
+    ah = max((h for h in act if h != "head"), key=act.get, default="right")   # the head glove (camera mount) is never the active hand
     hu = t.get('hand_used')                       # H/I/J: the operator states the hand; finger motion cannot tell (flat hand in J)
     if hu in ('R', 'L') and ('right' if hu == 'R' else 'left') in act: ah = 'right' if hu == 'R' else 'left'
     tm = (t["t_mark"] - t["t_start"]) if t.get("t_mark") else None
     np.savez_compressed(f"data/episodes/take_{t['take']:02d}.npz", t=(tt - float(t.get('lead_s', 0))).astype(np.float32), series=t["series"], active_hand=ah, t_mark=-1.0 if tm is None else tm,
-             success=-1 if t.get("success") is None else int(t["success"]), obj_pos=np.array(t.get("obj_pos") or [np.nan] * 3, dtype=np.float32), calibrated=bool(cal), **out)
-    index.append({"take": t["take"], "series": t["series"], "active_hand": ah, "dur_s": round(float(tt[-1]), 1), "t_mark": tm, "samples": len(tt), "success": t.get("success"), "obj_pos": t.get("obj_pos")})
+             success=-1 if t.get("success") is None else int(t["success"]), object=str(t.get("object") or ""), outcome=str(t.get("outcome") or ""), operator=str(t.get("operator") or ""), obj_pos=np.array(t.get("obj_pos") or [np.nan] * 3, dtype=np.float32), calibrated=bool(cal), **out)
+    index.append({"take": t["take"], "series": t["series"], "active_hand": ah, "dur_s": round(float(tt[-1]), 1), "t_mark": tm, "samples": len(tt), "success": t.get("success"), "obj_pos": t.get("obj_pos"), "object": t.get("object"), "outcome": t.get("outcome"), "operator": t.get("operator"), "video": t.get("video")})
 json.dump(index, open("data/episodes/index.json", "w"), indent=1)
 from collections import Counter
 print("episodes:", len(index), dict(Counter(i["series"] for i in index)), "| active hand:", dict(Counter(i["active_hand"] for i in index)))

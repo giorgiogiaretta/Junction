@@ -49,12 +49,14 @@ def main():
     curves = {h: [hist_p.plot(pen=pg.mkPen(pg.intColor(i, 5), style=QtCore.Qt.PenStyle.SolidLine if h == "right" else QtCore.Qt.PenStyle.DashLine),
                               name="%s %s" % (h[0].upper(), n)) for i, n in enumerate(NAMES)] for h in ("left", "right")}
     hist_p.setYRange(0, 1); hist_p.addLegend()
-    force_p = win.addPlot(row=3, col=0, title="Object contact force (N) - egg breaks above the red line")
+    force_title = "Simulated contact force (N)"
+    force_p = win.addPlot(row=3, col=0, title=force_title)
     force_p.setYRange(0, a.break_force * 2); force_p.setXRange(-0.5, 1.5); force_p.hideAxis("bottom")
     force_bar = pg.BarGraphItem(x=[0], height=[0], width=0.6, brush="g"); force_p.addItem(force_bar)
     peak_bar = pg.BarGraphItem(x=[1], height=[0], width=0.6, brush="y"); force_p.addItem(peak_bar)
     force_p.addItem(pg.InfiniteLine(pos=a.break_force, angle=0, pen=pg.mkPen("r", width=2)))
     status = win.addLabel("HANDOFF: -", row=3, col=1, size="22pt")
+    profile = win.addLabel(row=4, col=0, colspan=2, size="16pt")
     def _key(e):  # RGMP exposes no Smartgloves II button: press H (or Space) to toggle the HandOff state by hand
         if e.key() in (QtCore.Qt.Key.Key_H, QtCore.Qt.Key.Key_Space): st["manual"] = not st["manual"]
     win.keyPressEvent = _key
@@ -106,9 +108,14 @@ def main():
         if sim:
             force_bar.setOpts(height=[sim["force"]], brush="r" if sim.get("broken") else "g")
             peak_bar.setOpts(height=[sim["peak_force"]])
-            force_p.setTitle("%s contact force (N): %s | cushion profile: %s (cap %.2f)" % (sim.get("obj", "object"), "BROKEN" if sim.get("broken") else "intact", sim.get("profile", "-"), sim.get("cap", 1.0)))
+            force_p.setTitle("%s · %s: %s" % (force_title, sim.get("obj", "object"), "BROKEN" if sim.get("broken") else "intact"))
         else:
             force_bar.setOpts(height=[0]); peak_bar.setOpts(height=[0])
+            force_p.setTitle(force_title)
+        if sim and "profile" in sim and "cap" in sim:
+            profile.setText("Simulation · Force Cushion: %s · Closure cap: %.0f%%" % (sim["profile"], sim["cap"] * 100))
+        else:
+            profile.setText("Simulation · Waiting for Force Cushion telemetry")
         status.setText("HANDOFF: %s" % ("HUMAN in control" if (st["button"] or st["manual"]) else "robot / auto (H = take over)"))
 
     t = QtCore.QTimer(); t.timeout.connect(tick); t.start(16)
