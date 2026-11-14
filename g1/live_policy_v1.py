@@ -1,7 +1,7 @@
 """V1 live senza Coil: la camera della testa trova gli oggetti, i guanti comandano la presa (logica = g1/sim/live_sim.py).
 Per ogni mano: HOVER 10 cm sopra l'oggetto piu' vicino dal suo lato -> l'operatore chiude il guanto -> DESCEND -> GRASP (cap per oggetto:
 uovo 0.70, lattina vuota 1.0, sconosciuto 0.68) -> LIFT 12 cm -> l'operatore apre -> RELEASE.
-Percezione (g1/perception_v1.py, una volta al primo frame valido, in un thread; il robot resta fermo finche' non finisce):
+Percezione (g1/perception_v1.py: ai.perceive di Tommaso + voto geometrico, una volta al primo frame valido, in un thread; il robot resta fermo):
   oggetti = profondita' sopra il piano del tavolo (meno il robot stesso), etichetta = voto geometria+colore (+ VLM ai.recognize se --vlm),
   posizione = ai.locate. Le etichette CLI (--right/--left) sono OVERRIDE opzionali; --right-xy/--left-xy sono fallback e controllo:
   se la camera e la CLI differiscono piu' di --xy-gate si usa la CLI (loggato).
@@ -100,17 +100,17 @@ class Camera:
 class LivePolicy(Policy):
     name = "live-g1-vision-glove-v1"; action_horizon = CHUNK
 
-    def __init__(self, source, right=None, left=None, right_xy=None, left_xy=None, vlm=(), dry=False, xy_gate=0.08, test_frames=None):
+    def __init__(self, source, right=None, left=None, right_xy=None, left_xy=None, vlm=(), dry=False, xy_gate=0.08, test_frames=None, engine="ai"):
         self.source = GloveInput(source); self.source.start()
         self.override = {"right": right, "left": left}; self.xy = {"right": right_xy, "left": left_xy}
-        self.vlm = list(vlm); self.dry = dry; self.xy_gate = xy_gate; self.cam = Camera(test_frames)
+        self.engine = engine; self.vlm = list(vlm); self.dry = dry; self.xy_gate = xy_gate; self.cam = Camera(test_frames)
         # ONE persistent worker: the MuJoCo renderer of the self-mask is bound to the GL context of the thread that created it
         # (a new thread per episode rendered garbage after the runner's reset -> objects merged with the hands)
         import concurrent.futures as cf
         self.worker = cf.ThreadPoolExecutor(max_workers=1, thread_name_prefix="perception")
         self.rt = G1Dex3Retargeter(); self.rt.max_step *= .7
         os.makedirs(LIVE, exist_ok=True); self.log = open(os.path.join(LIVE, "live_policy_v1.jsonl"), "a")
-        self._write({"event": "START", "dry": dry, "vlm": self.vlm, "override": self.override, "cli_xy": self.xy, "test_frames": test_frames})
+        self._write({"event": "START", "engine": engine, "dry": dry, "vlm": self.vlm, "override": self.override, "cli_xy": self.xy, "test_frames": test_frames})
         self.reset(None)
 
     def reset(self, instruction, task=None, seed=None):
@@ -126,7 +126,8 @@ class LivePolicy(Policy):
     def _perceive(self, rgb, depth, arm_q, hand_q, ep):
         try:
             sm = PV.robot_mask(arm_q, hand_q, self.cam.K, self.cam.T, shape=np.asarray(depth).shape)(depth)
-            res = PV.perceive(rgb, depth, self.cam.p2p, vlm=self.vlm, self_mask=sm)
+            fn = PV.perceive_with_ai if self.engine == "ai" else PV.perceive
+            res = fn(rgb, depth, self.cam.p2p, vlm=self.vlm, self_mask=sm)
         except Exception as e:
             res = {"objects": [], "error": f"{type(e).__name__}: {e}"}
         with self.lock:
@@ -158,8 +159,8 @@ class LivePolicy(Policy):
             if time.time() - self.t_perc < PERCEPTION_TIMEOUT: return False
             self.perc = {"objects": [], "error": f"perception timeout {PERCEPTION_TIMEOUT} s"}
         p = self.perc
-        self._write({"event": "PERCEPTION", "frame": self.frame_src, "table_z": p.get("table_z"), "error": p.get("error"), "t_s": p.get("t_s"),
-                     "objects": [{k: o[k] for k in ("label", "cap", "p_pelvis", "depth_ok", "height", "why", "votes")} for o in p["objects"]]})
+        self._write({"event": "PERCEPTION", "engine": p.get("engine", self.engine), "ai_error": p.get("ai_error"), "frame": self.frame_src, "table_z": p.get("table_z"), "error": p.get("error"), "t_s": p.get("t_s"),
+                     "objects": [{k: o.get(k) for k in ("label", "cap", "ai_label", "ai_cap", "p_pelvis", "depth_ok", "height", "why", "votes")} for o in p["objects"]]})
         asg = PV.assign(p["objects"]); arm = np.asarray(obs["arm_q"], float)
         if p.get("table_z") is not None: self.table_z = float(p["table_z"])   # measured table plane (pelvis z); else the sim counter
         for side in SIDES:
@@ -315,8 +316,9 @@ if __name__ == "__main__":
     ap.add_argument("--right-xy",type=xy,help="x,y pelvis (m): fallback senza camera e controllo della camera");ap.add_argument("--left-xy",type=xy)
     ap.add_argument("--xy-gate",type=float,default=0.08,help="m: camera e CLI piu' lontane di cosi' -> usa la CLI")
     ap.add_argument("--vlm",default="none",help="none | auto (backend con chiave nell'ambiente) | lista es. nemotron,gemma")
+    ap.add_argument("--perception",default="ai",choices=["ai","g1"],help="ai = ai.perceive (Tommaso) + voto geometrico; g1 = solo g1/perception_v1")
     ap.add_argument("--dry",action="store_true",help="solo log: braccia e mani restano ferme nella posa iniziale")
     ap.add_argument("--test-frames",default=None,help="SOLO TEST: npz con rgb/depth/K/T usato quando la camera manda frame vuoti (mock)")
     ap.add_argument("--port",type=int,default=8000); ap.add_argument("--host",default="127.0.0.1"); a=ap.parse_args()
     vlm = [] if a.vlm == "none" else (PV.available_vlm() if a.vlm == "auto" else [b for b in a.vlm.split(",") if b])
-    serve(LivePolicy(a.source,a.right,a.left,a.right_xy,a.left_xy,vlm=vlm,dry=a.dry,xy_gate=a.xy_gate,test_frames=a.test_frames),port=a.port,host=a.host)
+    serve(LivePolicy(a.source,a.right,a.left,a.right_xy,a.left_xy,vlm=vlm,dry=a.dry,xy_gate=a.xy_gate,test_frames=a.test_frames,engine=a.perception),port=a.port,host=a.host)

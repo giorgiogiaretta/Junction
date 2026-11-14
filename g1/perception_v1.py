@@ -216,3 +216,47 @@ def assign(objects, sides=("right", "left")):
         cand.sort(key=lambda o: (not o["depth_ok"], np.hypot(o["p_pelvis"][0] - SHOULDER[s][0], o["p_pelvis"][1] - SHOULDER[s][1])))
         out[s] = cand[0] if cand else None
     return out
+
+
+MATCH_M = 0.05
+
+
+def perceive_with_ai(head_rgb, head_depth, pixel_to_pelvis, vlm=(), vlm_timeout=12.0, self_mask=None):
+    """Tommaso's ai.perceive (PR #149: VLM ensemble on crops + colour veto + locate gates) as the PRIMARY engine, run on the depth with the
+    robot's own pixels set invalid (0), plus this module's geometry vote as one more recogniser (ai.perceive has no height rule, so without
+    a working VLM a can is always 'unknown'). Objects are matched by xy (< 5 cm); label = fragile-first decide() over [geometry, ai.perceive];
+    position = ai.perceive's when usable, else this module's; caps = V1 caps (CAP), ai.perceive's own cap is logged as ai_cap."""
+    t0 = time.time(); rgb = np.asarray(head_rgb); depth = np.asarray(head_depth)
+    mine = perceive(rgb, depth, pixel_to_pelvis, vlm=(), self_mask=self_mask)
+    if mine.get("table_z") is None: return mine
+    dm = depth.copy()
+    if self_mask is not None: dm[np.asarray(self_mask, bool)] = 0
+    info = {}
+    try:
+        from ai.perceive import perceive as ai_perceive, _default_recognizer
+        ai_objs = ai_perceive(rgb, dm, pixel_to_pelvis, table_z=mine["table_z"],
+                              recognizer=_default_recognizer(backends=tuple(vlm) + ("color",), timeout=vlm_timeout), timeout=vlm_timeout, debug=info)
+    except Exception as e:
+        mine["ai_error"] = f"{type(e).__name__}: {e}"; mine["engine"] = "g1 (ai.perceive failed)"; return mine
+    ai_objs = [o for o in ai_objs if o.get("p_pelvis") is not None]; used = set(); out = []
+    for o in mine["objects"]:
+        geo = o["votes"][0]
+        near = [(np.hypot(*(np.array(a["p_pelvis"][:2]) - o["p_pelvis"][:2])), i) for i, a in enumerate(ai_objs) if i not in used]
+        near = [x for x in near if x[0] < MATCH_M]
+        a = ai_objs[min(near)[1]] if near else None
+        votes = [geo]
+        if a is not None:
+            used.add(ai_objs.index(a))
+            votes.append({"name": "ai.perceive", "object": a["label"], "confidence": a.get("conf"), "ok": a["label"] != "unknown",
+                          "why": a.get("why", "")[:200], "sub_votes": a.get("votes")})
+        label, conf, agree, why = decide(votes, geo)
+        p = a["p_pelvis"] if a is not None and a.get("usable") else o["p_pelvis"]
+        ok = o["depth_ok"] and (a is None or a.get("depth_ok", True))
+        out.append(dict(o, label=label, conf=conf, agree=agree, cap=cap_for(label, conf, agree, geo), p_pelvis=[round(float(x), 4) for x in p],
+                        depth_ok=bool(ok), why=why, votes=votes, ai_cap=None if a is None else a.get("cap"), ai_label=None if a is None else a["label"]))
+    for i, a in enumerate(ai_objs):          # seen only by ai.perceive (e.g. a flat object under 12 mm in this module's mask)
+        if i in used: continue
+        lab = a["label"]; out.append({"label": lab, "conf": a.get("conf"), "agree": a.get("agree", 0), "cap": CAP.get(lab, CAP["unknown"]) if lab != "can_empty" else CAP["unknown"],
+                                      "p_pelvis": a["p_pelvis"], "depth_ok": bool(a.get("usable")), "height": None, "bbox": a.get("bbox"), "why": "ai.perceive only: " + a.get("why", "")[:200],
+                                      "votes": [{"name": "ai.perceive", "object": lab, "confidence": a.get("conf"), "ok": lab != "unknown"}], "ai_cap": a.get("cap"), "ai_label": lab})
+    return {"table_z": mine["table_z"], "objects": out, "t_s": round(time.time() - t0, 2), "engine": "ai.perceive+geometry", "ai_info": {k: info.get(k) for k in ("n_blobs", "proj_residual_m")}}
