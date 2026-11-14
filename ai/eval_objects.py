@@ -28,7 +28,7 @@ def recognize(client, image_bytes, mime="image/jpeg", fast=True):
     try:
         extra = {"chat_template_kwargs": {"enable_thinking": False}} if (fast and "datacrunch" in client.url) else None
         msg = client.chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}], max_tokens=1500 if not extra else 200, extra=extra)
-        txt = (msg.get("content") or ""); r = json.loads(txt[txt.index("{"): txt.rindex("}") + 1])
+        txt = (msg.get("content") or ""); r, _ = json.JSONDecoder().raw_decode(txt[txt.index("{"):])   # first JSON object, ignore trailing text
         return {"object": normalize(r.get("object")), "confidence": r.get("confidence"), "latency_s": client.last_http_s if client.last_http_s is not None else time.time() - t, "ok": True}
     except (LLMError, ValueError, KeyError) as e:
         return {"object": "other", "confidence": None, "latency_s": time.time() - t, "ok": False, "error": str(e)}

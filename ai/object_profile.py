@@ -69,7 +69,7 @@ FULL_FORCE_MIN_CONF = 0.9
 FULL_FORCE_MIN_AGREE = 2               # independent recognisers (e.g. Gemini + Gemma/Nemotron/CLIP probe/orange-colour check) that must say stress_ball
 
 
-def cap_for(label, confidence=None, agree=1, manual=False):
+def cap_for_votes(label, confidence=None, agree=1, manual=False):
     """Closure cap to use now. A 'stress_ball' gets FULL force only if confidence >= 0.9 AND >= 2 recognisers agree (or the operator set it by hand
     with manual=True, e.g. `--set stress_ball`); otherwise the shared egg/ball cap (0.70). Egg and unknown objects NEVER get full force: an egg called a
     ball with full force breaks (109 N peak in the sim), so a single confident-but-wrong model must not unlock 1.0."""
