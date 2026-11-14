@@ -1,0 +1,173 @@
+{
+ "egg": {
+  "object": "egg",
+  "candidates": 24,
+  "trials": 648,
+  "held": 12,
+  "best": {
+   "posture": [
+    -0.3,
+    1.2,
+    -1.57,
+    0.0,
+    -0.5
+   ],
+   "aim": [
+    0.0,
+    -0.015,
+    -0.02
+   ],
+   "lift_cm": 13.1,
+   "peak_N": 15.3,
+   "reason": "",
+   "robust": 0.33,
+   "neighbours": [
+    {
+     "lift_cm": 12.9,
+     "peak_N": 14.8,
+     "reason": ""
+    },
+    {
+     "lift_cm": 12.5,
+     "peak_N": 18.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": 13.1,
+     "peak_N": 27.0,
+     "reason": ""
+    },
+    {
+     "lift_cm": -346.7,
+     "peak_N": 14.3,
+     "reason": ""
+    },
+    {
+     "lift_cm": 0.1,
+     "peak_N": 14.3,
+     "reason": ""
+    },
+    {
+     "lift_cm": -229.7,
+     "peak_N": 7.7,
+     "reason": ""
+    }
+   ]
+  },
+  "runtime_s": 110.7
+ },
+ "stress_ball": {
+  "object": "stress_ball",
+  "candidates": 24,
+  "trials": 864,
+  "held": 6,
+  "best": {
+   "posture": [
+    -0.9,
+    0.8,
+    -1.57,
+    0.0,
+    0.5
+   ],
+   "aim": [
+    -0.015,
+    -0.015,
+    -0.02
+   ],
+   "lift_cm": 12.8,
+   "peak_N": 56.2,
+   "reason": "",
+   "robust": 0.5,
+   "neighbours": [
+    {
+     "lift_cm": -3929.7,
+     "peak_N": 42.3,
+     "reason": ""
+    },
+    {
+     "lift_cm": 12.8,
+     "peak_N": 56.2,
+     "reason": ""
+    },
+    {
+     "lift_cm": 12.8,
+     "peak_N": 64.9,
+     "reason": ""
+    },
+    {
+     "lift_cm": -4883.3,
+     "peak_N": 13.6,
+     "reason": ""
+    },
+    {
+     "lift_cm": -1635.0,
+     "peak_N": 30.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": 11.8,
+     "peak_N": 56.2,
+     "reason": ""
+    }
+   ]
+  },
+  "runtime_s": 125.2
+ },
+ "can_empty": {
+  "object": "can_empty",
+  "candidates": 24,
+  "trials": 648,
+  "held": 49,
+  "best": {
+   "posture": [
+    -0.6,
+    1.2,
+    -1.57,
+    0.5,
+    0.0
+   ],
+   "aim": [
+    -0.015,
+    0.0,
+    0.045
+   ],
+   "lift_cm": 15.3,
+   "peak_N": 81.9,
+   "reason": "",
+   "robust": 0.33,
+   "neighbours": [
+    {
+     "lift_cm": -1495.3,
+     "peak_N": 40.5,
+     "reason": ""
+    },
+    {
+     "lift_cm": 15.7,
+     "peak_N": 85.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": -3061.0,
+     "peak_N": 31.3,
+     "reason": ""
+    },
+    {
+     "lift_cm": -4294.1,
+     "peak_N": 27.3,
+     "reason": ""
+    },
+    {
+     "lift_cm": -4.4,
+     "peak_N": 16.4,
+     "reason": ""
+    },
+    {
+     "lift_cm": 14.4,
+     "peak_N": 80.9,
+     "reason": ""
+    }
+   ]
+  },
+  "runtime_s": 109.3
+ }
+}
