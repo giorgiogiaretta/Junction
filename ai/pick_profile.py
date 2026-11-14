@@ -66,6 +66,11 @@ def main(argv=None, client=None, backup_client=None):
                 r2["backup"] = "gemini"; r2["primary_error"] = res.get("error")
                 res = r2
         if crop is not None: res["crop"] = crop
+        if res["source"] == "model":  # G1 support flag from g1/object_profiles.json (e.g. can: not graspable by the G1, vision only)
+            from ai.object_profile import behaviour
+            b = behaviour(res.get("object"))
+            if b.get("supported") is False:
+                res["supported"] = False; res["why"] = b.get("why", "")
     socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(json.dumps({"profile": res["profile"]}).encode(), ("127.0.0.1", a.port))
     print(json.dumps(res))
     return res
