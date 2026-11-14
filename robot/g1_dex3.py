@@ -35,8 +35,11 @@ class G1Dex3Retargeter:
 
     @staticmethod
     def _closed(j):
+        """The bound farthest from 0. Symmetric bounds (thumb_0) are ambiguous: break the tie by side, left closes NEGATIVE,
+        right POSITIVE (limits notes, mirrored on the real robot), never the same sign on both hands (g1/sim/REPORT.md)."""
         lo, hi = j["filter"]
-        return lo if abs(lo) > abs(hi) else hi  # the bound farthest from 0
+        if abs(abs(lo) - abs(hi)) < 1e-6: return lo if j["joint"].startswith("left_") else hi
+        return lo if abs(lo) > abs(hi) else hi
 
     def _target(self, joint_name, c):
         j = self.idx[joint_name]; o, k = self._open(j), self._closed(j)
@@ -50,7 +53,7 @@ class G1Dex3Retargeter:
             for k in (0, 1): t[f"{side}_hand_{finger}_{k}_joint"] = self._target(f"{side}_hand_{finger}_{k}_joint", c)
         # interim thumb (UNVERIFIED): pinch posture driven by index closure
         c = self.pinch * f[1]
-        t[f"{side}_hand_thumb_0_joint"] = self._target(f"{side}_hand_thumb_0_joint", 0.0)
+        t[f"{side}_hand_thumb_0_joint"] = self._target(f"{side}_hand_thumb_0_joint", 0.0)  # PINNED OPEN: never commanded (direction unmeasured)
         t[f"{side}_hand_thumb_1_joint"] = self._target(f"{side}_hand_thumb_1_joint", c)
         t[f"{side}_hand_thumb_2_joint"] = self._target(f"{side}_hand_thumb_2_joint", c)
         return t
