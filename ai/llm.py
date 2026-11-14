@@ -34,7 +34,7 @@ class ChatClient:
         self.url = (base_url or os.environ.get("LLM_BASE_URL") or (VERDA_URL if use_verda else DEFAULT_URL)).rstrip("/")
         self.model = model or os.environ.get("LLM_MODEL") or (VERDA_MODEL if use_verda else DEFAULT_MODEL)
         self.min_gap, self.retries, self.timeout, self.transport, self.sleep = 60.0 / rpm, max_retries, timeout, transport, sleep
-        self._last, self._lock, self.calls = 0.0, threading.Lock(), 0
+        self._last, self._lock, self.calls, self.last_http_s = 0.0, threading.Lock(), 0, None
 
     def chat(self, messages, tools=None, temperature=0.0, max_tokens=2000, extra=None):
         """max_tokens must leave room for the model's reasoning (it counts toward the limit; 300-500 left content/tool calls empty). Returns the first choice message dict ({'content', 'tool_calls'?}). Retries 429/5xx/timeouts with exponential backoff + jitter."""
@@ -49,9 +49,10 @@ class ChatClient:
                 wait = self._last + self.min_gap - time.time()
                 if wait > 0: self.sleep(wait)
                 self._last = time.time()
-            self.calls += 1
+            self.calls += 1; t_http = time.time()
             try:
                 status, body = self.transport(self.url + "/chat/completions", headers, payload, self.timeout)
+                self.last_http_s = time.time() - t_http
             except (TimeoutError, OSError) as e:
                 status, body, last = 599, {}, f"network: {e}"
             if status == 200 and body.get("choices"): return body["choices"][0]["message"]
