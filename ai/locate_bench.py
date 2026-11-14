@@ -28,7 +28,7 @@ def run(n=20, seed=0):
         for nm, v in kin.a.q.items(): d.qpos[jq[nm]] = v
         ob = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "obj"); a = m.jnt_qposadr[m.body_jntadr[ob]]
         og = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "obj_g")
-        errs = {"mask": [], "bbox": [], "colour": []}; zt = kin.base[2] + D.COUNTER_Z
+        errs = {"mask": [], "bbox": [], "colour": []}; refused = {k: 0 for k in errs}; zt = kin.base[2] + D.COUNTER_Z
         for _ in range(n):
             p = kin.base + np.array([rng.uniform(0.25, 0.55), rng.uniform(-0.30, 0.10), D.COUNTER_Z + D.half_h(obj)])
             d.qpos[a:a + 3] = p; d.qpos[a + 3:a + 7] = D.obj_quat(obj); mujoco.mj_forward(m, d)
@@ -40,11 +40,12 @@ def run(n=20, seed=0):
                 if mode != "colour" and mk.sum() < 30: errs[mode].append(np.nan); continue
                 r = locate(rgb, dm, f, table_z=zt, **kw)
                 ok = r["p_pelvis"] is not None and (mode != "colour" or r["object"] == label)
+                if ok and not r["depth_ok"]: refused[mode] += 1; ok = False   # a refusal is safe: counted apart, not as an error
                 errs[mode].append(float(np.linalg.norm((np.array(r["p_pelvis"]) - p)[:2])) if ok else np.nan)
         out[obj] = {}
         for mode, e in errs.items():
             e = np.array(e); ok = np.isfinite(e)
-            out[obj][mode] = {"n": n, "found": int(ok.sum()), "xy_cm_median": round(100 * float(np.median(e[ok])), 2) if ok.any() else None,
+            out[obj][mode] = {"n": n, "found": int(ok.sum()), "refused_depth": refused[mode],"xy_cm_median": round(100 * float(np.median(e[ok])), 2) if ok.any() else None,
                               "xy_cm_max": round(100 * float(np.max(e[ok])), 2) if ok.any() else None,
                               "within_1cm": int((e[ok] <= 0.01).sum())}
         print(obj, json.dumps(out[obj]))
