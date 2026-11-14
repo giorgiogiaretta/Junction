@@ -1,4 +1,4 @@
-"""NEXT version of g1/arms_simple.py (which WORKED on the real G1, 14/11): same behaviour, faster and smoother, optional 3D view.
+﻿"""NEXT version of g1/arms_simple.py (which WORKED on the real G1, 14/11): same behaviour, faster and smoother, optional 3D view.
 
 Per hand: glove OPEN -> arm UP, fingers open. Glove CLOSED -> arm DOWN, fingers close as it arrives (closure follows the glove, capped).
 Glove OPEN again -> fingers open, then the arm goes back UP.
@@ -19,6 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 for p in (os.path.join(AH, "winshim"), AH, ROOT, HERE):
     if p not in sys.path: sys.path.insert(0, p)
 from aaltonomous.interface import safety as AS
+import finger_map as FM
 
 WS = AS.WorkspaceChecker(AS.JointSpec(), AS.SafetyConfig())
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))
@@ -143,7 +144,7 @@ class ArmsGlove:
         return self.cmd + step
 
     def _safe(self, new):
-        allowed = max(WS.violation(self.cmd), 1e-4) - 1e-6
+        allowed = max(WS.violation(self.cmd), 1e-4)   # exactly the runner filter rule
         if WS.violation(new) <= allowed: return new
         lo, hi, st = 0.0, 1.0, new - self.cmd
         for _ in range(12):
@@ -158,7 +159,7 @@ class ArmsGlove:
         return 1.0 - np.abs(self.cmd[sl] - self.down[sl]).max() / max(tot, 1e-6)
 
     def act(self, obs):
-        from robot.g1_dex3 import G1Dex3Retargeter
+        from finger_map import DirectRetargeter as G1Dex3Retargeter
         arm = np.asarray(obs["arm_q"], float); hand = np.asarray(obs["hand_q"], float)
         self._save_head(obs)
         if self.cmd is None:
@@ -189,8 +190,7 @@ class ArmsGlove:
                     elif st == "RELEASE" and now - self.t_state[side] > RELEASE_S: st = "UP"
                     self.state[side] = st
                     tgt[sl] = (self.down if st in ("DOWN", "GRASP", "RELEASE") else self.up)[sl]
-                    c = float(np.clip(g / 0.6, 0, 1)) if st == "GRASP" else 0.0
-                    fingers[side] = [c, c, c, 0.0, 0.0]
+                    fingers[side] = FM.closures(gl, 0.6) if st == "GRASP" else [0.0] * 5     # thumb/index/middle one-to-one
             self.cmd = self._safe(self._profile(tgt))
             arms.append(self.cmd.copy()); hands.append(np.asarray(self.r.step(left=fingers["left"], right=fingers["right"]), float))
         self.log.write(json.dumps({"t": round(now - self.t0, 2), "state": dict(self.state), "viol": round(WS.violation(self.cmd), 4),

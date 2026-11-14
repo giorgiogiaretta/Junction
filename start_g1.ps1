@@ -3,7 +3,12 @@
 #   & C:\Users\giorg\Desktop\Junction\start_g1.ps1 -Safe      (slow version g1/arms_simple.py, tested on the robot 14/11)
 # Opens: Rokoko driver (if not running), operator console (gloves -> UDP 14043, camera, robot view), the policy;
 # then runs the organisers' runner HERE: press Enter at "Place the cubes", Ctrl+C to stop.
-param([switch]$Safe, [int]$Seconds = 300, [string]$Closure = "0.6")
+#   & C:\Users\giorg\Desktop\Junction\start_g1.ps1 -Vision    (camera + Tommaso's vision: the arm goes over the object it sees,
+#                                                              glove closed = descend + grasp; object default stress_ball,
+#                                                              -Right egg / -Left can_empty to change; no camera -> 35 cm / +-15 cm)
+param([switch]$Safe, [switch]$Vision, [int]$Seconds = 300, [string]$Closure = "0.6",
+      [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
+      [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
 $ErrorActionPreference = "Continue"
 
@@ -31,8 +36,9 @@ if (-not (Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '
 }
 
 Write-Host "== 4/5 policy" -ForegroundColor Cyan
-$pol = if ($Safe) { "g1/arms_simple.py" } else { "g1/arms_glove.py" }
-Start-Process powershell -WorkingDirectory $J -ArgumentList "-NoExit", "-Command", "`$env:G1_MAX_CLOSURE='$Closure'; py -3.11 $pol --source udp:14043 --host 0.0.0.0"
+$pol = if ($Safe) { "g1/arms_simple.py" } elseif ($Vision) { "g1/live_policy_v1.py" } else { "g1/arms_glove.py" }
+$extra = if ($Vision) { "--right $Right --left $Left --right-xy 0.35,-0.15 --left-xy 0.35,0.15" } else { "" }
+Start-Process powershell -WorkingDirectory $J -ArgumentList "-NoExit", "-Command", "`$env:G1_MAX_CLOSURE='$Closure'; py -3.11 $pol --source udp:14043 --host 0.0.0.0 $extra"
 $t0 = Get-Date
 while (-not (Test-NetConnection 127.0.0.1 -Port 8000 -InformationLevel Quiet -WarningAction SilentlyContinue)) {
     if (((Get-Date) - $t0).TotalSeconds -gt 90) { Write-Host "la policy non parte: guarda la sua finestra" -ForegroundColor Red; return }
