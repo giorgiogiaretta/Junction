@@ -4,7 +4,7 @@ Menu: A B C D E = choose series (shows instructions), Enter = repeat last series
 Series E = calibration (5 s flat open hand, then 5 s tight fist; both gloves) -> python Rokoko/src/calib.py.
 No markers. Every take has a 2 s lead-in after START (lead_s) and its last second (Invio to stop) is dropped downstream (tail_trim_s); episodes.py applies both.
 """
-import json, os, socket, threading, time
+import json, os, socket, sys, threading, time
 
 H = __import__("struct").Struct("<dI")
 RAW = "data/raw"; LOG = f"{RAW}/takes.jsonl"
@@ -57,6 +57,12 @@ S = {
 }
 LEAD = 2.0   # seconds between START (Invio) and the move: you get into position
 TAIL = 1.0   # last second (pressing Invio to stop) is discarded downstream
+CAMIDX = os.environ.get("CAM")   # optional: CAM=1 -> also record the camera (Rokoko/src/cam.py), same PC clock
+cam = None
+if CAMIDX not in (None, ""):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from cam import CamRecorder
+    cam = CamRecorder(int(CAMIDX)); print(f"camera {CAMIDX} ready: {cam.w}x{cam.h}")
 def load():
     return [json.loads(l) for l in open(LOG)] if os.path.exists(LOG) else []
 def counts():
@@ -82,7 +88,7 @@ while True:
         if not ts: print("  niente da annullare"); continue
         t = ts[-1]
         if input(f"  cancello take {t['take']:02d} (serie {t['series']})? s/N: ").strip().lower() == "s":
-            os.remove(t["file"]); open(LOG, "w").write("".join(json.dumps(x) + "\n" for x in ts[:-1])); print("  cancellata")
+            os.remove(t["file"]); [os.remove(f) for f in (f"data/video/take_{t['take']:02d}.mp4", f"data/video/take_{t['take']:02d}_frames.json") if os.path.exists(f)]; open(LOG, "w").write("".join(json.dumps(x) + "\n" for x in ts[:-1])); print("  cancellata")
         continue
     if c in S: last = c
     elif c != "": print("  scelta non valida"); continue
@@ -92,6 +98,7 @@ while True:
     n = len(load()) + 1; path = f"{RAW}/take_{n:02d}.rgmp"
     input("Pronto? Invio = START (poi hai 2 secondi per metterti in posizione) ")
     sock = socket.create_connection(("127.0.0.1", 12276)); stop = threading.Event(); cnt = [0]; t0 = time.time()
+    if cam: cam.start(n)
     def rec():
         with open(path, "wb") as f:
             while not stop.is_set():
@@ -105,7 +112,8 @@ while True:
     print("VIA! (fai il movimento, poi Invio = STOP)")
     tm = None
     input("  Invio = STOP ")
+    vinfo = cam.stop() if cam else None
     stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
-    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "pos_id": pos_id, "hand_used": hand_used, "object": ("coke_can_empty_standard_low" if last == "H" else None), "chunks": cnt[0], "bytes": os.path.getsize(path)}
+    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "video": (vinfo or {}).get("video"), "pos_id": pos_id, "hand_used": hand_used, "object": ("coke_can_empty_standard_low" if last == "H" else None), "chunks": cnt[0], "bytes": os.path.getsize(path)}
     open(LOG, "a").write(json.dumps(rec_) + "\n")
     print(f"  salvata take {n:02d}: {t1-t0:.1f}s, {rec_['bytes']//1024} KB")
