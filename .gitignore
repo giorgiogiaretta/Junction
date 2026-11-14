@@ -5,3 +5,5 @@ graphify-out/
 data/overnight/
 data/g1sim/
 data/session/
+__pycache__/
+*.pyc
