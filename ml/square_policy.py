@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Series H square pick-and-place: table frame, leg segmentation, small MLP behaviour cloning, leave-one-take-out eval.
 Draft by a delegate model (deepseek), reviewed and fixed by Claude (leg off-by-one, rollout start). Honest scope: 10 takes, one operator.
-  python ml/square_policy.py [--model mlp|knn]      mlp needs torch; knn is numpy only
+  python ml/square_policy.py [--model mlp|knn] [--nested-k]   mlp needs torch; knn is numpy only; --nested-k picks k per
+  outer fold by leave-one-take-out on the 9 training takes only (honest; rollout success is very sensitive to k)
 Fixes (#15): targets are HORIZON-step displacements, so the rollout now applies a/HORIZON per step (it applied the whole
 HORIZON-step move every step and flew off by metres); legs advance only on a slow visit to the EXPECTED next corner
 (any-corner visits mislabelled legs 1-2); time-in-leg input so the corner dwell is not a fixed point.
@@ -29,6 +30,8 @@ IN_DIM = 15  # pos3 + vel3 + grip1 + (goal-pos)3 + onehot4 + tleg1
 OUT_DIM = 4  # dpos3 + grip1
 TLEG_CAP = 3.0  # s: time-in-leg input saturates here
 KNN_COLS = [3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14]  # vel, goal-pos, leg, tleg: no absolute position (10 takes), no grip
+KNN_K = 10
+KNN_KS = (5, 10, 15, 20, 30, 40)  # candidates for --nested-k
 REACH_TOL = 0.08  # m: the demos themselves get only 5.7-7.5 cm from the fitted BR corner, so 5 cm is unreachable there
 
 
@@ -116,7 +119,7 @@ def make_dataset(takes, horizon=HORIZON, vel_lag=VEL_LAG):
     return np.asarray(Xs, np.float32).reshape(-1, IN_DIM), np.asarray(Ys, np.float32).reshape(-1, OUT_DIM)
 
 
-def train_knn(X, Y, k=10, cols=KNN_COLS):
+def train_knn(X, Y, k=KNN_K, cols=KNN_COLS):
     """Numpy k-nearest-neighbour policy on standardised KNN_COLS: mean of the k neighbours' targets."""
     F = X[:, cols].astype(np.float64)
     mu, sd = F.mean(0), F.std(0) + 1e-6
@@ -226,19 +229,32 @@ def load_takes():
     return takes, skipped
 
 
-def train_eval(takes, dev, epochs=EPOCHS, kind="mlp"):
+def select_k(train_takes, ks=KNN_KS):
+    """Nested choice of k using ONLY the training takes (leave-one-take-out inside them): rollout success swings from
+    0/10 to 8/10 all-four across k, so picking k on the test folds would be cherry-picking."""
+    inner = [(j, make_dataset([t for i, t in enumerate(train_takes) if i != j])) for j in range(len(train_takes))]
+    scores = {}
+    for k in ks:
+        rs = [rollout(train_knn(X, Y, k=k), train_takes[j]) for j, (X, Y) in inner]
+        scores[k] = (sum(r["corners_reached"] for r in rs), -sum(sum(r["closest_cm"]) for r in rs))
+    return max(ks, key=lambda k: scores[k]), {int(k): int(v[0]) for k, v in scores.items()}
+
+
+def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False):
     folds = []
     for k, test in enumerate(takes):
-        Xtr, Ytr = make_dataset([t for i, t in enumerate(takes) if i != k])
+        train = [t for i, t in enumerate(takes) if i != k]
+        Xtr, Ytr = make_dataset(train)
         Xte, Yte = make_dataset([test])
-        model = train_knn(Xtr, Ytr) if kind == "knn" else train_mlp(Xtr, Ytr, dev, epochs=epochs)
+        kk, inner = (select_k(train) if nested_k else (KNN_K, None))
+        model = train_knn(Xtr, Ytr, k=kk) if kind == "knn" else train_mlp(Xtr, Ytr, dev, epochs=epochs)
         P = predict(model, Xte)
         pos_mae = float(100.0 * np.abs(P[:, :3] - Yte[:, :3]).mean())
         grip_mae = float(np.abs(P[:, 3] - Yte[:, 3]).mean())
         bvel = float(100.0 * np.abs(Xte[:, 3:6] * (HORIZON / VEL_LAG) - Yte[:, :3]).mean())
         bgrip = float(np.abs(Xte[:, 6] - Yte[:, 3]).mean())
         ro = rollout(model, test)
-        folds.append({"test_take": test["name"], "hand": test["hand"], "n_train": int(len(Xtr)), "n_test": int(len(Xte)), "pos_mae_cm": pos_mae, "grip_mae": grip_mae,
+        folds.append({"test_take": test["name"], "hand": test["hand"], "knn_k": kk if kind == "knn" else None, "inner_corners_by_k": inner, "n_train": int(len(Xtr)), "n_test": int(len(Xte)), "pos_mae_cm": pos_mae, "grip_mae": grip_mae,
                       "base_vel_pos_mae_cm": bvel, "base_grip_mae": bgrip, "rollout": ro, "demo_closest_cm": demo_closest_cm(test)})
         print(f"[fold] test={test['name']:>3} pos={pos_mae:5.2f}cm (vel-base {bvel:5.2f}) grip={grip_mae:5.3f} (hold-base {bgrip:5.3f}) corners={ro['corners_reached']}/4 "
               f"closest={ro['closest_cm']} demo={demo_closest_cm(test)} final={ro['final_err_cm']:.1f}cm")
@@ -256,14 +272,15 @@ def main():
     if len(takes) < 3:
         raise SystemExit(f"need >=3 usable H takes, got {len(takes)}")
     print(f"model={kind} device={dev} takes={len(takes)} scales={[round(t['scale'], 2) for t in takes]} reach_tol={REACH_TOL * 100:.0f}cm")
-    folds = train_eval(takes, dev, kind=kind)
+    nested_k = kind == "knn" and "--nested-k" in sys.argv
+    folds = train_eval(takes, dev, kind=kind, nested_k=nested_k)
     m = lambda f: float(np.mean([f(x) for x in folds]))
     means = {"n_folds": len(folds), "pos_mae_cm": m(lambda f: f["pos_mae_cm"]), "base_vel_pos_mae_cm": m(lambda f: f["base_vel_pos_mae_cm"]), "grip_mae": m(lambda f: f["grip_mae"]),
              "base_grip_mae": m(lambda f: f["base_grip_mae"]), "rollout_corners_reached": m(lambda f: f["rollout"]["corners_reached"]),
              "rollout_all4_folds": int(sum(f["rollout"]["corners_reached"] == 4 for f in folds)), "rollout_final_err_cm": m(lambda f: f["rollout"]["final_err_cm"]),
              "demo_legs_within_tol": m(lambda f: sum(d is not None and d < 100 * REACH_TOL for d in f["demo_closest_cm"]))}
-    out = REPORT if kind == "mlp" else REPORT.with_name(f"square_policy_report_{kind}.json")
-    out.write_text(json.dumps({"model": kind, "device": str(dev), "reach_tol_m": REACH_TOL, "skipped": skipped, "folds": folds, "means": means}, indent=2))
+    out = REPORT if kind == "mlp" else REPORT.with_name(f"square_policy_report_{kind}{'_nested' if nested_k else ''}.json")
+    out.write_text(json.dumps({"model": kind, "device": str(dev), "reach_tol_m": REACH_TOL, "nested_k": nested_k, "knn_ks": list(KNN_KS) if nested_k else None, "skipped": skipped, "folds": folds, "means": means}, indent=2))
     print("MEAN:", {k: round(v, 3) for k, v in means.items()})
 
 

@@ -37,3 +37,13 @@ def test_rollout_applies_horizon_step_per_tick(monkeypatch):
     ro = SP.rollout(None, take)
     assert ro["corners_reached"] == 4 and ro["final_err_cm"] < 5
     assert len(SP.make_state(np.zeros(3), np.zeros(3), 0, np.ones(3), 0, 1.0)) == SP.IN_DIM
+
+
+def test_select_k_uses_only_training_takes(monkeypatch):
+    seen = []
+    monkeypatch.setattr(SP, "make_dataset", lambda ts: (seen.append([t["name"] for t in ts]) or (None, None)))
+    monkeypatch.setattr(SP, "train_knn", lambda X, Y, k: k)
+    monkeypatch.setattr(SP, "rollout", lambda m, t: {"corners_reached": 4 if m == 20 else 2, "closest_cm": [5.0] * 4})
+    k, inner = SP.select_k([{"name": n} for n in "abc"], ks=(10, 20))
+    assert k == 20 and inner == {10: 6, 20: 12}
+    assert all(len(s) == 2 for s in seen)
