@@ -125,6 +125,23 @@ def test_loose_bbox_on_white_mat_is_refused_not_mislocated():
     assert tight["depth_ok"] and np.linalg.norm(np.array(tight["p_pelvis"][:2]) - c[:2]) <= 0.01, tight
 
 
+@pytest.mark.parametrize("mode", ["colour", "mask", "bbox"])
+def test_object_cut_by_frame_edge_is_refused(mode):
+    """Bench: 5 of 6 errors > 1 cm were objects truncated by the image border. Those must be refused, whole objects not."""
+    r = 0.0325; rgb, depth = render(np.array([0.35, 0.0, TABLE_Z + r]), (r, r, r), (240, 120, 30))
+    ball = (rgb == (240, 120, 30)).all(-1)
+    whole = locate(rgb, depth, p2p, label="stress_ball", mask=ball)
+    assert whole["depth_ok"] and whole["truncated"] is False, whole
+    s = int(np.nonzero(ball)[1].mean())                                         # shift the image left: ball centre on column 0
+    rgb2 = np.zeros_like(rgb); rgb2[:, :W - s] = rgb[:, s:]
+    d2 = np.zeros_like(depth); d2[:, :W - s] = depth[:, s:]
+    b2 = (rgb2 == (240, 120, 30)).all(-1); vs, us = np.nonzero(b2)
+    kw = {"colour": {}, "mask": dict(mask=b2, label="stress_ball"),
+          "bbox": dict(bbox=[us.min(), vs.min(), us.max(), vs.max()], label="stress_ball")}[mode]
+    out = locate(rgb2, d2, p2p, **kw)
+    assert out["depth_ok"] is False and out["truncated"] is True, out
+
+
 def test_bench_adapter_frame_conversion():
     from ai.locate_bench import pixel_to_world
     pos = np.array([0.1, 0.2, 0.3]); Rm = np.eye(3)                              # MuJoCo camera looking along world -z
