@@ -32,7 +32,7 @@ KEEP = dict(x=(0.14, 1.20), y=(-0.55, 0.55), z=0.03)
 BOX = dict(x=(0.0, 0.80), y=(-0.70, 0.70), z=(-0.25, 0.60))
 HOME = {"left": dict(shoulder_roll=0.35, elbow=-0.5), "right": dict(shoulder_roll=-0.35, elbow=-0.5)}
 OBJECTS = {   # estimated sizes: measure ours. brk = break / dent threshold (assumed)
-    "egg":         dict(type="ellipsoid", size=[0.021, 0.021, 0.028], mass=0.060, brk=20.0, soft=False, rgba=[0.96, 0.92, 0.85, 1]),
+    "egg":         dict(type="ellipsoid", size=[0.021, 0.021, 0.028], mass=0.060, brk=20.0, soft=False, rgba=[0.96, 0.92, 0.85, 1], quat=[0.7071068, 0.7071068, 0, 0]),   # lying, long axis along y
     "stress_ball": dict(type="sphere",    size=[0.033],               mass=0.030, brk=None, soft=True,  rgba=[1.0, 0.45, 0.05, 1]),
     "can_empty":   dict(type="cylinder",  size=[0.029, 0.073],        mass=0.015, brk=15.0, soft=False, rgba=[0.85, 0.7, 0.3, 1]),
 }
@@ -50,6 +50,13 @@ SCENARIOS = {   # name: (take, object on the table, mapping)
     "can_profile":  (86, "can_empty", "profile"),
 }
 SCALE = 0.8
+ROT = "fixed"
+ARMS = os.environ.get("E2E_ARMS", "assisted")   # assisted: robot aims at the object (camera), the operator's glove drives closure + lift; full: full wrist teleop
+CLEAR = 0.10
+# grasp posture: thumb and index/middle squeeze HORIZONTALLY, palm 7 cm above the pinch -> the hand comes down from above onto an object
+# lying on the counter (searched over shoulder/elbow/wrist on the official model; the earlier side posture squeezed vertically, thumb under the object)
+GRASP_ARM = {"right_shoulder_pitch_joint": -0.6, "right_shoulder_roll_joint": -0.25, "right_shoulder_yaw_joint": 0.0, "right_elbow_joint": 0.8,
+             "right_wrist_roll_joint": -0.8, "right_wrist_pitch_joint": 0.5, "right_wrist_yaw_joint": 0.0}
 CAM_DELAY = 0.57
 
 
@@ -75,7 +82,7 @@ def pick(take, label):
         return label, "label (picker failed)", repr(e)[:200]
 
 
-def build(obj):
+def build(obj, stand=None):
     spec = mujoco.MjSpec.from_file(arm_ik.ASSETS)
     spec.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
     spec.delete(spec.joint("floating_base_joint")); spec.body("pelvis").pos = [0, 0, PELVIS_Z]
@@ -106,12 +113,20 @@ def build(obj):
     g = body.add_geom(name="obj_g", type=gt, size=o["size"] + [0] * (3 - len(o["size"])), mass=o["mass"], rgba=o["rgba"], contype=3, conaffinity=3,
                       friction=[1.0, 0.005, 0.0001], condim=4)
     if o["soft"]: g.solref = [0.03, 1.0]; g.solimp = [0.5, 0.95, 0.015, 0.5, 2]
+    if stand is not None:                                           # small stand on the counter (collides with the object only, not the hand)
+        x, y, ztop = stand; hgt = max(ztop - top, 0.002)
+        spec.worldbody.add_geom(name="stand", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[0.015, hgt / 2, 0], pos=[x, y, top + hgt / 2],
+                                rgba=[0.3, 0.3, 0.35, 1], contype=2, conaffinity=2)
     m = spec.compile(); m.vis.global_.offwidth, m.vis.global_.offheight = 640, 480
     return m, mujoco.MjData(m)
 
 
+def obj_quat(obj): return OBJECTS[obj].get("quat", [1, 0, 0, 0])
+
+
 def half_h(obj):
     o = OBJECTS[obj]; s = o["size"]
+    if o.get("quat"): return s[0]                                   # lying ellipsoid: half height = short radius
     return s[2] if o["type"] == "ellipsoid" else (s[1] if o["type"] == "cylinder" else s[0])
 
 
@@ -130,10 +145,26 @@ class Kin:
     def palm(self):
         b = self.a.ee["right"]; return self.a.d.xpos[b] + self.a.d.xmat[b].reshape(3, 3) @ np.array([0.0415, -0.003, 0.0])
 
+    def _tip_local(self, body):
+        """fingertip = mesh vertex farthest from the distal link origin (body frame), as in g1/sim/g1_sim.py"""
+        m = self.a.m; best, bp = -1.0, np.zeros(3)
+        for g in range(m.ngeom):
+            if m.geom_bodyid[g] != body or m.geom_type[g] != mujoco.mjtGeom.mjGEOM_MESH: continue
+            mid = m.geom_dataid[g]; a, n = m.mesh_vertadr[mid], m.mesh_vertnum[mid]
+            R = np.zeros(9); mujoco.mju_quat2Mat(R, m.geom_quat[g]); v = m.mesh_vert[a:a + n] @ R.reshape(3, 3).T + m.geom_pos[g]
+            k = int(np.argmax(np.linalg.norm(v, axis=1)))
+            if np.linalg.norm(v[k]) > best: best, bp = float(np.linalg.norm(v[k])), v[k].copy()
+        return bp
+
+    def tip(self, name):
+        if not hasattr(self, "_tips"): self._tips = {}
+        b = mujoco.mj_name2id(self.a.m, mujoco.mjtObj.mjOBJ_BODY, name)
+        if name not in self._tips: self._tips[name] = self._tip_local(b)
+        return self.a.d.xpos[b] + self.a.d.xmat[b].reshape(3, 3) @ self._tips[name]
+
     def pinch(self):
-        d, m = self.a.d, self.a.m
-        bp = lambda n: d.xpos[mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, n)]
-        return 0.5 * (bp("right_hand_thumb_2_link") + 0.5 * (bp("right_hand_index_1_link") + bp("right_hand_middle_1_link")))
+        """midpoint between the thumb tip and the index/middle tips (where an object sits when the hand closes on it)"""
+        return 0.5 * (self.tip("right_hand_thumb_2_link") + 0.5 * (self.tip("right_hand_index_1_link") + self.tip("right_hand_middle_1_link")))
 
 
 def checks(kin):
@@ -156,25 +187,42 @@ def plan(take, obj, mapping, pass1=None):
     else: c = np.clip(g / pr["g_ref"], 0, 1)                       # nolimit: full fist when the operator holds
     kin = Kin(); rt = G1Dex3Retargeter(max_closure=1.0)
     # grasp moment (human) = first tick the operator's grip reaches 60 % of its reference
-    gh = int(np.argmax(g >= 0.6 * pr["g_ref"])) if (g >= 0.6 * pr["g_ref"]).any() else int(np.argmax(g))
+    gh = int(np.argmax(g >= 0.9 * pr["g_ref"])) if (g >= 0.9 * pr["g_ref"]).any() else int(np.argmax(g))   # grip almost at its hold level
     # anchor: at the grasp moment the robot's pinch is on the object, which lies on the mat in front of the right hand at the organisers'
     # "arm q = 0" (hands just above the counter over the object band). Motion = the operator's wrist motion RELATIVE to the grasp moment,
     # rotated into the robot frame and scaled; the wrist never goes below the counter safety floor (keep-out z 0.03 + 0.5 cm).
     k0 = Kin()
-    for n in arm_ik.ARM_NAMES: k0.a.q[n] = 0.0
-    k0.a.apply(); ee = k0.a.ee["right"]
-    w0, Rh = k0.a.d.xpos[ee].copy(), k0.a.d.xmat[ee].reshape(3, 3).copy(); off = k0.pinch() - w0
-    obj_c = np.array([k0.pinch()[0], k0.pinch()[1], kin.base[2] + COUNTER_Z + half_h(obj)])
-    w_grasp = obj_c - off + (pass1["corr"] if pass1 else 0.0)
-    floor = kin.base[2] + KEEP["z"] + 0.005
+    for n, v in GRASP_ARM.items(): k0.a.q[n] = v                    # grasp posture verified in g1/sim/grasp_physics.py (egg held 0.65-0.75)
+    rt0 = G1Dex3Retargeter(max_closure=1.0)
+    for _ in range(30): hq0 = rt0.step(right=[0.5 * pr["cap"]] * 3 + [0, 0])   # fingers half-way to the object's cap: pinch measured near contact
+    k0.a.apply(hq0); ee = k0.a.ee["right"]
+    w0, Rh = k0.a.d.xpos[ee].copy(), k0.a.d.xmat[ee].reshape(3, 3).copy()
+    pin0 = k0.pinch().copy(); obj_c = pin0.copy()                    # object centre = pinch point of that posture, resting on the counter
+    obj_c[2] = max(obj_c[2], kin.base[2] + COUNTER_Z + half_h(obj))  # (on a stand only if the pinch is higher than the object's centre)
+    aim, _ = calibrate_grasp(obj, pr["cap"])                        # physics-calibrated aim (same for every mapping of this object)
+    w_grasp = w0 + (obj_c + aim - pin0) + (pass1["corr"] if pass1 else 0.0)
+    floor = kin.base[2] + KEEP["z"] + 0.01
     pg, Rg = P[gh], arm_ik.quat_wxyz_to_mat(Q[gh])
+    rel = gh + int(np.argmax(g[gh:] < 0.3 * pr["g_ref"])) if (g[gh:] < 0.3 * pr["g_ref"]).any() else len(g)   # release moment
+    onset = int(np.argmax(g >= 0.15 * pr["g_ref"])) if (g >= 0.15 * pr["g_ref"]).any() else gh   # fingers start closing
+    kk = np.arange(len(g)); clear_w = np.clip((onset - kk) / 30.0, 0, 1) + np.clip((kk - rel) / 30.0, 0, 1)   # down BEFORE closing, up after release
     pre = int(2.0 * 30)                                            # 2 s from home to the first pose (arm speed cap applies)
     arm, hand, reasons, perr, pinch, cc = [], [], [], [], [], []
     for i in range(pre + len(P)):
         k = max(0, i - pre)
-        p_t = w_grasp + SCALE * R_cb @ (P[k] - pg); p_t[2] = max(p_t[2], floor)
-        R_t = R_cb @ arm_ik.quat_wxyz_to_mat(Q[k]) @ Rg.T @ R_cb.T @ Rh
-        e, _ = kin.a.solve("right", p_t, R_t); perr.append(e)
+        dp = SCALE * R_cb @ ((P[k] if i >= pre else P[0]) - pg)
+        if ARMS == "assisted": dp = np.array([0.0, 0.0, max(0.0, dp[2])])   # camera fixes x/y at the object; the glove gives only the lift
+        p_t = w_grasp + dp
+        # approach / retreat clearance: the operator's rest pose is lower than the robot's pinch; before the grasp and after the release the
+        # robot hand stays CLEAR above the object (ramped over 1 s), as an operator watching the robot would do. Grasp itself is unchanged.
+        p_t[2] += CLEAR * clear_w[min(k, len(clear_w) - 1)] if i >= pre else CLEAR
+        p_t[2] = max(p_t[2], floor)
+        R_t = Rh if ROT == "fixed" else R_cb @ arm_ik.quat_wxyz_to_mat(Q[k]) @ Rg.T @ R_cb.T @ Rh   # fixed: the hand keeps the grasp orientation
+        q_prev = dict(kin.a.q); e, _ = kin.a.solve("right", p_t, R_t)
+        low = floor - min(kin.palm()[2], kin.a.d.xpos[kin.a.ee["right"]][2])
+        if low > 0:                                                  # re-solve the SAME tick from the previous joints (speed cap kept)
+            kin.a.q.update(q_prev); kin.a.apply(); e, _ = kin.a.solve("right", p_t + np.array([0, 0, low + 0.005]), R_t)   # palm/wrist would enter the counter keep-out: lift the target
+        perr.append(e)
         ci = 0.0 if i < pre else float(c[k]); cc.append(ci)
         hq = rt.step(right=[ci, ci, ci, 0, 0]); kin.a.apply(hq)
         arm.append(kin.a.arm_q()); hand.append(hq); reasons.append(checks(kin)); pinch.append(kin.pinch().copy())
@@ -186,9 +234,11 @@ def plan(take, obj, mapping, pass1=None):
 
 def simulate(name, take, obj, mapping, picked, video=True):
     p1 = plan(take, obj, mapping)
-    corr = p1["obj_c"] - p1["pinch"][p1["gi"]]                     # second pass: correct the aim so the pinch meets the object (operator aims by looking)
+    aim = calibrate_grasp(obj, PROFILE.get(obj, PROFILE["unknown"])["cap"])[0]
+    corr = (p1["obj_c"] + aim - p1["pinch"][p1["gi"]]) * (0.0 if ARMS == "assisted" else 1.0)   # second pass (full teleop only: assisted keeps the calibrated wrist pose): correct the aim so the pinch meets the object (operator aims by looking)
     p2 = plan(take, obj, mapping, pass1={"corr": corr}); obj_c = p2["obj_c"]; dz = float(corr[2])
-    m, d = build(obj)
+    top = p2["base"][2] + COUNTER_Z; stand_top = obj_c[2] - half_h(obj)
+    m, d = build(obj, stand=(obj_c[0], obj_c[1], stand_top) if stand_top > top + 0.005 else None)
     act = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, m.actuator_trnid[a, 0]): a for a in range(m.nu)}
     jq = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j): m.jnt_qposadr[j] for j in range(m.njnt)}
     ob = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "obj"); og = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "obj_g")
@@ -205,7 +255,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
     for nm in act:
         if nm in jq and nm.startswith(("left_", "right_")) and ("shoulder" in nm or "elbow" in nm or "wrist" in nm): pass
     setq(p2["arm"][0], p2["hand"][0], ctrl=False); setq(p2["arm"][0], p2["hand"][0])
-    a = m.jnt_qposadr[m.body_jntadr[ob]]; d.qpos[a:a + 3] = obj_c; d.qpos[a + 3:a + 7] = [1, 0, 0, 0]
+    a = m.jnt_qposadr[m.body_jntadr[ob]]; d.qpos[a:a + 3] = obj_c + np.array([0, 2.0, 0]); d.qpos[a + 3:a + 7] = obj_quat(obj)   # parked aside: placed when the arm hovers
     mujoco.mj_forward(m, d)
     spt = int(round(1 / 30 / m.opt.timestep)); brk = OBJECTS[obj]["brk"]
     F, held_t, broke, lifted_max, frames = [], [], False, 0.0, []
@@ -216,6 +266,8 @@ def simulate(name, take, obj, mapping, picked, video=True):
         if look is not None: look = cv2.resize(look, (640, 360))[:, :, ::-1]
     z0 = obj_c[2]
     for i in range(len(p2["arm"])):
+        if i == p2["pre"]:                                          # staff places the object once the robot hovers above the mat
+            d.qpos[a:a + 3] = obj_c; d.qpos[a + 3:a + 7] = obj_quat(obj); d.qvel[m.body_dofadr[ob]:m.body_dofadr[ob] + 6] = 0; mujoco.mj_forward(m, d)
         setq(p2["arm"][i], p2["hand"][i]); acc = 0.0
         for _ in range(spt):
             mujoco.mj_step(m, d)
@@ -251,7 +303,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
            "lifted_max_cm": round(100 * lifted_max, 1), "held_and_lifted": bool(lifted_max > 0.05 and not broke), "broken": broke,
            "dented": bool(obj == "can_empty" and F.max() > (OBJECTS[obj]["brk"] or 1e9)),
            "ik_err_median_cm": round(100 * float(np.median(p2["perr"])), 1), "ik_err_p95_cm": round(100 * float(np.percentile(p2["perr"], 95)), 1),
-           "safety_ticks_flagged": clipped, "safety_reasons": sorted({x for r in p2["reasons"] for x in r}), "aim_corr_cm": [round(100 * float(x), 1) for x in corr], "pinch_to_object_at_grasp_cm": round(100 * float(np.linalg.norm(p2["pinch"][p2["gi"]] - obj_c)), 1),
+           "safety_ticks_flagged": clipped, "safety_reasons": sorted({x for r in p2["reasons"] for x in r}), "stand_cm": round(100 * float(max(0.0, (obj_c[2] - half_h(obj)) - (p2["base"][2] + COUNTER_Z))), 1), "hand_orientation": ROT, "arms": ARMS, "aim_corr_cm": [round(100 * float(x), 1) for x in corr], "pinch_to_aim_at_grasp_cm": round(100 * float(np.linalg.norm(p2["pinch"][p2["gi"]] - obj_c - aim)), 1), "aim_cm": [round(100 * float(x), 1) for x in aim],
            "arm_q_in_filter": bool(all(arm_ik.FILTER[n][0] - 1e-9 <= v <= arm_ik.FILTER[n][1] + 1e-9 for row in p2["arm"] for n, v in zip(arm_ik.ARM_NAMES, row))),
            "max_arm_step_rad": round(float(np.abs(np.diff(p2["arm"], axis=0)).max()), 3), "max_hand_step_rad": round(float(np.abs(np.diff(p2["hand"], axis=0)).max()), 3)}
     if video and frames:
@@ -275,6 +327,56 @@ def main():
         if mapping == "profile" and prof_obj != obj: r["warning"] = f"picker said {picked}: the profile used on the robot would be {prof_obj}"
         r["picker_detail"] = det[-200:]; out.append(r); print(json.dumps(r))
     json.dump(out, open(os.path.join(OUT, "report.json"), "w"), indent=1)
+
+
+
+def calibrate_grasp(obj, cap, cache=os.path.join(OUT, "grasp_offsets.json")):
+    """Physics search for where the object must be relative to the grasp posture so that closing to `cap` and lifting 10 cm HOLDS it.
+    Arm at GRASP_ARM moved so the pinch is at object + offset; offsets on a grid (x, y in +-3 cm, z in -2..+2 cm); result cached per object/cap.
+    This is the simulated equivalent of the operator aiming by looking. Returns (offset (3,), table of trials)."""
+    key = f"{obj}@{cap:.2f}"
+    db = json.load(open(cache)) if os.path.exists(cache) else {}
+    if key in db: return np.array(db[key]["offset"]), db[key]["trials"]
+    kin = Kin(); rt0 = G1Dex3Retargeter(max_closure=1.0)
+    for n, v in GRASP_ARM.items(): kin.a.q[n] = v
+    for _ in range(30): hq0 = rt0.step(right=[0.5 * cap] * 3 + [0, 0])
+    kin.a.apply(hq0); w0 = kin.a.d.xpos[kin.a.ee["right"]].copy(); Rg = kin.a.d.xmat[kin.a.ee["right"]].reshape(3, 3).copy(); pin0 = kin.pinch().copy()
+    top = kin.base[2] + COUNTER_Z; obj_c = np.array([pin0[0], pin0[1], top + half_h(obj)])
+    m, d = build(obj); names = [j["joint"] for j in G1Dex3Retargeter().joints]
+    act = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, m.actuator_trnid[a, 0]): a for a in range(m.nu)}
+    jq = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j): m.jnt_qposadr[j] for j in range(m.njnt)}
+    ob = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "obj"); oa = m.jnt_qposadr[m.body_jntadr[ob]]; spt = int(round(1 / 30 / m.opt.timestep))
+    trials = []
+    for dz in (-0.02, -0.01, 0.0, 0.01):
+        for dx in (-0.03, -0.015, 0.0, 0.015, 0.03):
+            for dy in (-0.03, -0.015, 0.0, 0.015, 0.03):
+                off = np.array([dx, dy, dz])
+                # IK: pinch at obj_c + off  (wrist shifted by the same vector), then 10 cm straight up
+                k2 = Kin()
+                for n, v in GRASP_ARM.items(): k2.a.q[n] = v
+                k2.a.apply(hq0); wt = w0 + (obj_c + off - pin0)
+                for _ in range(80): k2.a.solve("right", wt, Rg)
+                if np.linalg.norm(k2.a.d.xpos[k2.a.ee["right"]] - wt) > 0.01: continue
+                q_grasp = k2.a.arm_q(); path = []
+                for s in range(30): k2.a.solve("right", wt + np.array([0, 0, 0.10 * (s + 1) / 30]), Rg); path.append(k2.a.arm_q())
+                mujoco.mj_resetData(m, d)
+                for n, v in zip(arm_ik.ARM_NAMES, q_grasp): d.qpos[jq[n]] = v; d.ctrl[act[n]] = v
+                for n in names: d.ctrl[act[n]] = 0.0
+                d.qpos[oa:oa + 3] = obj_c; d.qpos[oa + 3:oa + 7] = obj_quat(obj); mujoco.mj_forward(m, d)
+                if any(og in (c.geom1, c.geom2) and c.dist < -0.002 for c in d.contact[:d.ncon] for og in [mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "obj_g")]): continue
+                rt = G1Dex3Retargeter(max_closure=1.0); fpk = 0.0
+                for t in range(60):                                   # 2 s: close to the cap
+                    hq = rt.step(right=[cap] * 3 + [0, 0])
+                    for n, v in zip(names, hq): d.ctrl[act[n]] = v
+                    for _ in range(spt): mujoco.mj_step(m, d)
+                for t in range(45):                                   # 1.5 s: lift 10 cm (30 ticks) + hold
+                    for n, v in zip(arm_ik.ARM_NAMES, path[min(t, 29)]): d.ctrl[act[n]] = v
+                    for _ in range(spt): mujoco.mj_step(m, d)
+                lift = float(d.qpos[oa + 2] - obj_c[2]); trials.append({"off_cm": [round(100 * x, 1) for x in off], "lift_cm": round(100 * lift, 1)})
+    best = max(trials, key=lambda r: (r["lift_cm"] > 7, -np.linalg.norm(r["off_cm"]))) if trials else {"off_cm": [0, 0, 0], "lift_cm": 0}
+    db[key] = {"offset": [x / 100 for x in best["off_cm"]], "lift_cm": best["lift_cm"], "n_held": sum(r["lift_cm"] > 7 for r in trials), "n": len(trials), "trials": trials}
+    os.makedirs(OUT, exist_ok=True); json.dump(db, open(cache, "w"), indent=1)
+    return np.array(db[key]["offset"]), trials
 
 
 if __name__ == "__main__":
