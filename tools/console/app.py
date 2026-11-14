@@ -15,8 +15,9 @@ LIVE = os.path.join(ROOT, "data", "live")
 TAP = os.path.join(LIVE, "head_latest.jpg")
 CALIB = os.path.join(ROOT, "data", "calib.json")
 ARM_CALIB = os.path.join(ROOT, "data", "arm_calib.json")
-POLICIES = {"V1 (senza Coil)": os.path.join(ROOT, "g1", "live_policy_v1.py"), "V2 (Coil)": os.path.join(ROOT, "g1", "live_policy_v2.py")}
-OBJECTS = ["egg", "can_empty", "stress_ball"]
+POLICIES = {"Braccia + guanti (G1 reale, veloce)": os.path.join(ROOT, "g1", "arms_glove.py"),
+            "Camera + oggetto (V1 visione)": os.path.join(ROOT, "g1", "live_policy_v1.py"), "V2 (Coil)": os.path.join(ROOT, "g1", "live_policy_v2.py")}
+OBJECTS = ["stress_ball", "can_empty", "egg"]          # first = default (pallina)
 FINGERS = ["pollice", "indice", "medio", "anulare", "mignolo"]
 DRIVER = ("127.0.0.1", 12276)
 FWD_PORT = 14043

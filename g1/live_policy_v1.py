@@ -1,6 +1,6 @@
-"""V1 live senza Coil: la camera della testa trova gli oggetti, i guanti comandano la presa (logica = g1/sim/live_sim.py).
+﻿"""V1 live senza Coil: la camera della testa trova gli oggetti, i guanti comandano la presa (logica = g1/sim/live_sim.py).
 Per ogni mano: HOVER 10 cm sopra l'oggetto piu' vicino dal suo lato -> l'operatore chiude il guanto -> DESCEND -> GRASP (cap per oggetto:
-uovo 0.70, lattina vuota 0.45, sconosciuto 0.68) -> LIFT 12 cm -> l'operatore apre -> RELEASE.
+uovo 0.70, lattina vuota 1.0, sconosciuto 0.68) -> LIFT 12 cm -> l'operatore apre -> RELEASE.
 Percezione (g1/perception_v1.py: ai.perceive di Tommaso + voto geometrico, una volta al primo frame valido, in un thread; il robot resta fermo):
   oggetti = profondita' sopra il piano del tavolo (meno il robot stesso), etichetta = voto geometria+colore (+ VLM ai.recognize se --vlm),
   posizione = ai.locate. Le etichette CLI (--right/--left) sono OVERRIDE opzionali; --right-xy/--left-xy sono fallback e controllo:
@@ -30,6 +30,16 @@ import arm_ik, demo_e2e as D
 from g1 import perception_v1 as PV
 arm_ik.ARM_STEP = 0.7 / RATE          # IK steps within 70 % of the 1 rad/s arm cap (the same margin the safety check enforces)
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))
+try:   # the organisers' OWN workspace check (same code as the runner filter), to never send a step it would clip
+    _AH = os.environ.get("AALTO_ROOT", r"C:\Users\giorg\Desktop\aaltonomous-humanoid")
+    for _p in (os.path.join(_AH, "winshim"), _AH):
+        if _p not in sys.path: sys.path.insert(0, _p)
+    from aaltonomous.interface import safety as _AS
+    WS = _AS.WorkspaceChecker(_AS.JointSpec(), _AS.SafetyConfig())
+except Exception as _e:
+    print("[v1] organisers' workspace check NOT loaded:", _e); WS = None
+SAFE_LO = {k: np.array([e["filter"][0] for e in sorted(LIM[k], key=lambda e: e["idx"])]) + 0.005 for k in ("arm_q", "hand_q")}
+SAFE_HI = {k: np.array([e["filter"][1] for e in sorted(LIM[k], key=lambda e: e["idx"])]) - 0.005 for k in ("arm_q", "hand_q")}
 # cap = max hand closure; g_ref = typical glove closure for that object; shape = grasp posture / size used (unknown -> egg posture, gentle)
 PROFILE = {"egg": {"cap": .70, "g_ref": .29, "shape": "egg"}, "can_empty": {"cap": PV.CAP["can_empty"], "g_ref": .52, "shape": "can_empty"},
            "stress_ball": {"cap": .70, "g_ref": .36, "shape": "stress_ball"}, "unknown": {"cap": .68, "g_ref": .29, "shape": "egg"}}
@@ -108,7 +118,8 @@ class LivePolicy(Policy):
         # (a new thread per episode rendered garbage after the runner's reset -> objects merged with the hands)
         import concurrent.futures as cf
         self.worker = cf.ThreadPoolExecutor(max_workers=1, thread_name_prefix="perception")
-        self.rt = G1Dex3Retargeter(); self.rt.max_step *= .7
+        from finger_map import DirectRetargeter
+        self.rt = DirectRetargeter(); self.rt.max_step *= .7          # thumb/index/middle one-to-one (14/11 evening)
         os.makedirs(LIVE, exist_ok=True); self.log = open(os.path.join(LIVE, "live_policy_v1.jsonl"), "a")
         self._write({"event": "START", "engine": engine, "dry": dry, "vlm": self.vlm, "override": self.override, "cli_xy": self.xy, "test_frames": test_frames})
         self.reset(None)
@@ -229,7 +240,28 @@ class LivePolicy(Policy):
         for k in range(CHUNK):
             r = self._act1(o); arms.append(r["arm_q_target"][0]); hands.append(r["hand_q_target"][0])
             if not self.dry: o["arm_q"] = arms[-1]; o["hand_q"] = hands[-1]
-        return {"arm_q_target": np.array(arms), "hand_q_target": np.array(hands)}
+        # Real G1: the measured rest pose can sit just past the URDF limits (left index/middle curled at -1.58..-1.70):
+        # commanding it back counts as a safety clip every tick -> runner abort after 30. Keep every target inside the
+        # filter range (URDF minus margin), with 5 mrad of slack.
+        arms = np.clip(np.array(arms), SAFE_LO["arm_q"], SAFE_HI["arm_q"])
+        hands = np.clip(np.array(hands), SAFE_LO["hand_q"], SAFE_HI["hand_q"])
+        return {"arm_q_target": arms, "hand_q_target": hands}
+
+    def _geom_violations(self, sides):
+        """{reason: severity (m)} of the current IK pose: box, table_wrist/table_pinch (depth under the floor), self_collision (penetration)."""
+        out = {}
+        def add(k, v): out[k] = max(out.get(k, 0.), float(v))
+        for side in sides:
+            wr = self.kin.a.d.xpos[self.kin.a.ee[side]]; pinch = wr+self.kin.a.d.xmat[self.kin.a.ee[side]].reshape(3,3)@np.array([.0415,.003 if side=="left" else -.003,0])
+            for point, floor in ((wr, WRIST_FLOOR), (pinch, PINCH_FLOOR)):
+                q=self.kin.pel(point)
+                bv = sum(max(D.BOX[a][0]-q[i], 0.)+max(q[i]-D.BOX[a][1], 0.) for i, a in enumerate("xyz"))
+                if bv > 0: add("box", bv)
+                if D.KEEP["x"][0]<=q[0]<=D.KEEP["x"][1] and D.KEEP["y"][0]<=q[1]<=D.KEEP["y"][1] and q[2]<self.table_z+floor:
+                    add(f"table_{'wrist' if floor==WRIST_FLOOR else 'pinch'}", self.table_z+floor-q[2])
+        sc = self.kin.a.self_collisions()
+        if sc: add("self_collision", max(0.02-c[2] for c in sc))
+        return out
 
     def _act1(self, obs):
         arm = np.asarray(obs["arm_q"],float); hand = np.asarray(obs["hand_q"],float)
@@ -259,16 +291,28 @@ class LivePolicy(Policy):
             elif self.states[side]=="RELEASE": self.lift[side]=max(0.,self.lift[side]-.12/30.)
             target=gp+np.array([0,0,clear+self.lift[side]]); target[2]=max(target[2], self.kin.base[2]+self.table_z+WRIST_FLOOR+.01)
             candidates[side]=(target,R)
+        # ESCAPE: the real rest pose has wrists/palms inside the organisers' counter keep-out. Their filter rejects any step that
+        # increases the total penetration, so first lift every wrist STRAIGHT UP (same x, y, orientation) until it is out.
+        ref_cmd = arm if self.last_cmd is None else self.last_cmd
+        # JOINT-SPACE lift (as g1/arms_simple.py, which worked on the robot): shoulder pitch -0.02, elbow -0.01 rad per tick.
+        # (Cartesian IK from that pose moved the wrists DOWN: the rest pose sits on joint limits.)
+        self.escape_up = WS is not None and WS.violation(ref_cmd) > 1e-4
+        if self.escape_up:
+            q = np.asarray(ref_cmd, float).copy()
+            for i in (0, 7): q[i] -= 0.02; q[i + 3] -= 0.01
+            q = np.clip(q, SAFE_LO["arm_q"], SAFE_HI["arm_q"])
+            for n, v in zip(arm_ik.ARM_NAMES, q): self.kin.a.q[n] = float(v)
+            self.kin.a.apply()
         prev = dict(self.kin.a.q); safe = not self.abort; reasons = []
-        if safe:
+        if safe and not self.escape_up:
+            old = self._geom_violations(candidates)              # violations of the CURRENT pose (real start pose may already have some)
             for side,(p,R) in candidates.items(): self.kin.a.solve(side,p,R)
-            for side in candidates:
-                wr = self.kin.a.d.xpos[self.kin.a.ee[side]]; pinch = wr+self.kin.a.d.xmat[self.kin.a.ee[side]].reshape(3,3)@np.array([.0415,.003 if side=="left" else -.003,0])
-                for point, floor in ((wr, WRIST_FLOOR), (pinch, PINCH_FLOOR)):
-                    q=self.kin.pel(point)
-                    if not (D.BOX["x"][0]<=q[0]<=D.BOX["x"][1] and D.BOX["y"][0]<=q[1]<=D.BOX["y"][1] and D.BOX["z"][0]<=q[2]<=D.BOX["z"][1]): reasons.append("box")
-                    if D.KEEP["x"][0]<=q[0]<=D.KEEP["x"][1] and D.KEEP["y"][0]<=q[1]<=D.KEEP["y"][1] and q[2]<self.table_z+floor: reasons.append(f"table_{'wrist' if floor==WRIST_FLOOR else 'pinch'}")
-            if self.kin.a.self_collisions(): reasons.append("self_collision")
+            new = self._geom_violations(candidates)
+            # a geometric violation blocks only if it is NEW or gets WORSE: from a start pose that is already low / close
+            # to the body the arm may still move OUT of it (escape), never deeper.
+            for k, v in new.items():
+                if k not in old or v > old[k] + 1e-4: reasons.append(k)
+            self.escape = sorted(k for k in new if k not in reasons)
             if len(self.obj)==2:
                 palms=[]
                 for s in self.obj:
@@ -279,24 +323,36 @@ class LivePolicy(Policy):
             ref = arm if self.last_cmd is None else self.last_cmd        # the runner checks speed against the LAST COMMAND
             if np.any(np.abs(qcmd-ref)>.7/RATE+1e-4): reasons.append("arm_speed")
             if reasons:
-                self.kin.a.q.update(prev); self.kin.a.apply(); self.blocked+=1
+                self.kin.a.q.update(prev); self.kin.a.apply()
+                # hitting the table floor while descending = simply stop lower (hold the last command): not an abort reason
+                self.blocked = self.blocked + 1 if any(not r.startswith("table_") for r in reasons) else self.blocked
                 if self.blocked>=3: self.abort=True; self._write({"event":"ABORT","reasons":reasons,"consecutive_blocks":self.blocked})
                 safe=False
             else: self.blocked=0
         arm_target=np.asarray(self.kin.a.arm_q()) if safe else (self.last_cmd.copy() if self.last_cmd is not None else arm.copy())
+        if WS is not None:   # same rule as the runner filter: never more penetration than the last command (bisect the step)
+            allowed = max(WS.violation(ref_cmd), 1e-4); arm_target = np.asarray(arm_target, float)   # exactly the runner filter rule
+            if WS.violation(arm_target) > allowed:
+                lo_s, hi_s, step = 0.0, 1.0, arm_target - ref_cmd
+                for _ in range(10):
+                    mid = .5 * (lo_s + hi_s)
+                    if WS.violation(ref_cmd + mid * step) <= allowed: lo_s = mid
+                    else: hi_s = mid
+                arm_target = ref_cmd + lo_s * step; reasons = reasons + ["ws_scaled"]
+                self.kin.a.q.update({n: v for n, v in zip(self.kin.a.q, prev.values())}) if lo_s == 0 else None
         self.last_cmd = np.asarray(arm_target, float).copy()
         fingers={"left":None,"right":None}
         for side in self.obj:
             f=self.finger_now.get(side)
             g=0. if f is None else float(np.mean([f[1],f[2]])); pr=PROFILE[self.obj[side]]
-            c=self.cap[side]*float(np.clip(g/pr["g_ref"],0,1)) if self.states[side] in ("GRASP","LIFT") else 0.
-            fingers[side]=[c,c,c,0,0]
+            import finger_map as FM   # each robot finger follows its own glove finger, capped by the object profile (egg 0.70)
+            fingers[side]=FM.closures(f, pr["g_ref"], self.cap[side]) if self.states[side] in ("GRASP","LIFT") else [0.]*5
         hq=self.rt.step(left=fingers["left"],right=fingers["right"])
         if not safe:   # hold the LAST COMMAND (not the measured hand: the runner checks hand speed against the last command)
             hq = (hand if self.last_hand is None else self.last_hand).copy(); self.rt.q = list(hq)
         self.last_hand = np.asarray(hq, float).copy()
         tgt = {s: np.round(self.kin.pel(self.kin.a.d.xpos[self.kin.a.ee[s]]), 3).tolist() for s in self.obj}
-        self._write({"state":{s:self.states[s] for s in self.obj},"blocked":self.blocked,"reasons":reasons,"abort":self.abort,"objects":self.obj,"cap":self.cap,
+        self._write({"state":{s:self.states[s] for s in self.obj},"blocked":self.blocked,"reasons":reasons,"escape":getattr(self,"escape",[]),"abort":self.abort,"objects":self.obj,"cap":self.cap,
                      "wrist_pelvis":tgt,"hand_q":np.round(np.asarray(hq),3).tolist(),"dry":self.dry,
                      "arm_q_target":np.round(self.hold[0] if self.dry else np.asarray(arm_target),4).tolist(),       # what is SENT (console sim view)
                      **({"arm_q_plan":np.round(np.asarray(arm_target),4).tolist()} if self.dry else {})})          # --dry: what WOULD be sent

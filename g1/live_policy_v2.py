@@ -1,4 +1,4 @@
-"""V2 live, WITH the Coil: the arms follow the operator's wrists (same chain as g1/sim/teleop_multi.py, g1/coil_chain.py), the gloves
+﻿"""V2 live, WITH the Coil: the arms follow the operator's wrists (same chain as g1/sim/teleop_multi.py, g1/coil_chain.py), the gloves
 drive the fingers, camera (or CLI xy) gives the objects for assist/snap. Seated beside the robot: start with both gloves FLAT and STILL on
 the table = robot rest pose; a hand resting still on the table for 1 s re-anchors (no Coil drift).
 
@@ -24,12 +24,26 @@ if os.path.isdir(REPO): sys.path.insert(0, REPO)
 import arm_ik, demo_e2e as D, teleop_sim as T, coil_chain as CC
 from robot.g1_dex3 import G1Dex3Retargeter
 
-CHUNK = 3          # targets per call (one call per tick cannot keep 30 Hz, see live_policy_v1.py)
+CHUNK = int(os.environ.get("G1_CHUNK", "2"))   # targets per call. 3 = one glove reading per 100 ms (the 14/11 night delay); 1 = fresh every tick
 RATE = 30.0
-JOINT_SPEED = 0.7  # rad/s, 70 % of the runner's 1 rad/s
+FAST = os.environ.get("G1_FAST") == "1"
+JOINT_SPEED = 1.8 if FAST else 0.9  # rad/s (runner: 2.0 with G1_FAST, else 1.0) (14/11 evening: was 0.7, operator wanted less delay)
+START_SPEED = 1.0 if FAST else 0.9  # rad/s, startup move from the robot's real rest pose to the palm-down front pose
+# The organisers' OWN workspace check (same code as the runner filter): the real rest pose has the wrists INSIDE the counter keep-out,
+# the runner rejects any step that increases the penetration -> lift out first, then never send a step it would clip.
+try:
+    for _p in (os.path.join(REPO, "winshim"), REPO):
+        if _p not in sys.path: sys.path.insert(0, _p)
+    from aaltonomous.interface import safety as _AS
+    FAST = os.environ.get("G1_FAST") == "1"     # staff-approved 15/11: no counter keep-out, faster arms (self-collision kept)
+    WS = _AS.WorkspaceChecker(_AS.JointSpec(), _AS.SafetyConfig(counter_keepout_min=None, counter_keepout_max=None) if FAST else _AS.SafetyConfig())
+except Exception as _e:
+    print("[v2] organisers' workspace check NOT loaded:", _e); WS = None
 FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3
 LIVE = os.path.join(ROOT, "data", "live")
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))
+SAFE_LO = {k: np.array([e["filter"][0] for e in sorted(LIM[k], key=lambda e: e["idx"])]) + 0.005 for k in ("arm_q", "hand_q")}
+SAFE_HI = {k: np.array([e["filter"][1] for e in sorted(LIM[k], key=lambda e: e["idx"])]) - 0.005 for k in ("arm_q", "hand_q")}
 
 
 class CoilInput:
@@ -38,6 +52,9 @@ class CoilInput:
         self.sock = None; self.last = {"left": None, "right": None}; self.rep = None; self.takes = None
         if source.startswith("udp:"):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); self.sock.bind(("0.0.0.0", int(source[4:]))); self.sock.setblocking(False)
+            # RECORD every raw glove + Coil packet (to replay the same movements later without the Coil)
+            os.makedirs(LIVE, exist_ok=True)
+            self.rec = open(os.path.join(LIVE, time.strftime("coil_input_%Y%m%d_%H%M%S.jsonl")), "a")
         elif source.startswith("replay:"):
             self.takes = [int(x) for x in source[7:].split(",")]
         else: raise ValueError("source: udp:<port> or replay:<right>[,<left>]")
@@ -57,7 +74,8 @@ class CoilInput:
             P, Q, F = self.rep[side]; j = i % len(F); return F[j], P[j], Q[j]      # loops (test only)
         try:
             while True:
-                d = json.loads(self.sock.recv(65536).decode())
+                raw = self.sock.recv(65536).decode(); d = json.loads(raw)
+                self.rec.write(json.dumps({"t_rx": time.time(), "pkt": d}) + "\n")
                 h = d.get("hand")
                 if h in self.last and d.get("fingers") is not None:
                     wp, wq = d.get("wrist_position"), d.get("wrist_quaternion")
@@ -84,20 +102,71 @@ class LivePolicyV2(Policy):
 
     def __init__(self, source, objs, xy, dry=False):
         self.src = CoilInput(source); self.obj = objs; self.xy = xy; self.dry = dry
-        self.rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0"))); self.rt.max_step *= .7
-        self.kin = D.Kin(); self.rest = dict(self.kin.a.q)
+        from finger_map import DirectRetargeter                 # thumb/index/middle one-to-one
+        self.rt = DirectRetargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0"))); self.rt.max_step *= .7
+        self.kin = D.Kin(); self.rest = CC.palm_down_rest(self.kin, D.COUNTER_Z)      # rest = hands open, palm down, in front (as the sim)
+        self.rest_q = np.array([self.rest[n] for n in arm_ik.ARM_NAMES])
         self.rest_pose = {h: (self.kin.a.d.xpos[self.kin.a.ee[h]].copy(), self.kin.a.d.xmat[self.kin.a.ee[h]].reshape(3, 3).copy()) for h in ("left", "right")}
-        self.floor = self.kin.base[2] + D.KEEP["z"] + 0.01; self.cfg = CC.Cfg(joint_speed=JOINT_SPEED)
+        self.floor = self.kin.base[2] + (D.KEEP["z"] - 0.25 if FAST else D.KEEP["z"] + 0.01)
+        self.cfg = CC.Cfg(joint_speed=JOINT_SPEED, **(dict(vmax=1.3, vfinal=1.2, wfinal=np.radians(400)) if FAST else {}))
         replay = source.startswith("replay:")
         self.Rh = {h: (CC.TAKE64_R if replay else CC.load_axes(arm_ik.CALIB, h)) for h in objs}
         miss = [h for h in objs if self.Rh[h] is None]
         if miss: raise SystemExit(f"no seated calibration for {miss}: run  py -3.11 g1/live_policy_v2.py --source udp:14044 --calib")
+        if not replay: CC.load_neutral(arm_ik.CALIB, list(objs))   # calibration's last step: open, palm down, in front = robot rest
         os.makedirs(LIVE, exist_ok=True); self.log = open(os.path.join(LIVE, "live_policy_v2.jsonl"), "a"); self.t_img = 0.0
         self.reset("")
 
     def reset(self, instruction, task=None, seed=None):
         self.initialized = False; self.chains = {}; self.seen = {}; self.blocked = 0; self.consec = 0; self.abort = False
         self.last_cmd = None; self.hand_init = False; self.tick = 0; self.t0 = time.time(); self.t_wait = None
+        self.started = False; self.stall = 0
+
+    def _ws_safe(self, q):
+        """Runner filter rule: never more counter keep-out penetration than the last command; bisect the step. Returns (q, fraction)."""
+        q = np.clip(np.asarray(q, float), SAFE_LO["arm_q"], SAFE_HI["arm_q"])
+        if WS is None: return q, 1.0
+        allowed = max(WS.violation(self.last_cmd), 1e-4)
+        if WS.violation(q) <= allowed: return q, 1.0
+        lo, hi, st = 0.0, 1.0, q - self.last_cmd
+        for _ in range(12):
+            mid = .5 * (lo + hi)
+            if WS.violation(self.last_cmd + mid * st) <= allowed: lo = mid
+            else: hi = mid
+        return self.last_cmd + lo * st, lo
+
+    def _startup(self, obs, hand):
+        """Real rest pose -> lift out of the counter keep-out (joint space, as g1/arms_simple.py that worked on the robot) -> palm-down
+        front rest pose, hands open. The Coil chains engage only after this (robot = your 'open, palm down, in front' pose)."""
+        # path planned in the background by g1/start_path.py (hand back/up first if needed, as the raised robot of 14/11 night
+        # requires); straight segments at START_SPEED; re-plan from here if the filter rule stalls a segment. Arms hold meanwhile.
+        import threading, start_path
+        q = self.last_cmd.copy(); phase = "planning"
+        if getattr(self, "wps", None) is None and not getattr(self, "planning", False):
+            self.planning = True; self.wp_i = 0; q0 = q.copy()
+            def run():
+                try: self.wps = start_path.plan(WS, q0, self.rest_q, SAFE_LO["arm_q"], SAFE_HI["arm_q"]) if WS is not None else [self.rest_q]
+                except Exception as e: self.wps = None; print("[v2] start path error:", e, flush=True)
+                if self.wps is None: print("[v2] NO start-up path the runner accepts: arms stay still", flush=True)
+                self.planning = False
+            threading.Thread(target=run, daemon=True).start()
+        if getattr(self, "wps", None) is not None:
+            w = self.wps[self.wp_i]; d = w - q; m = float(np.abs(d).max()); st = START_SPEED / RATE
+            q2 = w.copy() if m <= st else q + d * st / m
+            q2, frac = self._ws_safe(q2); phase = f"path {self.wp_i + 1}/{len(self.wps)}"
+            if np.abs(q2 - w).max() < 1e-6:
+                self.wp_i += 1; self.stall = 0
+                if self.wp_i >= len(self.wps): self.started = True; phase = "at_rest"
+            elif np.abs(q2 - q).max() < 1e-4:
+                self.stall += 1
+                if self.stall > 6: self.stall = 0; self.wps = None; phase = "replan"
+            q = q2
+        self.kin.a.q.update({n: float(v) for n, v in zip(arm_ik.ARM_NAMES, q)}); self.kin.a.apply(); self.last_cmd = q.copy()
+        hq = np.clip(np.asarray(self.rt.step(left=None, right=None)), SAFE_LO["hand_q"], SAFE_HI["hand_q"])   # hands open
+        self._write({"tick": self.tick, "startup": phase, "arm_q_target": np.round(q, 4).tolist(), "hand_q": np.round(hq, 4).tolist(),
+                     "ws_violation": None if WS is None else round(WS.violation(q), 4), "dry": self.dry})
+        if self.dry: return np.asarray(obs["arm_q"], float), hand.copy()
+        return q, hq
 
     def _write(self, d):
         d["t"] = round(time.time() - self.t0, 3); self.log.write(json.dumps(d) + "\n"); self.log.flush()
@@ -139,6 +208,7 @@ class LivePolicyV2(Policy):
 
     def _unsafe(self, k):
         r = T.unsafe(k)
+        if FAST: r = [x for x in r if x.startswith("self")]          # G1_FAST: only robot-vs-robot collisions block
         if len(self.obj) == 2 and np.linalg.norm(T.palm(k, "left") - T.palm(k, "right")) < 0.10: r.append("palms_too_close")
         return r
 
@@ -154,6 +224,7 @@ class LivePolicyV2(Policy):
         if self.last_cmd is None:                                     # IK starts from the MEASURED joints
             self.kin.a.q.update({n: float(v) for n, v in zip(arm_ik.ARM_NAMES, arm)}); self.kin.a.apply(); self.last_cmd = arm.copy()
         if not self.hand_init: self.rt.q = [float(np.clip(v, *j["filter"])) for v, j in zip(hand, self.rt.joints)]; self.hand_init = True
+        if not self.started: return self._startup(obs, hand)
         if not self.initialized: self.initialized = self._init(obs)
         fingers = {"left": None, "right": None}; info = {}; prev = dict(self.kin.a.q); reasons = []
         if self.initialized and not self.abort:
@@ -171,19 +242,25 @@ class LivePolicyV2(Policy):
                     step0 = arm_ik.ARM_STEP; arm_ik.ARM_STEP = (FRAGILE_JOINT if near(pin) is not None else JOINT_SPEED) / RATE
                     why = CC.solve_arm(self.kin, side, out, self.cfg, self.rest, self._unsafe, self.floor, T.palm); arm_ik.ARM_STEP = step0
                     reasons += why; info[side] = out["mode"] + (f" ev:{out['ev']}" if out["ev"] else "")
-                    c = out["c"]; fingers[side] = [c, c, c, 0, 0]
+                    # each robot finger follows its own glove finger; the chain's limit (pre-shape 50 % while approaching,
+                    # 0 while releasing) scales them all
+                    pr = ch.grasp[4]; F = np.asarray(s[0], float); g = 0.5 * (F[1] + F[2])
+                    full = pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1)); k = 0.0 if full < 1e-6 else min(1.0, out["c"] / full)
+                    fingers[side] = [k * pr["cap"] * float(np.clip(F[i] / pr["g_ref"], 0, 1)) for i in range(3)] + [0.0, 0.0]
             qcmd = np.asarray(self.kin.a.arm_q())
             if any(v < LIM["arm_q"][i]["filter"][0] or v > LIM["arm_q"][i]["filter"][1] for i, v in enumerate(qcmd)): reasons.append("joint_filter")
             if np.any(np.abs(qcmd - self.last_cmd) > JOINT_SPEED / RATE + 1e-4): reasons.append("arm_speed")
             if reasons:
                 self.kin.a.q.update(prev); self.kin.a.apply(); self.blocked += 1; self.consec += 1
                 fingers = {"left": None, "right": None}
-                if self.consec >= 3: self.abort = True; self._write({"event": "ABORT_HOLD", "reasons": reasons, "consecutive_blocks": self.consec})
+                if self.consec == 3: self._write({"event": "HOLD", "reasons": reasons, "consecutive_blocks": self.consec})   # hold the last command, NOT latched: tracking resumes as soon as a step is safe (was ABORT_HOLD for the whole episode)
             else: self.consec = 0
         ok = self.initialized and not self.abort and not reasons
         arm_t = np.asarray(self.kin.a.arm_q()) if ok else self.last_cmd.copy()
-        hq = np.asarray(self.rt.step(left=fingers["left"], right=fingers["right"])) if ok else hand.copy()
-        if not ok: self.rt.q = list(hand)
+        arm_t, frac = self._ws_safe(arm_t)
+        if frac < 1.0: self.kin.a.q.update({n: float(v) for n, v in zip(arm_ik.ARM_NAMES, arm_t)}); self.kin.a.apply(); reasons = reasons + ["ws_scaled"]
+        hq = np.asarray(self.rt.step(left=fingers["left"], right=fingers["right"])) if ok else np.asarray(self.rt.q, float)
+        hq = np.clip(hq, SAFE_LO["hand_q"], SAFE_HI["hand_q"])     # the real resting fingers sit past the URDF limits
         self.last_cmd = arm_t.copy()
         if self.dry: arm_t, hq = np.asarray(obs["arm_q"], float), hand.copy()   # dry run: robot keeps its pose
         self._write({"tick": self.tick, "arm_q_target": np.round(arm_t, 4).tolist(), "hand_q": np.round(hq, 4).tolist(), "modes": info,

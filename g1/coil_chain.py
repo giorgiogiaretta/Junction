@@ -1,4 +1,4 @@
-"""Coil + glove -> G1 arm chain shared by the simulator (g1/sim/teleop_multi.py) and the live policy (g1/live_policy_v2.py).
+﻿"""Coil + glove -> G1 arm chain shared by the simulator (g1/sim/teleop_multi.py) and the live policy (g1/live_policy_v2.py).
 
 Seated-beside setup: the operator sits next to the robot, facing the same way, both gloves FLAT on the table at the start.
   hand flat + still on the table  ==  robot hand in its REST pose over the counter (no first-tick jump, A7)
@@ -30,15 +30,17 @@ TAKE64_R = np.array([[0.91964, -0.08849, 0.38266], [-0.06991, -0.99561, -0.06222
 class Cfg:
     def __init__(self, **kw):
         self.legacy = False
-        self.pos_cutoff, self.pos_beta = 2.5, 40.0       # One Euro: Hz, Hz per m/s
-        self.rot_cutoff, self.rot_beta = 2.5, 2.0        # Hz, Hz per rad/s
+        # 14/11 evening (operator: "smooth is fine, too much delay"): faster filters + higher limits. Cfg.slow() = previous values.
+        self.pos_cutoff, self.pos_beta = 5.0, 60.0       # One Euro: Hz, Hz per m/s   (was 2.5, 40; 4.0)
+        self.lead = float(__import__("os").environ.get("G1_LEAD", "0.0"))   # s of motion prediction (14/11 night, robot delay)
+        self.rot_cutoff, self.rot_beta = 4.0, 3.0        # Hz, Hz per rad/s           (was 2.5, 2)
         self.leash = 0.0015                              # m, raw-signal deadband (continuous)
         self.post_deadband = 0.0                         # m, legacy hold-deadband after the filter
-        self.grip_tau = 0.05
-        self.joint_speed = 0.7                           # rad/s (runner cap 1.0)
+        self.grip_tau = 0.04
+        self.joint_speed = 0.92                          # rad/s (runner cap 1.0)    (was 0.7; 0.85 first evening step)
         self.uniform_step = True
-        self.vmax = 0.35                                 # m/s, raw teleop target speed limit
-        self.vfinal, self.wfinal = 0.30, np.radians(150)  # final target limiter (m/s, rad/s)
+        self.vmax = 0.75                                 # m/s, raw teleop target speed limit   (was 0.35; 0.60)
+        self.vfinal, self.wfinal = 0.70, np.radians(260)  # final target limiter (m/s, rad/s)  (was 0.30, 150; 0.55, 220)
         self.assist_r, self.snap_xy, self.snap_z, self.snap_deg, self.snap_ticks = 0.06, 0.04, 0.05, 60.0, 2
         self.w_rate = 1 / 0.4                            # assist weight change per second
         self.ns_fade = 0.5                               # s, null-space fade
@@ -51,11 +53,17 @@ class Cfg:
         for k, v in kw.items(): setattr(self, k, v)
 
     @classmethod
+    def slow(cls, **kw):
+        """The new chain with the speed/filter values before the 14/11 evening tuning."""
+        return cls(**{**dict(pos_cutoff=2.5, pos_beta=40.0, rot_cutoff=2.5, rot_beta=2.0, grip_tau=0.05, joint_speed=0.7, vmax=0.35,
+                             vfinal=0.30, wfinal=np.radians(150), lead=0.0), **kw})
+
+    @classmethod
     def old(cls, **kw):
         """The previous teleop_multi.py chain (for before/after measurements only)."""
         c = cls(legacy=True, pos_cutoff=0.7, pos_beta=0.02, rot_cutoff=0.7, rot_beta=0.02, leash=0.0, post_deadband=0.003, grip_tau=0.15,
                 joint_speed=1.0, uniform_step=False, vfinal=None, assist_r=0.06, w_rate=None, ns_fade=None, fixed_target=False,
-                raise_only_counter=False, zoff=0.10, reanchor=False, snap_ticks=1)
+                raise_only_counter=False, zoff=0.10, reanchor=False, snap_ticks=1, lead=0.0)
         for k, v in kw.items(): setattr(c, k, v)
         return c
 
@@ -131,6 +139,17 @@ def smooth01(x): x = float(np.clip(x, 0, 1)); return x * x * (3 - 2 * x)
 
 
 # --- one hand ------------------------------------------------------------------------------------------------------------
+Q_NEUTRAL = {}       # side -> wxyz quaternion, filled by load_neutral() from the seated calibration
+
+
+def load_neutral(path, sides):
+    import json, os
+    if not os.path.exists(path): return
+    c = json.load(open(path)).get("seated", {})
+    for s in sides:
+        if c.get(s, {}).get("q_neutral") is not None: Q_NEUTRAL[s] = np.array(c[s]["q_neutral"], float)
+
+
 class HandChain:
     """Operator glove + Coil sample -> robot wrist target (pos, rot), closure request and mode, for ONE hand.
     grasp = (gp, gR, pin_t, name, profile) of the object assigned to this hand (or None); rest = (p, R) robot rest wrist pose."""
@@ -168,7 +187,9 @@ class HandChain:
         d = robot_p - self.rest_p; d[2] -= self.drop * smooth01(float(d[:2] @ self.reach_u) / self.reach); return d / c.gain
 
     def anchor(self, P, Q, t):
-        self.P0, self.Q0 = np.array(P, float), np.array(Q, float); self.table_up = float(self.Rh[2] @ P)
+        self.P0 = np.array(P, float); self.table_up = float(self.Rh[2] @ P)
+        qn = Q_NEUTRAL.get(self.side)        # operator's "open, palm down, in front" orientation (calibration's last step) = robot rest pose
+        self.Q0 = np.array(qn if qn is not None else Q, float)
         self.pf.reset(); self.qf.reset(); self.leash.reset(); self.post.reset()
 
     def _still(self, P, Q, t, g, pr):
@@ -202,7 +223,7 @@ class HandChain:
                         # new anchor; the old->new difference is blended out over 1 s instead of jumping
                         self.blend0 = self.blend + c.gain * shift; self.blend = self.blend0.copy(); self.P0 = self.P0 + self.Rh.T @ shift; self.blend_t = t; self.reanchors += 1
                         ev = f"re-anchored {100 * np.linalg.norm(shift):.1f} cm"
-                    if np.linalg.norm(d[:2]) < c.reanchor_xy: self.Q0 = np.array(st[1], float)
+                    if np.linalg.norm(d[:2]) < c.reanchor_xy and Q_NEUTRAL.get(self.side) is None: self.Q0 = np.array(st[1], float)
         if self.P0 is None:                                                   # not engaged yet: hold the rest pose
             self.out_p, self.out_R = self.rest_p.copy(), self.rest_R.copy()
             return dict(p=self.out_p, R=self.out_R, c=0.0, g=g, mode="waiting: hand flat + still on the table", k_rest=0.1, ev=ev, p_raw=self.rest_p.copy(), p_filt=self.rest_p.copy())
@@ -213,6 +234,8 @@ class HandChain:
         rel_raw = self.Rh @ (np.asarray(P, float) - self.P0)
         self.p_raw = self.map_rel(rel_raw)                                   # unfiltered reference (for the latency measurement)
         x = self.post(self.pf(self.leash(P), t))
+        if c.lead and not c.legacy:                                              # prediction: compensate the pipeline delay
+            x = x + np.clip(self.pf.dx * c.lead, -0.03, 0.03)                   # (filtered velocity x lead time, max 3 cm)
         p_tel = self.map_rel(self.Rh @ (x - self.P0)) + (self.blend if not c.legacy else 0)
         self.p_filt = p_tel.copy()
         if c.legacy and self.first: self.p_tel = p_tel.copy()                 # old: the first mapped target is taken as is (A7 jump)
@@ -288,6 +311,24 @@ class HandChain:
         return dict(p=tgt_p, R=tgt_R, c=cl, g=g, mode=mode, k_rest=k_rest, ev=ev, p_raw=self.p_raw.copy(), p_filt=self.p_filt.copy())
 
 
+# Robot REST pose (14/11 evening, operator request): hands OPEN, PALM DOWN, in front of the robot. Measured on the Dex3 model:
+# the palm faces +y of the right wrist frame and -y of the left one; fingers point along wrist +x.
+PALM_DOWN_R = {"right": np.array([[1.0, 0, 0], [0, 0, 1.0], [0, -1.0, 0]]),     # columns: x fwd, y (palm) down, z
+               "left": np.array([[1.0, 0, 0], [0, 0, -1.0], [0, 1.0, 0]])}
+REST_XYZ = (0.27, 0.20, 0.12)        # pelvis frame: 27 cm forward, 20 cm to the side, 12 cm above the counter
+
+
+def palm_down_rest(kin, counter_z, sides=("left", "right"), iters=150):
+    """Solve the arms (in place) to the palm-down front rest pose; returns the joint dict. Errors are printed, never hidden."""
+    x, y, z = REST_XYZ
+    for s in sides:
+        p = kin.base + np.array([x, y if s == "left" else -y, counter_z + z])
+        for _ in range(iters): kin.a.solve(s, p, PALM_DOWN_R[s])
+        e = np.linalg.norm(kin.a.d.xpos[kin.a.ee[s]] - p); r = np.degrees(np.linalg.norm(arm_ik.rot_err(PALM_DOWN_R[s], kin.a.d.xmat[kin.a.ee[s]].reshape(3, 3))))
+        print(f"[rest] {s}: palm-down front pose, error {100 * e:.1f} cm / {r:.0f} deg", flush=True)
+    return dict(kin.a.q)
+
+
 def solve_arm(kin, side, out, cfg, rest, unsafe, floor_z, palm_fn=None):
     """IK one hand toward out['p'], out['R'] within the joint-speed limit, then the safety check. Returns the block reason list ([] = ok).
     Raises the target over the counter keep-out only for a counter block (A8, new) or for any block (legacy)."""
@@ -344,6 +385,19 @@ def seated_calib(readers, hands, path, move=0.15):
         out[h] = {"R": np.stack([f2, l2, u]).round(5).tolist(), "q_flat": qc.round(5).tolist(), "origin": c.round(4).tolist(), "angle_deg": round(ang, 1),
                   "measured_cm": round(100 * float(np.mean([np.linalg.norm(f), np.linalg.norm(l)])), 1)}
         print(f"[calib {h}] ok: forward-left {ang:.0f} deg", flush=True); beep(1200)
+    # FINAL step (14/11 evening): the neutral pose = robot rest pose (hands open, palm down, in front of the robot)
+    print("[calib] ULTIMO PASSO: mani APERTE, PALMO VERSO IL BASSO, davanti a te sopra il tavolo (circa 10 cm), FERME", flush=True); beep(); time.sleep(1.5)
+    for h in hands:
+        Qs = []; t0 = time.time()
+        while time.time() - t0 < 1.5:
+            s = readers[h]()
+            if s and s[2] is not None and not np.isnan(s[2]).any(): Qs.append(np.asarray(s[2], float))
+            time.sleep(1 / RATE)
+        if len(Qs) >= 10:
+            qn = Qs[-1]; out[h]["q_neutral"] = qn.round(5).tolist()
+            d = np.degrees(np.linalg.norm(rotvec(q2m(qn) @ q2m(out[h]["q_flat"]).T)))
+            print(f"[calib {h}] posa neutra salvata (differenza dalla mano piatta sul tavolo: {d:.0f} gradi)", flush=True)
+    beep(1200)
     calj = json.load(open(path)) if os.path.exists(path) else {}
     calj.setdefault("seated", {}).update(out); json.dump(calj, open(path, "w"), indent=1)
     return out
