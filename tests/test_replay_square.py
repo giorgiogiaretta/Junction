@@ -52,8 +52,9 @@ def _scripted_rollout(side=0.297, hz=30):
         n = int(secs * hz)
         for k in range(n):
             s = (k + 1) / n; xyz.append([a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s, za + (zb - za) * s]); grip.append(g)
-    seg(C["BL"], C["BL"], hov, hov, 0.0, 1.0); seg(C["BL"], C["BL"], hov, 0.0, 0.0, 1.0)
+    seg(C["BL"], C["BL"], hov, hov, 0.0, 1.0)
     for a, b in zip(route, route[1:]):
+        seg(C[a], C[a], hov, 0, 0.0, 1.0)                                   # descend OPEN (closing at hover = fist lands on the cube)
         seg(C[a], C[a], 0, 0, 1.0, 1.2); seg(C[a], C[a], 0, hov, 1.0, 1.0); seg(C[a], C[b], hov, hov, 1.0, 1.5)
         seg(C[b], C[b], hov, 0, 1.0, 1.0); seg(C[b], C[b], 0, 0, 0.0, 1.2); seg(C[b], C[b], 0, hov, 0.0, 1.0)
     return {"hz": hz, "side_m": side, "xyz": xyz, "grip": grip}

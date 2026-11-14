@@ -9,3 +9,4 @@ jobs:
         with: {python-version: "3.12"}
       - run: pip install mujoco numpy scikit-learn pytest
       - run: python -m pytest tests/test_truth.py tests/test_grasp_assist.py tests/test_real_takes.py tests/test_g1_dex3.py tests/test_ai.py tests/test_live_profile.py tests/test_picker_safety.py tests/test_safety_matrix.py tests/test_cap_for.py tests/test_live_policy_cap.py tests/test_locate.py -q -s
+      - run: python -m pytest tests/test_replay_square.py -q -s
