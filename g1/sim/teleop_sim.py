@@ -24,6 +24,7 @@ from robot.g1_dex3 import G1Dex3Retargeter
 from live_sim import GloveLive
 
 RATE = 30
+CLEAR = 0.10
 MIRROR = {"shoulder_roll", "shoulder_yaw", "wrist_roll", "wrist_yaw"}
 
 
@@ -85,7 +86,7 @@ def grasp_pose(obj, side, seen, rest):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--obj", default="egg", choices=list(D.OBJECTS)); ap.add_argument("--replay", type=int)
     ap.add_argument("--hands", default="both", choices=["both", "right", "left"]); ap.add_argument("--spot", default="0.35,-0.15")
-    ap.add_argument("--scale", type=float, default=0.8); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--cam", action="store_true")
+    ap.add_argument("--scale", type=float, default=0.8); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
     ap.add_argument("--headless", action="store_true"); ap.add_argument("--seconds", type=float, default=900)
     a = ap.parse_args(); obj = a.obj; pr = D.PROFILE[obj]; spot = [float(x) for x in a.spot.split(",")]
     hands = ["left", "right"] if a.hands == "both" else [a.hands]
@@ -120,7 +121,12 @@ def main():
     gl = {} if a.replay else {h: GloveLive(h) for h in hands}
     read = (lambda h: src.read(h)) if src else (lambda h: gl[h].read())
     rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0")))
-    ref = {}; engaged = {h: False for h in hands}; lock = {h: None for h in hands}; fade = {h: 0.0 for h in hands}; cmd_f = {h: 0.0 for h in hands}
+    ref = {}; stage = {h: None for h in hands}; t_st = {h: 0.0 for h in hands}; rel_p = {}; lock = {h: None for h in hands}
+    APPR = {}
+    for h in hands:                                             # approach direction: from above (egg, ball) or from the palm side (can)
+        if G.get(h) is None: APPR[h] = np.array([0, 0, 1.0]); continue
+        v = G[h][0] - G[h][2]; v[2] = 0
+        APPR[h] = v / (np.linalg.norm(v) + 1e-9) if D.SIDE_APPROACH.get(obj) else np.array([0, 0, 1.0]); fade = {h: 0.0 for h in hands}; cmd_f = {h: 0.0 for h in hands}
     viewer = None
     if not a.headless:
         from mujoco import viewer as mjv
@@ -140,29 +146,41 @@ def main():
             p_tel = home[h][0] + a.scale * R_cb[h] @ (P - ref[h][0])
             R_tel = R_cb[h] @ arm_ik.quat_wxyz_to_mat(Q) @ ref[h][1].T @ R_cb[h].T @ home[h][1]
             tgt_p, tgt_R, mode, arrived = p_tel, R_tel, "teleop", False
+            wr = kin.a.d.xpos[kin.a.ee[h]]; hold_fingers = False
             if G[h] is not None:
-                gp, gR, pin_t = G[h]; dv = pinch(kin, h) - seen; arrived = np.linalg.norm(kin.a.d.xpos[kin.a.ee[h]] - gp) < 0.012   # wrist on the grasp pose (pinch moves with the fingers)
-                dist = float(np.hypot(dv[0], dv[1])) if -0.03 < dv[2] < 0.15 else 9.9   # near in plan, anywhere from just below to 15 cm above
-                if lock[h] is None and g > 0.3 * pr["g_ref"] and dist < 0.07: engaged[h] = True     # you are closing near the object
-                if g < 0.15 * pr["g_ref"]: engaged[h] = False                                            # opened: assist off
-                if lock[h] is None and engaged[h]:                                                       # assist: go to the grasp pose and stay there
-                    w = 1.0
-                    tgt_p = (1 - w) * p_tel + w * gp; tgt_R = gR if w > 0.5 else R_tel; mode = f"assist {w:.1f}"
-                    if arrived and g > 0.6 * pr["g_ref"]: lock[h] = (gp - p_tel, gR @ R_tel.T); fade[h] = 1.0
-                    elif not arrived: mode += " (fingers wait: hand not on the object yet)"
-                if lock[h] is not None:
-                    off, dR = lock[h]
-                    tgt_p = p_tel + fade[h] * off; tgt_R = dR @ R_tel if fade[h] > 0.5 else R_tel; mode = "grasp (object follows you)"
-                    if g < 0.25 * pr["g_ref"]: fade[h] = max(0.0, fade[h] - 1.0 / RATE); mode = "release"
-                    if fade[h] <= 0: lock[h] = None
+                gp, gR, pin_t = G[h]; appr = APPR[h]; pre_p = gp + CLEAR * appr; dv = pinch(kin, h) - seen
+                dist = float(np.hypot(dv[0], dv[1])) if -0.03 < dv[2] < 0.20 else 9.9
+                st = stage[h]
+                if st is None and g > 0.3 * pr["g_ref"] and dist < 0.10: st, t_st[h] = "pre", time.time()       # you close near the object: assist starts
+                if st in ("pre", "down") and g < 0.15 * pr["g_ref"]: st = None                               # you opened before the grasp: assist off
+                if st == "pre":                       # 1) grasp orientation + pre-grasp pose, AWAY from the object (above, or beside for the can)
+                    tgt_p, tgt_R, hold_fingers, mode = pre_p, gR, True, "assist: pre-grasp"
+                    r_err = np.degrees(np.linalg.norm(arm_ik.rot_err(gR, kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3))))
+                    if np.linalg.norm(wr - pre_p) < 0.015 and r_err < 8: st, t_st[h] = "down", time.time()   # oriented first, then approach
+                elif st == "down":                    # 2) straight approach to the grasp pose in 1 s, fingers open
+                    u = min(1.0, (time.time() - t_st[h]) / 1.0); tgt_p, tgt_R, hold_fingers, mode = pre_p + u * (gp - pre_p), gR, True, "assist: approach"
+                    if u >= 1.0 and np.linalg.norm(wr - gp) < 0.012: st, t_st[h] = "close", time.time()
+                elif st == "close":                   # 3) on the object: your grip closes the robot hand (capped); lock when closed for 0.5 s
+                    tgt_p, tgt_R, mode = gp, gR, "assist: closing"
+                    if g > 0.6 * pr["g_ref"] and time.time() - t_st[h] > 0.5: st = "hold"; lock[h] = (gp - p_tel, gR @ R_tel.T)
+                    if g < 0.15 * pr["g_ref"]: st, t_st[h] = "retreat", time.time()
+                elif st == "hold":                    # 4) object follows YOUR hand (position + rotation relative to the lock moment)
+                    off, dR = lock[h]; tgt_p, tgt_R, mode = p_tel + off, (dR @ R_tel if a.rotate_held else gR), "grasp: object follows you"
+                    if g < 0.25 * pr["g_ref"]: st, t_st[h], rel_p[h] = "retreat", time.time(), p_tel + off
+                elif st == "retreat":                 # 5) opened: hand open, back away 10 cm in 1 s, then free teleop
+                    u = min(1.0, (time.time() - t_st[h]) / 1.0); base_p = rel_p.get(h, gp)
+                    tgt_p, tgt_R, hold_fingers, mode = base_p + u * CLEAR * appr, gR, True, "release: back away"
+                    if u >= 1.0: st = None; lock[h] = None; ref[h] = (P.copy(), arm_ik.quat_wxyz_to_mat(Q)); home[h] = (wr.copy(), kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3).copy())
+                if st != stage[h]: print(f"[{h}] {stage[h]} -> {st} | wrist-grasp {100 * np.linalg.norm(wr - gp):.1f} cm, rot err {np.degrees(np.linalg.norm(arm_ik.rot_err(gR, kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3)))):.0f} deg | object {np.round(100 * (d.qpos[oa:oa + 3] - obj_c), 1)} cm", flush=True)
+                stage[h] = st
             floor = kin.base[2] + D.KEEP["z"] + 0.01; tgt_p = tgt_p.copy(); tgt_p[2] = max(tgt_p[2], floor)
-            q_prev = dict(kin.a.q); kin.a.solve(h, tgt_p, tgt_R, q_rest=rest)
+            qr = rest if stage.get(h) is None else None                # natural-posture pull only in free teleop: during the grasp the pose must be exact
+            q_prev = dict(kin.a.q); e_p, e_r = kin.a.solve(h, tgt_p, tgt_R, q_rest=qr)
             if unsafe(kin):                                            # lift the target until wrist and palm are above the counter keep-out
                 low = floor - min(kin.a.d.xpos[kin.a.ee[h]][2], palm(kin, h)[2])
-                kin.a.q.update(q_prev); kin.a.apply(); kin.a.solve(h, tgt_p + np.array([0, 0, max(low, 0) + 0.01]), tgt_R, q_rest=rest); mode += " [raised]"
+                kin.a.q.update(q_prev); kin.a.apply(); kin.a.solve(h, tgt_p + np.array([0, 0, max(low, 0) + 0.01]), tgt_R, q_rest=qr); mode += " [raised]"
                 if unsafe(kin): kin.a.q.update(q_prev); kin.a.apply(); blocked += 1; mode += " [BLOCKED by safety]"
-            c = pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))
-            if G[h] is not None and lock[h] is None and "assist" in mode and not arrived: c = min(c, 0.3 * pr["cap"])   # pre-shape until the hand is on the object
+            c = 0.0 if hold_fingers else pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))   # open while the robot moves to / away from the object
             fingers[h] = [c, c, c, 0, 0]
             status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
         hq = rt.step(left=fingers["left"], right=fingers["right"])
