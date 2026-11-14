@@ -1,0 +1,697 @@
+[
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 7.808692932128906,
+  "ok": true,
+  "file": "ball/ball-001.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 1.449294090270996,
+  "ok": true,
+  "file": "ball/ball-002.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 5.750312805175781,
+  "ok": true,
+  "file": "ball/ball-003.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 21.527215003967285,
+  "ok": true,
+  "file": "ball/ball-004.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 22.943483114242554,
+  "ok": true,
+  "file": "ball/ball-005.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 11.373522281646729,
+  "ok": true,
+  "file": "ball/ball-006.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 14.060824632644653,
+  "ok": true,
+  "file": "ball/ball-007.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 24.269623041152954,
+  "ok": true,
+  "file": "ball/ball-008.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 7.211651086807251,
+  "ok": true,
+  "file": "ball/ball-009.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 10.157014846801758,
+  "ok": true,
+  "file": "ball/ball-010.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 7.850893259048462,
+  "ok": true,
+  "file": "ball/ball-011.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 7.722110748291016,
+  "ok": true,
+  "file": "ball/ball-012.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 14.033865928649902,
+  "ok": true,
+  "file": "ball/ball-013.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 27.85141396522522,
+  "ok": true,
+  "file": "ball/ball-014.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 32.61502385139465,
+  "ok": true,
+  "file": "ball/ball-015.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "other",
+  "confidence": 0.9,
+  "latency_s": 26.115844011306763,
+  "ok": true,
+  "file": "ball/ball-016.jpg",
+  "expected": "stress_ball",
+  "profile_ok": false
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 8.27788519859314,
+  "ok": true,
+  "file": "ball/ball-017.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 6.483947038650513,
+  "ok": true,
+  "file": "ball/ball-018.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 8.930572032928467,
+  "ok": true,
+  "file": "ball/ball-019.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 33.03250789642334,
+  "ok": true,
+  "file": "ball/ball-020.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 7.6734700202941895,
+  "ok": true,
+  "file": "ball/ball-021.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 17.778318881988525,
+  "ok": true,
+  "file": "ball/ball-022.jpg",
+  "expected": "stress_ball",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 5.462549209594727,
+  "ok": true,
+  "file": "can/can-001.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 7.93923807144165,
+  "ok": true,
+  "file": "can/can-002.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 6.435259103775024,
+  "ok": true,
+  "file": "can/can-003.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 2.9303338527679443,
+  "ok": true,
+  "file": "can/can-004.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 6.1413092613220215,
+  "ok": true,
+  "file": "can/can-005.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 0.99,
+  "latency_s": 6.297243118286133,
+  "ok": true,
+  "file": "can/can-006.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 8.070085048675537,
+  "ok": true,
+  "file": "can/can-007.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 7.314562082290649,
+  "ok": true,
+  "file": "can/can-008.jpg",
+  "expected": "can",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.99,
+  "latency_s": 6.2767908573150635,
+  "ok": true,
+  "file": "egg/egg-001.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 7.955821752548218,
+  "ok": true,
+  "file": "egg/egg-002.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 9.623170137405396,
+  "ok": true,
+  "file": "egg/egg-003.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 6.714396953582764,
+  "ok": true,
+  "file": "egg/egg-004.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 7.237210750579834,
+  "ok": true,
+  "file": "egg/egg-005.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 2.72334885597229,
+  "ok": true,
+  "file": "egg/egg-006.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.99,
+  "latency_s": 7.710532188415527,
+  "ok": true,
+  "file": "egg/egg-007.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 1.5964789390563965,
+  "ok": true,
+  "file": "egg/egg-008.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 6.5944859981536865,
+  "ok": true,
+  "file": "egg/egg-009.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 7.535901784896851,
+  "ok": true,
+  "file": "egg/egg-010.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 7.196939706802368,
+  "ok": true,
+  "file": "egg/egg-011.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 7.112987756729126,
+  "ok": true,
+  "file": "egg/egg-012.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.99,
+  "latency_s": 4.999807834625244,
+  "ok": true,
+  "file": "egg/egg-013.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 3.404529094696045,
+  "ok": true,
+  "file": "egg/egg-014.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 6.501455068588257,
+  "ok": true,
+  "file": "egg/egg-015.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 6.021191120147705,
+  "ok": true,
+  "file": "egg/egg-016.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 9.135926246643066,
+  "ok": true,
+  "file": "egg/egg-017.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 8.522401094436646,
+  "ok": true,
+  "file": "egg/egg-018.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 2.880824089050293,
+  "ok": true,
+  "file": "egg/egg-019.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 1.0,
+  "latency_s": 8.485909938812256,
+  "ok": true,
+  "file": "egg/egg-020.jpg",
+  "expected": "egg",
+  "profile_ok": true
+ },
+ {
+  "object": "egg",
+  "confidence": 0.9,
+  "latency_s": 29.243924140930176,
+  "ok": true,
+  "file": "mix/mix-001.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.9,
+  "latency_s": 7.943711996078491,
+  "ok": true,
+  "file": "mix/mix-002.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "other",
+  "confidence": null,
+  "latency_s": 33.83047604560852,
+  "ok": false,
+  "error": "substring not found",
+  "file": "mix/mix-003.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 7.782654047012329,
+  "ok": true,
+  "file": "mix/mix-004.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 21.400434970855713,
+  "ok": true,
+  "file": "mix/mix-005.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "other",
+  "confidence": null,
+  "latency_s": 33.836071729660034,
+  "ok": false,
+  "error": "substring not found",
+  "file": "mix/mix-006.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 11.598838806152344,
+  "ok": true,
+  "file": "mix/mix-007.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.9,
+  "latency_s": 25.529625177383423,
+  "ok": true,
+  "file": "mix/mix-008.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 17.014212131500244,
+  "ok": true,
+  "file": "mix/mix-009.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 24.514848947525024,
+  "ok": true,
+  "file": "mix/mix-010.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 17.561806678771973,
+  "ok": true,
+  "file": "mix/mix-011.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "egg",
+  "confidence": 0.95,
+  "latency_s": 14.526695013046265,
+  "ok": true,
+  "file": "mix/mix-012.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.95,
+  "latency_s": 21.534767866134644,
+  "ok": true,
+  "file": "mix/mix-013.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.95,
+  "latency_s": 21.03712296485901,
+  "ok": true,
+  "file": "mix/mix-014.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "egg",
+  "confidence": 0.9,
+  "latency_s": 12.338911771774292,
+  "ok": true,
+  "file": "mix/mix-015.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.95,
+  "latency_s": 18.985771656036377,
+  "ok": true,
+  "file": "mix/mix-016.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.9,
+  "latency_s": 15.490563869476318,
+  "ok": true,
+  "file": "mix/mix-017.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.95,
+  "latency_s": 12.249901056289673,
+  "ok": true,
+  "file": "mix/mix-018.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 7.753735065460205,
+  "ok": true,
+  "file": "mix/mix-019.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.95,
+  "latency_s": 11.5768461227417,
+  "ok": true,
+  "file": "mix/mix-020.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 0.95,
+  "latency_s": 12.401037216186523,
+  "ok": true,
+  "file": "mix/mix-021.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 10.581407070159912,
+  "ok": true,
+  "file": "mix/mix-022.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "can",
+  "confidence": 1.0,
+  "latency_s": 8.817210912704468,
+  "ok": true,
+  "file": "mix/mix-023.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 8.888530969619751,
+  "ok": true,
+  "file": "mix/mix-024.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 15.10515284538269,
+  "ok": true,
+  "file": "mix/mix-025.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 14.799006223678589,
+  "ok": true,
+  "file": "mix/mix-026.jpg",
+  "expected": null,
+  "profile_ok": null
+ },
+ {
+  "object": "stress_ball",
+  "confidence": 0.95,
+  "latency_s": 14.34669280052185,
+  "ok": true,
+  "file": "mix/mix-027.jpg",
+  "expected": null,
+  "profile_ok": null
+ }
+]
