@@ -13,6 +13,9 @@ Every recogniser errs: on our 50 labelled head-camera photos Nemotron missed 1-2
 - **Job 1, second opinion:** a different model family looks at the same frame (49/50 on our photos, eggs 20/20).
 - **Job 2, language:** the operator can say "Oggetto caduto, cambia in modalita' presa forte"; Gemma returns strict JSON that a safety gate validates (a firm grip is only allowed for the stress ball; "stop" never waits for a model).
 - **Why on our own GPU:** no quota, no data leaves, open weights, real latency we can measure.
+## Gemma on our own GPU, measured (14/11 evening)
+PaliGemma 2 (Gemma family, 3B) runs on a Verda A100 behind an SSH tunnel: 49/50 on our photos with a 3-option question, median 0.21 s, and in a three-model vote (Nemotron + Gemma-4 + PaliGemma) every ball is confirmed by two models and no egg is missed (50/50 on the same photos: optimistic, one person/place/day). Honest note: the binary "fragile or rigid?" question does not work on it (it says "fragile" for everything).
+
 ## Google Gemini = the slow judge
 After a recording, Gemini reads the whole episode and says whether the hand-off worked (free-tier aware: daily-quota chain, async). It never sits in the real-time loop.
 
