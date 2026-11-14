@@ -36,10 +36,10 @@ class Cfg:
         self.leash = 0.0015                              # m, raw-signal deadband (continuous)
         self.post_deadband = 0.0                         # m, legacy hold-deadband after the filter
         self.grip_tau = 0.04
-        self.joint_speed = 0.85                          # rad/s (runner cap 1.0)    (was 0.7)
+        self.joint_speed = 0.92                          # rad/s (runner cap 1.0)    (was 0.7; 0.85 first evening step)
         self.uniform_step = True
-        self.vmax = 0.60                                 # m/s, raw teleop target speed limit   (was 0.35)
-        self.vfinal, self.wfinal = 0.55, np.radians(220)  # final target limiter (m/s, rad/s)  (was 0.30, 150)
+        self.vmax = 0.75                                 # m/s, raw teleop target speed limit   (was 0.35; 0.60)
+        self.vfinal, self.wfinal = 0.70, np.radians(260)  # final target limiter (m/s, rad/s)  (was 0.30, 150; 0.55, 220)
         self.assist_r, self.snap_xy, self.snap_z, self.snap_deg, self.snap_ticks = 0.06, 0.04, 0.05, 60.0, 2
         self.w_rate = 1 / 0.4                            # assist weight change per second
         self.ns_fade = 0.5                               # s, null-space fade

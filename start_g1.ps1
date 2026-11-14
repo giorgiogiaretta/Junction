@@ -6,7 +6,11 @@
 #   & C:\Users\giorg\Desktop\Junction\start_g1.ps1 -Vision    (camera + Tommaso's vision: the arm goes over the object it sees,
 #                                                              glove closed = descend + grasp; object default stress_ball,
 #                                                              -Right egg / -Left can_empty to change; no camera -> 35 cm / +-15 cm)
-param([switch]$Safe, [switch]$Vision, [int]$Seconds = 300, [string]$Closure = "0.6",
+#   & C:\Users\giorg\Desktop\Junction\start_g1.ps1 -Coil      (Coil Pro: the robot arm follows your wrist, as the simulator.
+#                                                              Seated calibration FIRST (beeps), then the robot goes to "hands open,
+#                                                              palm down, in front"; right hand only, -Both for both hands;
+#                                                              -NoCalib to reuse the last calibration)
+param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$Both, [switch]$NoCalib, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
@@ -30,15 +34,29 @@ if (-not (Get-Process rokoko-sdk -ErrorAction SilentlyContinue)) {
 Write-Host "driver ok"
 
 Write-Host "== 3/5 libero la porta 8000 e avvio la console" -ForegroundColor Cyan
-Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'arms_glove|arms_simple|live_policy|rgmp_client' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'arms_glove|arms_simple|live_policy|rgmp_client|teleop_multi' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 if (-not (Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'tools[\\/]console[\\/]app.py' })) {
     Start-Process py -ArgumentList "-3.11", "$J\tools\console\app.py" -WorkingDirectory $J
 }
 
 Write-Host "== 4/5 policy" -ForegroundColor Cyan
-$pol = if ($Safe) { "g1/arms_simple.py" } elseif ($Vision) { "g1/live_policy_v1.py" } else { "g1/arms_glove.py" }
-$extra = if ($Vision) { "--right $Right --left $Left --right-xy 0.35,-0.15 --left-xy 0.35,0.15" } else { "" }
-Start-Process powershell -WorkingDirectory $J -ArgumentList "-NoExit", "-Command", "`$env:G1_MAX_CLOSURE='$Closure'; py -3.11 $pol --source udp:14043 --host 0.0.0.0 $extra"
+$src = "udp:14043"
+if ($Coil) {
+    # Coil: wrist pose + fingers come from rgmp_client on UDP 14044 (the console keeps reading the driver too: tested, both get 83 Hz)
+    Start-Process powershell -WorkingDirectory $J -ArgumentList "-NoExit", "-Command", "py -3.11 Rokoko/src/rgmp_client.py --hand any --udp-port 14044"
+    Write-Host "APRI e CHIUDI entrambe le mani per 8 secondi (taratura dita)..." -ForegroundColor Yellow; Start-Sleep 10
+    $hands = if ($Both) { "--right $Right --left $Left" } else { "--right $Right" }
+    if (-not $NoCalib) {
+        Write-Host "CALIBRAZIONE (segui le scritte e i bip): mano piatta e ferma sul tavolo, avanti, ritorno, sinistra, poi mani APERTE palmo in giu' davanti a te" -ForegroundColor Yellow
+        Push-Location $J; py -3.11 g1/live_policy_v2.py --source udp:14044 --calib $hands.Split(" "); $ok = $LASTEXITCODE; Pop-Location
+        if ($ok -ne 0) { Write-Host "calibrazione non riuscita: rilancia lo script" -ForegroundColor Red; return }
+    }
+    $pol = "g1/live_policy_v2.py"; $src = "udp:14044"; $extra = "$hands --right-xy 0.35,-0.15 --left-xy 0.35,0.15"
+} else {
+    $pol = if ($Safe) { "g1/arms_simple.py" } elseif ($Vision) { "g1/live_policy_v1.py" } else { "g1/arms_glove.py" }
+    $extra = if ($Vision) { "--right $Right --left $Left --right-xy 0.35,-0.15 --left-xy 0.35,0.15" } else { "" }
+}
+Start-Process powershell -WorkingDirectory $J -ArgumentList "-NoExit", "-Command", "`$env:G1_MAX_CLOSURE='$Closure'; py -3.11 $pol --source $src --host 0.0.0.0 $extra"
 $t0 = Get-Date
 while (-not (Test-NetConnection 127.0.0.1 -Port 8000 -InformationLevel Quiet -WarningAction SilentlyContinue)) {
     if (((Get-Date) - $t0).TotalSeconds -gt 90) { Write-Host "la policy non parte: guarda la sua finestra" -ForegroundColor Red; return }
