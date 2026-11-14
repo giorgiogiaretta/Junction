@@ -142,6 +142,26 @@ def test_object_cut_by_frame_edge_is_refused(mode):
     assert out["depth_ok"] is False and out["truncated"] is True, out
 
 
+def test_edge_pixels_trimmed_from_bbox_still_count_as_truncated():
+    """Bench can #19: 17 mask px in the last 2 columns, but the 1-99th percentile bbox ended before them -> was truncated=False."""
+    r = 0.0325; rgb, depth = render(np.array([0.35, 0.0, TABLE_Z + r]), (r, r, r), (240, 120, 30))
+    ball = (rgb == (240, 120, 30)).all(-1); vs, _ = np.nonzero(ball)
+    sliver = np.zeros_like(ball); vc = int(vs.mean()); sliver[vc - 4:vc + 5, W - 2:] = True   # 18 px on the edge
+    out = locate(rgb, depth, p2p, label="stress_ball", mask=ball | sliver)
+    assert out["bbox"][2] < W - 2 and out["truncated"] is True and out["depth_ok"] is False, out
+
+
+def test_partly_hidden_ball_is_refused_as_occluded():
+    """Bench ball #10: mask 83x48 px where a whole ball is ~78 px round (robot arm in front). Fill < 0.8 -> refused."""
+    r = 0.0325; rgb, depth = render(np.array([0.35, 0.0, TABLE_Z + r]), (r, r, r), (240, 120, 30))
+    ball = (rgb == (240, 120, 30)).all(-1); vs, _ = np.nonzero(ball)
+    whole = locate(rgb, depth, p2p, label="stress_ball", mask=ball)
+    assert whole["occluded"] is False and whole["depth_ok"], whole
+    half = ball & (np.arange(H)[:, None] > vs.mean())                          # top half hidden
+    out = locate(rgb, depth, p2p, label="stress_ball", mask=half)
+    assert out["occluded"] is True and out["depth_ok"] is False, out
+
+
 def test_bench_adapter_frame_conversion():
     from ai.locate_bench import pixel_to_world
     pos = np.array([0.1, 0.2, 0.3]); Rm = np.eye(3)                              # MuJoCo camera looking along world -z
