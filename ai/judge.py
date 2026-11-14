@@ -90,6 +90,7 @@ if __name__ == "__main__":
     for p in a.episodes:
         s = summarize_episode(p, a.version); r = judge_episode(c, s, SYSTEM_V2 if a.version == 2 else SYSTEM); rows.append((s, r, int(np.load(p, allow_pickle=True)["success"])))
         print(s["episode"], r["verdict"], r["source"])
+    os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
     with open(a.out, "w") as f:
         for s, r, l in rows: f.write(json.dumps({"summary": s, "judge": r, "human": l}) + "\n")
     print(json.dumps(agreement([r["verdict"] for _, r, _ in rows], [l for _, _, l in rows])))
