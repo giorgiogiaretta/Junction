@@ -1,0 +1,1441 @@
+{
+  "metadata": {
+    "device": "mps",
+    "weights": "yolov8s-worldv2.pt",
+    "prompts": [
+      "egg",
+      "stress ball",
+      "can"
+    ],
+    "confidence": 0.25,
+    "imgsz": 640,
+    "load_s": 4.478223499994783,
+    "warmup_3_frames_s": 4.072404625003401,
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "python": "3.12.3",
+    "packages": {
+      "ultralytics": "8.4.212",
+      "torch": "2.15.0",
+      "torchvision": "0.29.2",
+      "pillow": "13.0.0"
+    },
+    "timing": "decode + preprocess + inference + postprocess + synchronization; warmup excluded"
+  },
+  "summary": {
+    "folders": {
+      "ball": {
+        "correct": 9,
+        "total": 22,
+        "accuracy": 0.4090909090909091
+      },
+      "can": {
+        "correct": 3,
+        "total": 8,
+        "accuracy": 0.375
+      },
+      "egg": {
+        "correct": 0,
+        "total": 20,
+        "accuracy": 0.0
+      }
+    },
+    "correct": 12,
+    "total": 50,
+    "failed": 0,
+    "latency_s": {
+      "median": 0.03779689599832636,
+      "mean": 0.03798638246007613,
+      "max": 0.050818791998608503
+    },
+    "confusion": {
+      "egg": {
+        "other": 6,
+        "stress_ball": 14
+      },
+      "stress_ball": {
+        "stress_ball": 9,
+        "other": 13
+      },
+      "can": {
+        "can": 3,
+        "other": 5
+      },
+      "other": {}
+    }
+  },
+  "rows": [
+    {
+      "object": "stress_ball",
+      "confidence": 0.26738107204437256,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.26738107204437256,
+          "bbox": [
+            772.54345703125,
+            1057.3900146484375,
+            1123.68603515625,
+            1394.3475341796875
+          ]
+        }
+      ],
+      "latency_s": 0.03638074999616947,
+      "file": "ball/ball-001.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03985733300214633,
+      "file": "ball/ball-002.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.30343520641326904,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.30343520641326904,
+          "bbox": [
+            833.8485717773438,
+            1069.775390625,
+            1250.02294921875,
+            1469.26025390625
+          ]
+        }
+      ],
+      "latency_s": 0.050818791998608503,
+      "file": "ball/ball-003.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.037396374995296355,
+      "file": "ball/ball-004.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03481045799708227,
+      "file": "ball/ball-005.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.034460124996257946,
+      "file": "ball/ball-006.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03472291600337485,
+      "file": "ball/ball-007.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.31602346897125244,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.31602346897125244,
+          "bbox": [
+            670.7606201171875,
+            1213.154052734375,
+            1067.6043701171875,
+            1615.77490234375
+          ]
+        }
+      ],
+      "latency_s": 0.03904866700031562,
+      "file": "ball/ball-008.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.2533663809299469,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.2533663809299469,
+          "bbox": [
+            920.7297973632812,
+            1316.2236328125,
+            1253.586669921875,
+            1653.631103515625
+          ]
+        }
+      ],
+      "latency_s": 0.034665457998926286,
+      "file": "ball/ball-009.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03320654099661624,
+      "file": "ball/ball-010.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.3926526606082916,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.3926526606082916,
+          "bbox": [
+            938.891845703125,
+            1299.21337890625,
+            1273.55615234375,
+            1633.0048828125
+          ]
+        }
+      ],
+      "latency_s": 0.03424733300198568,
+      "file": "ball/ball-011.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.343514621257782,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.343514621257782,
+          "bbox": [
+            849.8111572265625,
+            1278.89306640625,
+            1142.27490234375,
+            1569.7119140625
+          ]
+        }
+      ],
+      "latency_s": 0.03966029200091725,
+      "file": "ball/ball-012.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03455512499931501,
+      "file": "ball/ball-013.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03393562500423286,
+      "file": "ball/ball-014.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.5018770694732666,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.5018770694732666,
+          "bbox": [
+            994.5171508789062,
+            1429.71142578125,
+            1259.77392578125,
+            1698.80712890625
+          ]
+        }
+      ],
+      "latency_s": 0.042203832999803126,
+      "file": "ball/ball-015.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.46602797508239746,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.46602797508239746,
+          "bbox": [
+            725.57080078125,
+            1337.794189453125,
+            988.34912109375,
+            1564.272216796875
+          ]
+        }
+      ],
+      "latency_s": 0.03978349999670172,
+      "file": "ball/ball-016.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03592712499812478,
+      "file": "ball/ball-017.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.28908270597457886,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.28908270597457886,
+          "bbox": [
+            923.9054565429688,
+            1110.820068359375,
+            1273.371337890625,
+            1461.485595703125
+          ]
+        }
+      ],
+      "latency_s": 0.04287766600464238,
+      "file": "ball/ball-018.jpg",
+      "expected": "stress_ball",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03853437500220025,
+      "file": "ball/ball-019.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03534574999503093,
+      "file": "ball/ball-020.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03642870800103992,
+      "file": "ball/ball-021.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03500495800108183,
+      "file": "ball/ball-022.jpg",
+      "expected": "stress_ball",
+      "profile_ok": false
+    },
+    {
+      "object": "can",
+      "confidence": 0.31644415855407715,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.31644415855407715,
+          "bbox": [
+            711.0819091796875,
+            757.43017578125,
+            1197.497802734375,
+            1662.270751953125
+          ]
+        }
+      ],
+      "latency_s": 0.03941874999873107,
+      "file": "can/can-001.jpg",
+      "expected": "can",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.035184874999686144,
+      "file": "can/can-002.jpg",
+      "expected": "can",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03483875000529224,
+      "file": "can/can-003.jpg",
+      "expected": "can",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.0354278750019148,
+      "file": "can/can-004.jpg",
+      "expected": "can",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.037839083997823764,
+      "file": "can/can-005.jpg",
+      "expected": "can",
+      "profile_ok": false
+    },
+    {
+      "object": "can",
+      "confidence": 0.25580742955207825,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.25580742955207825,
+          "bbox": [
+            372.18377685546875,
+            24.934112548828125,
+            578.0194091796875,
+            454.9980163574219
+          ]
+        }
+      ],
+      "latency_s": 0.038583583998843096,
+      "file": "can/can-006.jpg",
+      "expected": "can",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03669441600504797,
+      "file": "can/can-007.jpg",
+      "expected": "can",
+      "profile_ok": false
+    },
+    {
+      "object": "can",
+      "confidence": 0.8299680352210999,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.8299680352210999,
+          "bbox": [
+            644.84521484375,
+            607.5785522460938,
+            1206.24267578125,
+            1810.1123046875
+          ]
+        }
+      ],
+      "latency_s": 0.04183141599787632,
+      "file": "can/can-008.jpg",
+      "expected": "can",
+      "profile_ok": true
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.038279958003840875,
+      "file": "egg/egg-001.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.3667994439601898,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.3667994439601898,
+          "bbox": [
+            730.6732177734375,
+            1198.717041015625,
+            1138.7821044921875,
+            1564.421142578125
+          ]
+        }
+      ],
+      "latency_s": 0.0417094169970369,
+      "file": "egg/egg-002.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.46303826570510864,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.46303826570510864,
+          "bbox": [
+            975.5604248046875,
+            1581.859619140625,
+            1419.0028076171875,
+            2097.307373046875
+          ]
+        }
+      ],
+      "latency_s": 0.041176416001690086,
+      "file": "egg/egg-003.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.4698689579963684,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.4698689579963684,
+          "bbox": [
+            873.1775512695312,
+            1108.1119384765625,
+            1189.572509765625,
+            1503.4281005859375
+          ]
+        }
+      ],
+      "latency_s": 0.04069929200340994,
+      "file": "egg/egg-004.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.036561583998263814,
+      "file": "egg/egg-005.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.2508082985877991,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.2508082985877991,
+          "bbox": [
+            807.905517578125,
+            1283.617431640625,
+            1151.1876220703125,
+            1752.89013671875
+          ]
+        }
+      ],
+      "latency_s": 0.04142587500246009,
+      "file": "egg/egg-006.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.4531327784061432,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.4531327784061432,
+          "bbox": [
+            704.58447265625,
+            1171.17333984375,
+            1058.44140625,
+            1545.5927734375
+          ]
+        }
+      ],
+      "latency_s": 0.04113808400143171,
+      "file": "egg/egg-007.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.307013601064682,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.307013601064682,
+          "bbox": [
+            815.2864379882812,
+            1573.79052734375,
+            1287.980224609375,
+            2042.78076171875
+          ]
+        }
+      ],
+      "latency_s": 0.03979679199983366,
+      "file": "egg/egg-008.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.5472566485404968,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.5472566485404968,
+          "bbox": [
+            972.795166015625,
+            1504.10107421875,
+            1330.4658203125,
+            1931.34326171875
+          ]
+        }
+      ],
+      "latency_s": 0.03879058400343638,
+      "file": "egg/egg-009.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.6358963847160339,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.6358963847160339,
+          "bbox": [
+            853.6591186523438,
+            1062.782470703125,
+            1282.52197265625,
+            1577.209228515625
+          ]
+        }
+      ],
+      "latency_s": 0.03775470799882896,
+      "file": "egg/egg-010.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.43299126625061035,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.43299126625061035,
+          "bbox": [
+            884.545654296875,
+            1168.650146484375,
+            1184.2841796875,
+            1557.77294921875
+          ]
+        }
+      ],
+      "latency_s": 0.03605112500372343,
+      "file": "egg/egg-011.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.6487689018249512,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.6487689018249512,
+          "bbox": [
+            907.958251953125,
+            1421.4833984375,
+            1159.943115234375,
+            1685.8818359375
+          ]
+        }
+      ],
+      "latency_s": 0.03805745799763827,
+      "file": "egg/egg-012.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.25361305475234985,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.25361305475234985,
+          "bbox": [
+            1003.582275390625,
+            1275.734619140625,
+            1210.458740234375,
+            1545.373779296875
+          ]
+        }
+      ],
+      "latency_s": 0.03912141700129723,
+      "file": "egg/egg-013.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.4900728166103363,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.4900728166103363,
+          "bbox": [
+            875.50146484375,
+            1232.5980224609375,
+            1142.57666015625,
+            1455.1177978515625
+          ]
+        }
+      ],
+      "latency_s": 0.03753233300085412,
+      "file": "egg/egg-014.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03767162499570986,
+      "file": "egg/egg-015.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03570533399761189,
+      "file": "egg/egg-016.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.039280083001358435,
+      "file": "egg/egg-017.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03619470800185809,
+      "file": "egg/egg-018.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.5468170642852783,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.5468170642852783,
+          "bbox": [
+            911.1318359375,
+            913.237060546875,
+            1242.837646484375,
+            1326.694091796875
+          ]
+        }
+      ],
+      "latency_s": 0.03843854199658381,
+      "file": "egg/egg-019.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.28218749165534973,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.28218749165534973,
+          "bbox": [
+            568.9691162109375,
+            1056.575927734375,
+            983.1339111328125,
+            1555.91455078125
+          ]
+        }
+      ],
+      "latency_s": 0.0402433330018539,
+      "file": "egg/egg-020.jpg",
+      "expected": "egg",
+      "profile_ok": false
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.38663607835769653,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.38663607835769653,
+          "bbox": [
+            617.00244140625,
+            1400.4869384765625,
+            857.913330078125,
+            1638.2559814453125
+          ]
+        }
+      ],
+      "latency_s": 0.03833570799906738,
+      "file": "mix/mix-001.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.3570861518383026,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.3570861518383026,
+          "bbox": [
+            769.5048828125,
+            1206.992431640625,
+            1056.9134521484375,
+            1493.884521484375
+          ]
+        }
+      ],
+      "latency_s": 0.04010250000283122,
+      "file": "mix/mix-002.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03540337500453461,
+      "file": "mix/mix-003.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.037618207999912556,
+      "file": "mix/mix-004.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03593725000246195,
+      "file": "mix/mix-005.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "egg",
+      "confidence": 0.3363378643989563,
+      "ok": true,
+      "detections": [
+        {
+          "label": "egg",
+          "score": 0.3363378643989563,
+          "bbox": [
+            1166.10986328125,
+            1824.4111328125,
+            1378.22021484375,
+            2086.505126953125
+          ]
+        },
+        {
+          "label": "egg",
+          "score": 0.2874510586261749,
+          "bbox": [
+            1427.626220703125,
+            1517.322265625,
+            1700.237060546875,
+            1773.0478515625
+          ]
+        }
+      ],
+      "latency_s": 0.060882999998284504,
+      "file": "mix/mix-006.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.037314957997296005,
+      "file": "mix/mix-007.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "egg",
+      "confidence": 0.8119117617607117,
+      "ok": true,
+      "detections": [
+        {
+          "label": "egg",
+          "score": 0.8119117617607117,
+          "bbox": [
+            1124.5335693359375,
+            1794.88037109375,
+            1333.8001708984375,
+            2034.749755859375
+          ]
+        },
+        {
+          "label": "egg",
+          "score": 0.38960301876068115,
+          "bbox": [
+            1379.82861328125,
+            1464.054931640625,
+            1645.12451171875,
+            1716.290283203125
+          ]
+        }
+      ],
+      "latency_s": 0.042535958004009444,
+      "file": "mix/mix-008.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03464587499911431,
+      "file": "mix/mix-009.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03761083300196333,
+      "file": "mix/mix-010.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.5736728310585022,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.5736728310585022,
+          "bbox": [
+            963.19091796875,
+            1066.591064453125,
+            1442.828125,
+            1524.864990234375
+          ]
+        }
+      ],
+      "latency_s": 0.03673341599642299,
+      "file": "mix/mix-011.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.037611542000377085,
+      "file": "mix/mix-012.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03534587499598274,
+      "file": "mix/mix-013.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "can",
+      "confidence": 0.4899500906467438,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.4899500906467438,
+          "bbox": [
+            932.7984008789062,
+            554.123291015625,
+            1395.92041015625,
+            1593.091552734375
+          ]
+        }
+      ],
+      "latency_s": 0.03968387500208337,
+      "file": "mix/mix-014.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "egg",
+      "confidence": 0.3799043893814087,
+      "ok": true,
+      "detections": [
+        {
+          "label": "egg",
+          "score": 0.3799043893814087,
+          "bbox": [
+            517.1627197265625,
+            1635.3065185546875,
+            869.9200439453125,
+            1920.0
+          ]
+        },
+        {
+          "label": "stress_ball",
+          "score": 0.29124751687049866,
+          "bbox": [
+            517.6841430664062,
+            1632.337158203125,
+            867.1786499023438,
+            1920.0
+          ]
+        }
+      ],
+      "latency_s": 0.13470450000022538,
+      "file": "mix/mix-015.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03677554200112354,
+      "file": "mix/mix-016.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "other",
+      "confidence": null,
+      "ok": true,
+      "detections": [],
+      "latency_s": 0.03478529200219782,
+      "file": "mix/mix-017.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "egg",
+      "confidence": 0.36266693472862244,
+      "ok": true,
+      "detections": [
+        {
+          "label": "egg",
+          "score": 0.36266693472862244,
+          "bbox": [
+            839.2108154296875,
+            1443.4150390625,
+            1082.6356201171875,
+            1759.4541015625
+          ]
+        },
+        {
+          "label": "stress_ball",
+          "score": 0.3419296145439148,
+          "bbox": [
+            433.26153564453125,
+            1116.2490234375,
+            680.5831909179688,
+            1366.3994140625
+          ]
+        },
+        {
+          "label": "egg",
+          "score": 0.3127124011516571,
+          "bbox": [
+            1175.653076171875,
+            1103.150146484375,
+            1488.327880859375,
+            1396.958251953125
+          ]
+        }
+      ],
+      "latency_s": 0.0431918329995824,
+      "file": "mix/mix-018.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "can",
+      "confidence": 0.582066535949707,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.582066535949707,
+          "bbox": [
+            1164.259033203125,
+            346.949951171875,
+            1728.922119140625,
+            1498.25390625
+          ]
+        },
+        {
+          "label": "stress_ball",
+          "score": 0.42653247714042664,
+          "bbox": [
+            1555.809814453125,
+            1577.779052734375,
+            1992.901611328125,
+            1920.0
+          ]
+        }
+      ],
+      "latency_s": 0.039414833998307586,
+      "file": "mix/mix-019.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "egg",
+      "confidence": 0.44588103890419006,
+      "ok": true,
+      "detections": [
+        {
+          "label": "egg",
+          "score": 0.44588103890419006,
+          "bbox": [
+            1165.198486328125,
+            1794.002685546875,
+            1587.33447265625,
+            1920.0
+          ]
+        },
+        {
+          "label": "can",
+          "score": 0.35572418570518494,
+          "bbox": [
+            1085.973388671875,
+            533.6924438476562,
+            1634.380126953125,
+            1548.2236328125
+          ]
+        }
+      ],
+      "latency_s": 0.03636066699982621,
+      "file": "mix/mix-020.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "can",
+      "confidence": 0.4923163652420044,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.4923163652420044,
+          "bbox": [
+            1160.861328125,
+            483.169189453125,
+            1671.303466796875,
+            1559.475341796875
+          ]
+        }
+      ],
+      "latency_s": 0.03772916599700693,
+      "file": "mix/mix-021.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "can",
+      "confidence": 0.710545539855957,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.710545539855957,
+          "bbox": [
+            722.6005859375,
+            865.6553344726562,
+            1249.50390625,
+            1729.64404296875
+          ]
+        }
+      ],
+      "latency_s": 0.040367542002059054,
+      "file": "mix/mix-022.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "can",
+      "confidence": 0.7932243943214417,
+      "ok": true,
+      "detections": [
+        {
+          "label": "can",
+          "score": 0.7932243943214417,
+          "bbox": [
+            603.1134033203125,
+            418.485107421875,
+            1235.0693359375,
+            1771.962890625
+          ]
+        }
+      ],
+      "latency_s": 0.03759808299946599,
+      "file": "mix/mix-023.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.368534654378891,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.368534654378891,
+          "bbox": [
+            0.0,
+            2073.1962890625,
+            300.76123046875,
+            2560.0
+          ]
+        }
+      ],
+      "latency_s": 0.036870415999146644,
+      "file": "mix/mix-024.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.38684216141700745,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.38684216141700745,
+          "bbox": [
+            460.8406982421875,
+            1165.200927734375,
+            699.27734375,
+            1430.563720703125
+          ]
+        },
+        {
+          "label": "egg",
+          "score": 0.36316660046577454,
+          "bbox": [
+            855.9066162109375,
+            1524.9869384765625,
+            1111.521728515625,
+            1834.3802490234375
+          ]
+        },
+        {
+          "label": "stress_ball",
+          "score": 0.3095012605190277,
+          "bbox": [
+            856.31103515625,
+            1524.423095703125,
+            1111.5333251953125,
+            1833.737060546875
+          ]
+        },
+        {
+          "label": "egg",
+          "score": 0.26023098826408386,
+          "bbox": [
+            462.1392822265625,
+            1163.51318359375,
+            687.14208984375,
+            1430.3037109375
+          ]
+        }
+      ],
+      "latency_s": 0.040566791998571716,
+      "file": "mix/mix-025.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.578995943069458,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.578995943069458,
+          "bbox": [
+            1206.236328125,
+            830.159912109375,
+            1476.702880859375,
+            1116.763916015625
+          ]
+        },
+        {
+          "label": "stress_ball",
+          "score": 0.31001976132392883,
+          "bbox": [
+            783.1488037109375,
+            985.8594360351562,
+            1045.0909423828125,
+            1290.26904296875
+          ]
+        },
+        {
+          "label": "egg",
+          "score": 0.26191604137420654,
+          "bbox": [
+            602.6185302734375,
+            843.0460205078125,
+            896.3704833984375,
+            1131.95703125
+          ]
+        }
+      ],
+      "latency_s": 0.039921916999446694,
+      "file": "mix/mix-026.jpg",
+      "expected": null,
+      "profile_ok": null
+    },
+    {
+      "object": "stress_ball",
+      "confidence": 0.523675799369812,
+      "ok": true,
+      "detections": [
+        {
+          "label": "stress_ball",
+          "score": 0.523675799369812,
+          "bbox": [
+            1241.702392578125,
+            1003.7734985351562,
+            1533.726318359375,
+            1347.77685546875
+          ]
+        },
+        {
+          "label": "stress_ball",
+          "score": 0.3836832344532013,
+          "bbox": [
+            735.6805419921875,
+            602.4227294921875,
+            996.2030029296875,
+            910.290771484375
+          ]
+        }
+      ],
+      "latency_s": 0.03757491700525861,
+      "file": "mix/mix-027.jpg",
+      "expected": null,
+      "profile_ok": null
+    }
+  ]
+}
