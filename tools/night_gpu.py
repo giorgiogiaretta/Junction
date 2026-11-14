@@ -16,7 +16,7 @@ HOURS = float(os.environ.get("NIGHT_HOURS", "7")); T0 = time.time(); OUT = ROOT 
 dev = pick_device(); rng = random.Random(int(time.time()))
 
 
-TEMP_MAX = int(os.environ.get("GPU_TEMP_MAX", "80")); TEMP_OK = int(os.environ.get("GPU_TEMP_OK", "70"))
+TEMP_MAX = int(os.environ.get("GPU_TEMP_MAX", "88")); TEMP_OK = int(os.environ.get("GPU_TEMP_OK", "80"))   # slow down only near the critical range (Giorgio, 14/11)
 WORK_MIN = float(os.environ.get("WORK_MIN", "20")); REST_MIN = float(os.environ.get("REST_MIN", "4")); _cycle_start = [time.time()]
 
 

@@ -32,7 +32,7 @@ KEEP = dict(x=(0.14, 1.20), y=(-0.55, 0.55), z=0.03)
 BOX = dict(x=(0.0, 0.80), y=(-0.70, 0.70), z=(-0.25, 0.60))
 HOME = {"left": dict(shoulder_roll=0.35, elbow=-0.5), "right": dict(shoulder_roll=-0.35, elbow=-0.5)}
 OBJECTS = {   # estimated sizes: measure ours. brk = break / dent threshold (assumed)
-    "egg":         dict(type="ellipsoid", size=[0.021, 0.021, 0.028], mass=0.060, brk=20.0, soft=False, rgba=[0.96, 0.92, 0.85, 1], quat=[0.7071068, 0.7071068, 0, 0]),   # lying, long axis along y
+    "egg":         dict(type="ellipsoid", size=[0.021, 0.021, 0.028], mass=0.060, brk=20.0, soft=False, rgba=[0.96, 0.92, 0.85, 1], quat=[0.7071068, 0.7071068, 0, 0], roll_friction=0.004),   # lying, long axis along y
     "stress_ball": dict(type="sphere",    size=[0.033],               mass=0.030, brk=None, soft=True,  rgba=[1.0, 0.45, 0.05, 1]),
     "can_empty":   dict(type="cylinder",  size=[0.029, 0.073],        mass=0.015, brk=15.0, soft=False, rgba=[0.85, 0.7, 0.3, 1]),
 }
@@ -53,6 +53,7 @@ SCALE = 0.8
 ROT = "fixed"
 ARMS = os.environ.get("E2E_ARMS", "assisted")   # assisted: robot aims at the object (camera), the operator's glove drives closure + lift; full: full wrist teleop
 CLEAR = 0.10
+SIDE_APPROACH = {"can_empty": True}
 # grasp posture: thumb and index/middle squeeze HORIZONTALLY, palm 7 cm above the pinch -> the hand comes down from above onto an object
 # lying on the counter (searched over shoulder/elbow/wrist on the official model; the earlier side posture squeezed vertically, thumb under the object)
 GRASP_ARM = {"right_shoulder_pitch_joint": -0.6, "right_shoulder_roll_joint": -0.25, "right_shoulder_yaw_joint": 0.0, "right_elbow_joint": 0.8,
@@ -105,7 +106,7 @@ def build(obj, stand=None):
     # counter: top at pelvis z COUNTER_Z, near edge x 0.14, 1.06 m deep, 1.10 m wide; printed mat 0.90 x 0.50 from the near edge
     top = PELVIS_Z + COUNTER_Z
     spec.worldbody.add_geom(name="counter", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.53, 0.55, 0.02], pos=[0.14 + 0.53, 0, top - 0.02],
-                            rgba=[0.55, 0.42, 0.3, 1], contype=3, conaffinity=3, friction=[1.0, 0.005, 0.0001])
+                            rgba=[0.55, 0.42, 0.3, 1], contype=3, conaffinity=3, friction=[1.0, 0.01, 0.004], condim=6)
     spec.worldbody.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.25, 0.45, 0.0005], pos=[0.14 + 0.25, 0, top + 0.0005], rgba=[0.85, 0.85, 0.8, 1], contype=0, conaffinity=0)
     o = OBJECTS[obj]
     body = spec.worldbody.add_body(name="obj", pos=[0, 0, 0]); body.add_freejoint()
@@ -113,6 +114,7 @@ def build(obj, stand=None):
     g = body.add_geom(name="obj_g", type=gt, size=o["size"] + [0] * (3 - len(o["size"])), mass=o["mass"], rgba=o["rgba"], contype=3, conaffinity=3,
                       friction=[1.0, 0.005, 0.0001], condim=4)
     if o["soft"]: g.solref = [0.03, 1.0]; g.solimp = [0.5, 0.95, 0.015, 0.5, 2]
+    if o.get("roll_friction"): g.condim = 6; g.friction = [1.0, 0.01, o["roll_friction"]]   # rolling + torsional friction: a real egg does not roll forever
     if stand is not None:                                           # small stand on the counter (collides with the object only, not the hand)
         x, y, ztop = stand; hgt = max(ztop - top, 0.002)
         spec.worldbody.add_geom(name="stand", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[0.015, hgt / 2, 0], pos=[x, y, top + hgt / 2],
@@ -122,6 +124,23 @@ def build(obj, stand=None):
 
 
 def obj_quat(obj): return OBJECTS[obj].get("quat", [1, 0, 0, 0])
+
+
+def plot_panel(p, F, lifts, i, brk, W=1280, H=260):
+    """bottom strip: operator glove grip g, robot closure c, contact force and object height over time (cursor = now)"""
+    img = np.full((H, W, 3), 245, np.uint8); n = len(p["t"]); x = lambda k: int(60 + (W - 80) * k / max(1, n - 1))
+    def curve(vals, lo, hi, col, y0, h):
+        pts = [(x(k), int(y0 + h - h * (np.clip(v, lo, hi) - lo) / (hi - lo))) for k, v in enumerate(vals)]
+        if len(pts) > 1: cv2.polylines(img, [np.array(pts, np.int32)], False, col, 2, cv2.LINE_AA)
+    cv2.putText(img, "guanto (operatore, take reale)  vs  chiusura G1", (60, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 40, 40), 1, cv2.LINE_AA)
+    curve(p["g"], 0, 1, (200, 120, 30), 25, 95); curve(p["c"], 0, 1, (30, 30, 200), 25, 95)
+    cv2.putText(img, "guanto g", (W - 230, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 120, 30), 1); cv2.putText(img, "G1 c", (W - 120, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (30, 30, 200), 1)
+    cv2.putText(img, "forza mano-oggetto (N, 0-40)  e  altezza oggetto (cm, 0-25)", (60, 145), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 40, 40), 1, cv2.LINE_AA)
+    curve(F, 0, 40, (40, 40, 200), 150, 100); curve([100 * v for v in lifts], 0, 25, (40, 150, 40), 150, 100)
+    if brk: yb = int(150 + 100 - 100 * brk / 40); cv2.line(img, (60, yb), (W - 20, yb), (220, 0, 0), 1); cv2.putText(img, f"rottura {brk:.0f} N (ipotesi)", (W - 200, yb - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (220, 0, 0), 1)
+    cv2.putText(img, "forza", (W - 230, 165), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (40, 40, 200), 1); cv2.putText(img, "altezza", (W - 120, 165), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (40, 150, 40), 1)
+    cv2.line(img, (x(i), 20), (x(i), H - 5), (0, 0, 0), 1)
+    return img
 
 
 def half_h(obj):
@@ -176,7 +195,21 @@ def checks(kin):
     return r
 
 
-def plan(take, obj, mapping, pass1=None):
+def best_grasp(obj):
+    """per-object posture + aim from g1/sim/grasp_search.py (grasp_postures.json); None -> fall back to GRASP_ARM + calibrate_grasp"""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "grasp_postures.json")
+    b = (json.load(open(p)).get(obj) or {}).get("best") if os.path.exists(p) else None
+    if not b: return None
+    c = b["posture"]
+    q = {"right_shoulder_pitch_joint": c[0], "right_shoulder_roll_joint": -0.25, "right_shoulder_yaw_joint": 0.0, "right_elbow_joint": c[1],
+         "right_wrist_roll_joint": c[2], "right_wrist_pitch_joint": c[3], "right_wrist_yaw_joint": c[4]}
+    return q, np.array(b["aim"], float), b
+
+
+OBJ_SPOT = np.array([0.35, -0.15])        # where the staff places the object on the mat (pelvis frame x, y), same as grasp_search.py
+
+
+def plan(take, obj, mapping, pass1=None, obj_seen=None):
     """Kinematic pass: per tick arm_q (IK) + hand_q (profile mapping). Returns dict of arrays and the pinch point at the grasp moment."""
     z = np.load(os.path.join(ROOT, "data", "episodes", f"take_{take:02d}.npz"), allow_pickle=True)
     R_cb = np.array(json.load(open(arm_ik.CALIB))["R_coil_to_body"]["right"])
@@ -192,17 +225,23 @@ def plan(take, obj, mapping, pass1=None):
     # "arm q = 0" (hands just above the counter over the object band). Motion = the operator's wrist motion RELATIVE to the grasp moment,
     # rotated into the robot frame and scaled; the wrist never goes below the counter safety floor (keep-out z 0.03 + 0.5 cm).
     k0 = Kin()
-    for n, v in GRASP_ARM.items(): k0.a.q[n] = v                    # grasp posture verified in g1/sim/grasp_physics.py (egg held 0.65-0.75)
+    bg = best_grasp(obj); posture = bg[0] if bg else GRASP_ARM
+    for n, v in posture.items(): k0.a.q[n] = v                       # per-object grasp posture (grasp_search.py) or the generic one
     rt0 = G1Dex3Retargeter(max_closure=1.0)
     for _ in range(30): hq0 = rt0.step(right=[0.5 * pr["cap"]] * 3 + [0, 0])   # fingers half-way to the object's cap: pinch measured near contact
     k0.a.apply(hq0); ee = k0.a.ee["right"]
     w0, Rh = k0.a.d.xpos[ee].copy(), k0.a.d.xmat[ee].reshape(3, 3).copy()
-    pin0 = k0.pinch().copy(); obj_c = pin0.copy()                    # object centre = pinch point of that posture, resting on the counter
-    obj_c[2] = max(obj_c[2], kin.base[2] + COUNTER_Z + half_h(obj))  # (on a stand only if the pinch is higher than the object's centre)
-    aim, _ = calibrate_grasp(obj, pr["cap"])                        # physics-calibrated aim (same for every mapping of this object)
-    w_grasp = w0 + (obj_c + aim - pin0) + (pass1["corr"] if pass1 else 0.0)
+    pin0 = k0.pinch().copy()
+    if bg: obj_c = np.array([kin.base[0] + OBJ_SPOT[0], kin.base[1] + OBJ_SPOT[1], kin.base[2] + COUNTER_Z + half_h(obj)]); aim = bg[1]
+    else:
+        obj_c = pin0.copy(); obj_c[2] = max(obj_c[2], kin.base[2] + COUNTER_Z + half_h(obj)); aim, _ = calibrate_grasp(obj, pr["cap"])
+    seen = obj_c if obj_seen is None else np.asarray(obj_seen, float)   # the robot aims where the HEAD CAMERA sees the object
+    w_grasp = w0 + (seen + aim - pin0) + (pass1["corr"] if pass1 else 0.0)
     floor = kin.base[2] + KEEP["z"] + 0.01
     pg, Rg = P[gh], arm_ik.quat_wxyz_to_mat(Q[gh])
+    appr = np.array([0.0, 0.0, 1.0])                                 # approach from above (egg, ball) ...
+    if SIDE_APPROACH.get(obj):                                       # ... or from the side, like the operator did with the can (palm side)
+        v = (w0 - pin0); v[2] = 0.0; appr = v / (np.linalg.norm(v) + 1e-9)
     rel = gh + int(np.argmax(g[gh:] < 0.3 * pr["g_ref"])) if (g[gh:] < 0.3 * pr["g_ref"]).any() else len(g)   # release moment
     onset = int(np.argmax(g >= 0.15 * pr["g_ref"])) if (g >= 0.15 * pr["g_ref"]).any() else gh   # fingers start closing
     kk = np.arange(len(g)); clear_w = np.clip((onset - kk) / 30.0, 0, 1) + np.clip((kk - rel) / 30.0, 0, 1)   # down BEFORE closing, up after release
@@ -215,7 +254,7 @@ def plan(take, obj, mapping, pass1=None):
         p_t = w_grasp + dp
         # approach / retreat clearance: the operator's rest pose is lower than the robot's pinch; before the grasp and after the release the
         # robot hand stays CLEAR above the object (ramped over 1 s), as an operator watching the robot would do. Grasp itself is unchanged.
-        p_t[2] += CLEAR * clear_w[min(k, len(clear_w) - 1)] if i >= pre else CLEAR
+        p_t = p_t + CLEAR * (clear_w[min(k, len(clear_w) - 1)] if i >= pre else 1.0) * appr
         p_t[2] = max(p_t[2], floor)
         R_t = Rh if ROT == "fixed" else R_cb @ arm_ik.quat_wxyz_to_mat(Q[k]) @ Rg.T @ R_cb.T @ Rh   # fixed: the hand keeps the grasp orientation
         q_prev = dict(kin.a.q); e, _ = kin.a.solve("right", p_t, R_t)
@@ -229,14 +268,23 @@ def plan(take, obj, mapping, pass1=None):
     arm, hand, pinch, cc = np.array(arm), np.array(hand), np.array(pinch), np.array(cc)
     gi = pre + gh
     return dict(arm=arm, hand=hand, reasons=reasons, perr=np.array(perr), pinch=pinch, c=cc, g=np.r_[np.zeros(pre), g], gi=gi, pre=pre,
-                t=np.arange(len(arm)) / 30.0, obj_c=obj_c, base=kin.base)
+                t=np.arange(len(arm)) / 30.0, obj_c=obj_c, base=kin.base, aim=aim, seen=seen)
 
 
 def simulate(name, take, obj, mapping, picked, video=True):
-    p1 = plan(take, obj, mapping)
-    aim = calibrate_grasp(obj, PROFILE.get(obj, PROFILE["unknown"])["cap"])[0]
-    corr = (p1["obj_c"] + aim - p1["pinch"][p1["gi"]]) * (0.0 if ARMS == "assisted" else 1.0)   # second pass (full teleop only: assisted keeps the calibrated wrist pose): correct the aim so the pinch meets the object (operator aims by looking)
-    p2 = plan(take, obj, mapping, pass1={"corr": corr}); obj_c = p2["obj_c"]; dz = float(corr[2])
+    p1 = plan(take, obj, mapping); obj_c = p1["obj_c"]; aim = p1["aim"]
+    # PERCEPTION: object on the mat, robot in the organisers' home pose, head RGB-D -> object position (perceive.py) -> the arm aims there
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import perceive as PC
+    mv, dv = build(obj); kh = Kin(); jqv = {mujoco.mj_id2name(mv, mujoco.mjtObj.mjOBJ_JOINT, j): mv.jnt_qposadr[j] for j in range(mv.njnt)}
+    for nm, v in kh.a.q.items(): dv.qpos[jqv[nm]] = v
+    obv = mujoco.mj_name2id(mv, mujoco.mjtObj.mjOBJ_BODY, "obj"); av = mv.jnt_qposadr[mv.body_jntadr[obv]]
+    dv.qpos[av:av + 3] = obj_c; dv.qpos[av + 3:av + 7] = obj_quat(obj); mujoco.mj_forward(mv, dv)
+    rgb_h, dep_h, mk_h = PC.render_head(mv, dv, seg_geom=mujoco.mj_name2id(mv, mujoco.mjtObj.mjOBJ_GEOM, "obj_g"))
+    seen, pinfo = PC.locate(rgb_h, dep_h, PC.cam_pose(mv, dv), obj, OBJECTS[obj]["size"][0], z_plane=obj_c[2], mask=mk_h)
+    if seen is None: seen = obj_c; pinfo["fallback"] = "ground truth (object not visible)"
+    os.makedirs(OUT, exist_ok=True); cv2.imwrite(os.path.join(OUT, f"{name}_headcam.jpg"), rgb_h[:, :, ::-1])
+    corr = np.zeros(3)
+    p2 = plan(take, obj, mapping, obj_seen=seen); dz = 0.0
     top = p2["base"][2] + COUNTER_Z; stand_top = obj_c[2] - half_h(obj)
     m, d = build(obj, stand=(obj_c[0], obj_c[1], stand_top) if stand_top > top + 0.005 else None)
     act = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, m.actuator_trnid[a, 0]): a for a in range(m.nu)}
@@ -258,7 +306,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
     a = m.jnt_qposadr[m.body_jntadr[ob]]; d.qpos[a:a + 3] = obj_c + np.array([0, 2.0, 0]); d.qpos[a + 3:a + 7] = obj_quat(obj)   # parked aside: placed when the arm hovers
     mujoco.mj_forward(m, d)
     spt = int(round(1 / 30 / m.opt.timestep)); brk = OBJECTS[obj]["brk"]
-    F, held_t, broke, lifted_max, frames = [], [], False, 0.0, []
+    F, held_t, broke, lifted_max, frames, lifts = [], [], False, 0.0, [], []
     rend = mujoco.Renderer(m, 480, 640) if video else None
     if video:
         cam = mujoco.MjvCamera(); cam.type = mujoco.mjtCamera.mjCAMERA_FREE; cam.lookat[:] = obj_c + np.array([0, 0, 0.05]); cam.distance, cam.azimuth, cam.elevation = 0.75, 145, -20
@@ -279,7 +327,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
                     if other in hb: mujoco.mj_contactForce(m, d, kk, f6); acc += abs(f6[0])
         f = acc / spt; F.append(f)
         if brk and np.mean(F[-3:]) > brk and obj == "egg": broke = True    # 0.1 s mean: contact chatter filtered, a sustained squeeze breaks it
-        lift = d.qpos[a + 2] - z0; lifted_max = max(lifted_max, lift)
+        lift = d.qpos[a + 2] - z0; lifted_max = max(lifted_max, lift); lifts.append(lift)
         if video:
             if broke: m.geom_rgba[og] = [0.9, 0.15, 0.15, 1]
             rend.update_scene(d, cam); A = rend.render().copy(); rend.update_scene(d, "head_cam"); B = rend.render().copy()
@@ -290,10 +338,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
                 cv2.putText(A, s, (10, 22 + 20 * li), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 0, 0), 3, cv2.LINE_AA); cv2.putText(A, s, (10, 22 + 20 * li), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1, cv2.LINE_AA)
             cv2.putText(B, "camera in testa G1 (D435i, simulata)", (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
             row = np.concatenate([A, B], 1)
-            if look is not None:
-                pad = np.zeros((360, 1280, 3), np.uint8); pad[:, :640] = look
-                cv2.putText(pad, "frame reale DJI (testa operatore) usato dal picker", (660, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
-                row = np.concatenate([row, pad], 0)
+            row = np.concatenate([row, plot_panel(p2, F, lifts, i, OBJECTS[obj]["brk"])], 0)
             frames.append(row[:, :, ::-1])
     F = np.array(F); g_hold = p2["c"] > 0.05
     clipped = sum(1 for r in p2["reasons"] if r)
@@ -303,7 +348,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
            "lifted_max_cm": round(100 * lifted_max, 1), "held_and_lifted": bool(lifted_max > 0.05 and not broke), "broken": broke,
            "dented": bool(obj == "can_empty" and F.max() > (OBJECTS[obj]["brk"] or 1e9)),
            "ik_err_median_cm": round(100 * float(np.median(p2["perr"])), 1), "ik_err_p95_cm": round(100 * float(np.percentile(p2["perr"], 95)), 1),
-           "safety_ticks_flagged": clipped, "safety_reasons": sorted({x for r in p2["reasons"] for x in r}), "stand_cm": round(100 * float(max(0.0, (obj_c[2] - half_h(obj)) - (p2["base"][2] + COUNTER_Z))), 1), "hand_orientation": ROT, "arms": ARMS, "aim_corr_cm": [round(100 * float(x), 1) for x in corr], "pinch_to_aim_at_grasp_cm": round(100 * float(np.linalg.norm(p2["pinch"][p2["gi"]] - obj_c - aim)), 1), "aim_cm": [round(100 * float(x), 1) for x in aim],
+           "safety_ticks_flagged": clipped, "safety_reasons": sorted({x for r in p2["reasons"] for x in r}), "stand_cm": round(100 * float(max(0.0, (obj_c[2] - half_h(obj)) - (p2["base"][2] + COUNTER_Z))), 1), "hand_orientation": ROT, "arms": ARMS, "perception_err_cm": round(100 * float(np.linalg.norm((seen - obj_c)[:2])), 2), "perception": pinfo, "aim_corr_cm": [round(100 * float(x), 1) for x in corr], "pinch_to_aim_at_grasp_cm": round(100 * float(np.linalg.norm(p2["pinch"][p2["gi"]] - obj_c - aim)), 1), "aim_cm": [round(100 * float(x), 1) for x in aim],
            "arm_q_in_filter": bool(all(arm_ik.FILTER[n][0] - 1e-9 <= v <= arm_ik.FILTER[n][1] + 1e-9 for row in p2["arm"] for n, v in zip(arm_ik.ARM_NAMES, row))),
            "max_arm_step_rad": round(float(np.abs(np.diff(p2["arm"], axis=0)).max()), 3), "max_hand_step_rad": round(float(np.abs(np.diff(p2["hand"], axis=0)).max()), 3)}
     if video and frames:

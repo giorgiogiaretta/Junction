@@ -1,0 +1,330 @@
+{
+ "egg": {
+  "object": "egg",
+  "candidates": 24,
+  "trials": 648,
+  "held": 10,
+  "best": {
+   "posture": [
+    -0.3,
+    1.2,
+    -1.57,
+    -0.5,
+    -0.5
+   ],
+   "aim": [
+    -0.015,
+    -0.015,
+    -0.02
+   ],
+   "lift_cm": 13.6,
+   "peak_N": 16.0,
+   "reason": "",
+   "robust": 0.5,
+   "neighbours": [
+    {
+     "lift_cm": -0.0,
+     "peak_N": 15.0,
+     "reason": ""
+    },
+    {
+     "lift_cm": 13.6,
+     "peak_N": 19.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": 13.6,
+     "peak_N": 19.6,
+     "reason": ""
+    },
+    {
+     "lift_cm": -0.0,
+     "peak_N": 13.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": -0.0,
+     "peak_N": 16.8,
+     "reason": ""
+    },
+    {
+     "lift_cm": 12.5,
+     "peak_N": 19.8,
+     "reason": ""
+    }
+   ]
+  },
+  "postures": [
+   {
+    "posture": [
+     -0.3,
+     1.2,
+     -1.57,
+     -0.5,
+     -0.5
+    ],
+    "aim": [
+     -0.015,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.5,
+    "peak_N": 16.0,
+    "lift_cm": 13.6
+   },
+   {
+    "posture": [
+     -0.3,
+     1.2,
+     -1.57,
+     0.0,
+     -0.5
+    ],
+    "aim": [
+     0.0,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.33,
+    "peak_N": 16.4,
+    "lift_cm": 13.1
+   },
+   {
+    "posture": [
+     -0.9,
+     0.8,
+     -1.57,
+     0.0,
+     0.5
+    ],
+    "aim": [
+     0.0,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.33,
+    "peak_N": 16.6,
+    "lift_cm": 12.5
+   },
+   {
+    "posture": [
+     -0.3,
+     0.4,
+     -1.57,
+     0.5,
+     0.5
+    ],
+    "aim": [
+     0.0,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.0,
+    "peak_N": 17.5,
+    "lift_cm": 12.6
+   },
+   {
+    "posture": [
+     -0.6,
+     0.4,
+     -1.57,
+     -0.5,
+     0.5
+    ],
+    "aim": [
+     0.015,
+     0.0,
+     -0.02
+    ],
+    "robust": 0.0,
+    "peak_N": 18.7,
+    "lift_cm": 13.2
+   }
+  ],
+  "runtime_s": 92.7
+ },
+ "stress_ball": {
+  "object": "stress_ball",
+  "candidates": 24,
+  "trials": 864,
+  "held": 5,
+  "best": {
+   "posture": [
+    -0.9,
+    0.8,
+    -1.57,
+    0.0,
+    0.5
+   ],
+   "aim": [
+    -0.015,
+    -0.015,
+    -0.02
+   ],
+   "lift_cm": 12.8,
+   "peak_N": 56.1,
+   "reason": "",
+   "robust": 0.33,
+   "neighbours": [
+    {
+     "lift_cm": -3314.9,
+     "peak_N": 48.5,
+     "reason": ""
+    },
+    {
+     "lift_cm": 12.8,
+     "peak_N": 56.3,
+     "reason": ""
+    },
+    {
+     "lift_cm": -1861.6,
+     "peak_N": 63.3,
+     "reason": ""
+    },
+    {
+     "lift_cm": -4547.5,
+     "peak_N": 14.4,
+     "reason": ""
+    },
+    {
+     "lift_cm": -0.1,
+     "peak_N": 30.9,
+     "reason": ""
+    },
+    {
+     "lift_cm": 11.8,
+     "peak_N": 56.1,
+     "reason": ""
+    }
+   ]
+  },
+  "postures": [
+   {
+    "posture": [
+     -0.9,
+     0.8,
+     -1.57,
+     0.0,
+     0.5
+    ],
+    "aim": [
+     -0.015,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.33,
+    "peak_N": 56.1,
+    "lift_cm": 12.8
+   },
+   {
+    "posture": [
+     -0.3,
+     1.2,
+     -1.57,
+     0.0,
+     -0.5
+    ],
+    "aim": [
+     -0.015,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.33,
+    "peak_N": 56.8,
+    "lift_cm": 12.8
+   },
+   {
+    "posture": [
+     -0.3,
+     0.8,
+     -0.8,
+     0.0,
+     0.0
+    ],
+    "aim": [
+     0.0,
+     0.0,
+     -0.02
+    ],
+    "robust": 0.17,
+    "peak_N": 58.5,
+    "lift_cm": 13.4
+   },
+   {
+    "posture": [
+     -0.3,
+     0.4,
+     -1.57,
+     0.5,
+     0.5
+    ],
+    "aim": [
+     0.0,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.17,
+    "peak_N": 61.8,
+    "lift_cm": 12.8
+   }
+  ],
+  "runtime_s": 88.3
+ },
+ "can_empty": {
+  "object": "can_empty",
+  "candidates": 21,
+  "trials": 567,
+  "held": 49,
+  "best": {
+   "posture": [
+    -0.9,
+    0.8,
+    0.0,
+    0.0,
+    0.5
+   ],
+   "aim": [
+    -0.015,
+    0.015,
+    -0.02
+   ],
+   "lift_cm": 12.2,
+   "peak_N": 86.1,
+   "reason": "",
+   "robust": 0.83,
+   "neighbours": [
+    {
+     "lift_cm": 13.1,
+     "peak_N": 62.9,
+     "reason": ""
+    },
+    {
+     "lift_cm": 11.2,
+     "peak_N": 59.0,
+     "reason": ""
+    },
+    {
+     "lift_cm": 11.9,
+     "peak_N": 88.6,
+     "reason": ""
+    },
+    {
+     "lift_cm": -1098.2,
+     "peak_N": 32.0,
+     "reason": ""
+    },
+    {
+     "lift_cm": 10.9,
+     "peak_N": 83.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": 14.3,
+     "peak_N": 87.7,
+     "reason": ""
+    }
+   ]
+  },
+  "runtime_s": 64.8
+ }
+}

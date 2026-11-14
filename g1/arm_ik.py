@@ -69,7 +69,7 @@ class G1Arms:
             for n, v in zip(self.hand_names, hand_q): self.d.qpos[self.qadr[n]] = v
         mujoco.mj_kinematics(self.m, self.d); mujoco.mj_comPos(self.m, self.d)
 
-    def solve(self, side, p_t, R_t, iters=12, w_rot=0.3, lam=0.05):
+    def solve(self, side, p_t, R_t, iters=12, w_rot=0.3, lam=0.05, q_rest=None, k_rest=0.1):
         """DLS from the current solution; per-tick joint change clamped to ARM_STEP, joints to FILTER bounds. Returns (pos err m, rot err rad)."""
         m, d, names = self.m, self.d, self.arm[side]; dofs = [self.dadr[n] for n in names]
         q0 = np.array([self.q[n] for n in names]); q = q0.copy()
@@ -78,7 +78,9 @@ class G1Arms:
             ep = p_t - d.xpos[self.ee[side]]; er = rot_err(R_t, d.xmat[self.ee[side]].reshape(3, 3))
             mujoco.mj_jacBody(m, d, jp, jr, self.ee[side])
             J = np.vstack([jp[:, dofs], w_rot * jr[:, dofs]]); e = np.concatenate([ep, w_rot * er])
-            dq = J.T @ np.linalg.solve(J @ J.T + lam ** 2 * np.eye(6), e)
+            Jp = J.T @ np.linalg.inv(J @ J.T + lam ** 2 * np.eye(6)); dq = Jp @ e
+            if q_rest is not None:                                 # null space: drift toward a natural posture (elbow down, no twisted wrist)
+                dq = dq + (np.eye(len(names)) - Jp @ J) @ (k_rest * (np.array([q_rest[n] for n in names]) - q))
             q = np.clip(q + dq, q0 - ARM_STEP, q0 + ARM_STEP)
             q = np.array([np.clip(v, *FILTER[n]) for v, n in zip(q, names)])
             for n, v in zip(names, q): self.q[n] = float(v)
@@ -86,6 +88,26 @@ class G1Arms:
         return float(np.linalg.norm(p_t - d.xpos[self.ee[side]])), float(np.linalg.norm(rot_err(R_t, d.xmat[self.ee[side]].reshape(3, 3))))
 
     def arm_q(self): return [self.q[n] for n in ARM_NAMES]
+
+    def self_collisions(self, margin=0.02):
+        """Pairs of robot parts closer than `margin` (m): arm vs torso/pelvis/legs/head, arm vs the other arm. Fingers of the same hand and
+        adjacent links are ignored. The organisers' filter does NOT check this (INTERFACE.md section 5): we do, before sending."""
+        m, d = self.m, self.d
+        if not hasattr(self, "_grp"):
+            par = m.body_parentid; names = [mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "" for b in range(m.nbody)]
+            def root(b):
+                while b > 0 and not names[b].endswith("shoulder_pitch_link"): b = par[b]
+                return names[b] if b > 0 else "body"
+            self._grp = [root(b) for b in range(m.nbody)]
+            m.geom_margin[:] = margin
+        mujoco.mj_collision(m, d); out = []
+        for c in d.contact[:d.ncon]:
+            b1, b2 = m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]; g1, g2 = self._grp[b1], self._grp[b2]
+            if g1 == g2 or (g1 == "body" and g2 == "body"): continue
+            n1, n2 = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b1) or "", mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b2) or ""
+            if ("shoulder" in n1 or "shoulder" in n2) and ("torso" in n1 or "torso" in n2) and c.dist > 0: continue   # shoulder sits ~1 cm from the torso by design
+            if c.dist < margin: out.append((mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b1), mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b2), round(float(c.dist), 3)))
+        return out
 
     def min_clearance(self):
         """Smallest distance between an arm/hand geom and the torso/pelvis/legs or the other arm (m); < 0 = collision."""
