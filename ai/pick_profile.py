@@ -23,7 +23,8 @@ def grab(cam):
 
 def build_parser():
     ap = argparse.ArgumentParser(); ap.add_argument("--image"); ap.add_argument("--camera", type=int); ap.add_argument("--text", default="")
-    ap.add_argument("--set", choices=["cup", "egg", "can", "none"]); ap.add_argument("--fallback", default="cup", choices=["cup", "egg", "can", "none"])
+    ap.add_argument("--set", choices=["cup", "egg", "can", "none"])
+    ap.add_argument("--object", choices=["egg", "stress_ball", "can"], help="operator names the object (skips the model; manual source)"); ap.add_argument("--fallback", default="cup", choices=["cup", "egg", "can", "none"])
     ap.add_argument("--backup", default="gemini", choices=["gemini", "off"], help="second provider when the first fails (needs GEMINI_API_KEY)")
     ap.add_argument("--hand-in-head", type=float, nargs=3, metavar=("X", "Y", "Z"), help="hand position in the head-sensor frame, metres (pre-grasp crop)")
     ap.add_argument("--intrinsics", help="camera intrinsics JSON {fx,fy,cx,cy,width,height}; default: ASSUMED GoPro-like values")
@@ -53,7 +54,10 @@ def gemini_client():
 def main(argv=None, client=None, backup_client=None):
     a = build_parser().parse_args(argv)
     crop = None
-    if a.set: res = {"object": "manual", "profile": a.set, "source": "manual"}
+    if a.object:  # operator names the object: profile from the table, object_key lets object_profile.cap_for unlock full force
+        from ai.object_profile import behaviour
+        res = {"object": a.object, "object_key": a.object, "profile": behaviour(a.object)["profile"], "source": "manual"}
+    elif a.set: res = {"object": "manual", "profile": a.set, "source": "manual"}
     else:
         img = open(a.image, "rb").read() if a.image else (grab(a.camera) if a.camera is not None else None)
         img, prompt, crop = prepare(img, a)
