@@ -83,13 +83,41 @@ def grasp_pose(obj, side, seen, rest):
     return k.a.d.xpos[ee] + (seen + aim_s - pinch(k, side)), k.a.d.xmat[ee].reshape(3, 3).copy(), seen + aim_s
 
 
+def live_calib(read, hand):
+    """10 s guided axis calibration with the CURRENT Coil placement: rest 2 s, forward 20 cm 2 s, back, left 20 cm 2 s.
+    Rows = forward, left, up in Coil coordinates (same Coil frame for both gloves). Saved to data/arm_calib.json (both hands)."""
+    try:
+        import winsound; beep = lambda f=880: winsound.Beep(f, 150)
+    except Exception: beep = lambda f=880: None
+    def hold(msg, secs=2.5):
+        print(f"[calib] {msg}", flush=True); beep(); time.sleep(0.8); P = []
+        t0 = time.time()
+        while time.time() - t0 < secs:
+            s = read(hand)
+            if s and s[1] is not None and not np.isnan(s[1]).any(): P.append(np.asarray(s[1], float))
+            time.sleep(1 / RATE)
+        if len(P) < 10: raise SystemExit(f"[calib] no Coil position from the {hand} glove")
+        P = np.array(P); return np.median(P[len(P) // 2:], 0)
+    r0 = hold("mano FERMA davanti al petto"); f = hold("AVANTI 20 cm in linea retta e FERMA", 3.0) - r0
+    hold("torna al centro"); l = hold("SINISTRA 20 cm in linea retta e FERMA", 3.0) - r0
+    if min(np.linalg.norm(f), np.linalg.norm(l)) < 0.08: raise SystemExit("[calib] movements too small (need ~20 cm): run again")
+    f /= np.linalg.norm(f); l /= np.linalg.norm(l); ang = float(np.degrees(np.arccos(np.clip(f @ l, -1, 1))))
+    u = np.cross(f, l); u /= np.linalg.norm(u); f2 = f + np.cross(l, u); f2 /= np.linalg.norm(f2); l2 = np.cross(u, f2)
+    R = np.stack([f2, l2, u]).round(5).tolist()
+    json.dump({"R_coil_to_body": {"right": R, "left": R}, "source": f"teleop_sim live calibration ({hand} glove), forward-left {ang:.0f} deg", "manual": True},
+              open(arm_ik.CALIB, "w"), indent=1)
+    print(f"[calib] saved: forward-left angle {ang:.0f} deg (90 ideal; < 70 or > 110 = redo with straighter moves)", flush=True); beep(1200)
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--obj", default="egg", choices=list(D.OBJECTS)); ap.add_argument("--replay", type=int)
     ap.add_argument("--hands", default="both", choices=["both", "right", "left"]); ap.add_argument("--spot", default="0.35,-0.15")
     ap.add_argument("--scale", type=float, default=0.8); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
-    ap.add_argument("--headless", action="store_true"); ap.add_argument("--seconds", type=float, default=900)
+    ap.add_argument("--headless", action="store_true"); ap.add_argument("--calib", action="store_true", help="10 s axis calibration at start (do it whenever the Coil moved)"); ap.add_argument("--seconds", type=float, default=900)
     a = ap.parse_args(); obj = a.obj; pr = D.PROFILE[obj]; spot = [float(x) for x in a.spot.split(",")]
     hands = ["left", "right"] if a.hands == "both" else [a.hands]
+    if a.calib and not a.replay:
+        g0 = GloveLive(hands[-1]); live_calib(lambda h: g0.read(), hands[-1]); g0.s.close()
     cal = json.load(open(arm_ik.CALIB))["R_coil_to_body"]; R_cb = {h: np.array(cal.get(h, cal.get("right"))) for h in ("left", "right")}
     # scene: G1 + counter + object + floor
     m, d = D.build(obj); spec_floor = None
@@ -134,7 +162,7 @@ def main():
     rend = mujoco.Renderer(m, 240, 320) if a.cam else None
     spt = int(round(1 / RATE / m.opt.timestep)); f6 = np.zeros(6); t_start = time.time(); tick = 0
     hb = {b for b in range(m.nbody) if "_hand_" in (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "")}
-    blocked = 0
+    blocked = 0; ghost = {}
     while time.time() - t_start < a.seconds and (viewer is None or viewer.is_running()):
         t_tick = time.time(); fingers = {"left": None, "right": None}; status = []
         for h in hands:
@@ -145,7 +173,7 @@ def main():
             if h not in ref: ref[h] = (P.copy(), arm_ik.quat_wxyz_to_mat(Q))      # clutch: first valid sample = robot home pose
             p_tel = home[h][0] + a.scale * R_cb[h] @ (P - ref[h][0])
             R_tel = R_cb[h] @ arm_ik.quat_wxyz_to_mat(Q) @ ref[h][1].T @ R_cb[h].T @ home[h][1]
-            tgt_p, tgt_R, mode, arrived = p_tel, R_tel, "teleop", False
+            tgt_p, tgt_R, mode, arrived = p_tel, R_tel, "teleop", False; ghost[h] = p_tel
             wr = kin.a.d.xpos[kin.a.ee[h]]; hold_fingers = False
             if G[h] is not None:
                 gp, gR, pin_t = G[h]; appr = APPR[h]; pre_p = gp + CLEAR * appr; dv = pinch(kin, h) - seen
@@ -200,7 +228,14 @@ def main():
         brk = D.OBJECTS[obj]["brk"]
         line = " | ".join(status) + f" | force {force:5.1f} N{' > THRESHOLD' if brk and force > brk else ''} | object {100 * (d.qpos[oa + 2] - obj_c[2]):+5.1f} cm | blocked {blocked}"
         if viewer is not None:
-            with viewer.lock(): viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, obj, line)])
+            with viewer.lock():
+                viewer.user_scn.ngeom = 0
+                for h2, pt in ghost.items():                     # where YOUR hand is mapped (green right, blue left)
+                    gidx = viewer.user_scn.ngeom
+                    mujoco.mjv_initGeom(viewer.user_scn.geoms[gidx], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.015, 0, 0]), pt, np.eye(3).flatten(),
+                                        np.array([0.1, 0.9, 0.2, 0.6] if h2 == "right" else [0.2, 0.4, 1.0, 0.6], dtype=np.float32))
+                    viewer.user_scn.ngeom += 1
+                viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, obj, line)])
             viewer.sync()
         if tick % 15 == 0: print(line, flush=True)
         if rend is not None and tick % 4 == 0:
