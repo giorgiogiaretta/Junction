@@ -32,7 +32,7 @@ def classify(path, P):   # path or file-like object
 
 def classify_bytes(data, P=None):
     """Colour-rule label for image bytes: 'stress_ball' | 'egg' | 'can' | 'other' (76% on imgs/, untuned)."""
-    import io   # decoded in memory: a NamedTemporaryFile cannot be reopened by name on Windows (Giorgio, board 17:46 -> ok=False)
+    import io   # decoded in memory: a temp file opened by name cannot be reopened on Windows (Giorgio, board 17:46 -> ok=False)
     return classify(io.BytesIO(data), P or DEFAULT_P)
 
 
