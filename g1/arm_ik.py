@@ -25,7 +25,16 @@ ARM_NAMES = [j["joint"] for j in LIM["arm_q"]]
 FILTER = {j["joint"]: j["filter"] for j in LIM["arm_q"]}
 HOME = {"right": {"shoulder_pitch": -0.4, "shoulder_roll": -0.25, "shoulder_yaw": 0.0, "elbow": 0.3, "wrist_roll": -1.57, "wrist_pitch": 0.0, "wrist_yaw": 0.0}}
 HOME["left"] = {k: (-v if k in ("shoulder_roll", "shoulder_yaw", "wrist_roll", "wrist_yaw") else v) for k, v in HOME["right"].items()}   # mirror
-HEAD_CAM = dict(pos=[0.09, 0.0, 0.40], pitch=0.75)   # in torso_link: in front of the head mesh, pitched ~45 deg down. APPROXIMATE: ask the mentors
+# Head camera = Intel RealSense D435i, official Unitree URDF (unitree_ros g1_29dof_rev_1_0.urdf, d435_joint): in torso_link at xyz (0.0576, 0.0175, 0.4299),
+# pitch 0.8308 rad (47.6 deg down). RGB stream vertical FOV ~42 deg (69x42); depth 87x58, min depth ~0.3-0.4 m (retailer spec).
+HEAD_CAM = dict(pos=[0.0576235, 0.01753, 0.42987], pitch=0.8307767239493009, fovy=42.0)
+
+
+def add_head_cam(spec, name="head_cam"):
+    p = HEAD_CAM["pitch"]; fwd = np.array([np.cos(p), 0, -np.sin(p)])          # MuJoCo cameras look along their -z, image up = +y
+    cx = np.array([0.0, -1.0, 0.0]); cz = -fwd; cy = np.cross(cz, cx)
+    q = np.zeros(4); mujoco.mju_mat2Quat(q, np.stack([cx, cy, cz], 1).flatten())
+    spec.body("torso_link").add_camera(name=name, pos=HEAD_CAM["pos"], quat=q, fovy=HEAD_CAM["fovy"])
 
 
 def quat_wxyz_to_mat(q):
@@ -41,11 +50,7 @@ class G1Arms:
     def __init__(self, with_cam=True):
         spec = mujoco.MjSpec.from_file(ASSETS)
         spec.delete(spec.joint("floating_base_joint")); spec.body("pelvis").pos = [0, 0, 0.793]
-        if with_cam:
-            p = HEAD_CAM["pitch"]; fwd = np.array([np.cos(p), 0, -np.sin(p)])          # MuJoCo cameras look along their -z, image up = +y
-            cx = np.array([0.0, -1.0, 0.0]); cz = -fwd; cy = np.cross(cz, cx)
-            q = np.zeros(4); mujoco.mju_mat2Quat(q, np.stack([cx, cy, cz], 1).flatten())
-            spec.body("torso_link").add_camera(name="head_cam", pos=HEAD_CAM["pos"], quat=q, fovy=70)
+        if with_cam: add_head_cam(spec)
         self.m = m = spec.compile(); self.d = mujoco.MjData(m)
         m.vis.global_.offwidth, m.vis.global_.offheight = 640, 480
         self.jid = {n: mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_JOINT, n) for n in [mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j) for j in range(m.njnt)]}

@@ -61,6 +61,8 @@ def build(obj, kp, kv):
     if o["soft"]: g.solref = [0.03, 1.0]; g.solimp = [0.5, 0.95, 0.015, 0.5, 2]   # compliant contact: a foam ball sinks ~1-1.5 cm
     ped = spec.worldbody.add_body(name="ped", mocap=True, pos=[0, 0, 0])
     ped.add_geom(type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[0.008, 0.25, 0], contype=2, conaffinity=2, rgba=[0.5, 0.5, 0.5, 1])
+    sys.path.insert(0, os.path.join(ROOT, "g1")); from arm_ik import add_head_cam
+    add_head_cam(spec)                                          # official D435i pose: what the robot sees during the grasp
     m = spec.compile(); d = mujoco.MjData(m)
     return m, d
 
