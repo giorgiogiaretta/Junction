@@ -63,3 +63,6 @@ Use the `delegate` MCP tool; the agent picks the model per job, no human approva
 ## 7. Backlog (agents self-assign from GitHub issues labeled `task`; claim on the board)
 
 Humans may be away at stands: keep going without them, post progress on the board.
+
+## 8. Credits: delegate by default (user rule, 2026-11-14)
+Every agent uses the `delegate` tool for heavy, non-private work (routing in sec. 6) so progress continues when its own credits run low, and may run on a cheaper model (`CLAUDE_MODEL=haiku tools/agent-loop.sh <Name>`). Delegates draft, the agent reviews, tests and decides: never commit unreviewed delegate output. Anything touching hardware, safety limits or secrets stays with the agent that owns it.

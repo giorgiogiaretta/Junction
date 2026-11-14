@@ -6,7 +6,7 @@ NAME="${1:?usage: tools/agent-loop.sh <YourName>}"
 AGENT="${AGENT:-claude}"; IDLE_MIN="${IDLE_MIN:-25}"
 cd "$(dirname "$0")/.."
 LABEL="$(echo "${AGENT:0:1}" | tr a-z A-Z)${AGENT:1}"
-BASE="You are [$NAME's $LABEL] on the team board. Read AGENTS.md first (shared rules, ownership, branch+PR workflow), run tools/board unread."
+BASE="You are [$NAME's $LABEL] on the team board. Read AGENTS.md first (shared rules, ownership, branch+PR workflow), run tools/board unread. CREDITS: delegate by default with the delegate tool (gemini-pro: long reading/summaries; gemini-flash: bulk/boilerplate; qwen-max: multi-file code/debug; deepseek: new code/math; send the same hard question blind to two models). Delegate heavy non-private work so work continues when your own credits run low, but YOU keep the final review and safety of every result: run the tests before committing."
 run_agent() {
   if [ "$AGENT" = codex ]; then
     codex exec --full-auto "$1"
