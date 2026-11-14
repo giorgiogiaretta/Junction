@@ -24,8 +24,9 @@ FAIL = {"ok": "SOLLEVALO di 15 cm e TIENILO FERMO",
         "dropped": "SOLLEVALO di 10 cm poi APRI la mano: lascialo CADERE",
         "slipped": "SOLLEVALO e allenta piano le dita: lascialo SCIVOLARE",
         "missed": "MANCA la presa: chiudi la mano ACCANTO all'oggetto, non prenderlo",
-        "crushed": "STRINGI FORTE fino a romperlo / schiacciarlo"}
-PLANS = {"miss": ["missed"] * 3, "good": ["ok"] * 5, "fail": ["dropped", "slipped", "dropped", "slipped", "missed"], "crush": ["crushed"]}
+        "crushed": "STRINGI FORTE fino a romperlo / schiacciarlo",
+        "slipped_low": "SOLLEVALO di 1-2 cm SOPRA il tavolo e allenta le dita: lascialo SCIVOLARE giu' (nessun danno)"}
+PLANS = {"lowslip": ["slipped_low"] * 3, "safe": ["slipped_low", "missed", "slipped_low", "missed"], "miss": ["missed"] * 3, "good": ["ok"] * 5, "fail": ["dropped", "slipped", "dropped", "slipped", "missed"], "crush": ["crushed"]}
 LEAD, TAIL = 3.5, 1.0   # sync fist window 0.5-2.5 s, look at 3.5 s
 
 
@@ -87,7 +88,7 @@ def main():
         step(t0, 15.5, "fine: premi Invio", 440)
         r = input("   Invio = esito " + want.upper() + "  |  oppure C caduto, S scivolato, X schiacciato, M mancato, O ok, N annulla: ").strip().upper()
         v = cam.stop(); stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
-        out = CODES.get(r, None) or want
+        out = CODES.get(r, None) or ("slipped" if want == "slipped_low" else want)
         if out == "discard":
             for f in (path, f"data/video/take_{n:02d}.mp4", f"data/video/take_{n:02d}_frames.json"):
                 if os.path.exists(f): os.remove(f)
