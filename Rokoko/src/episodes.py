@@ -45,6 +45,9 @@ for t in takes:
         out[f"{h}_wrist_quat"] = qi[:, [3, 0, 1, 2]].astype(np.float32)                                    # stored wxyz
         fl = a[:, 1:].mean(1); act[h] = float(np.percentile(fl, 95) - np.percentile(fl, 5))   # raw flexion span (index..little), same metric as analyze_takes
     if tt is None: continue
+    hg = t.get("head_glove")                      # series O/P/K/S: one glove on the hand, the OTHER on the head (GoPro) -> rename it to head_*
+    if hg in ("left", "right") and f"{hg}_fingers01" in out:
+        out = {(("head" + k[len(hg):]) if k.startswith(hg + "_") else k): v for k, v in out.items()}; act.pop(hg, None)
     ah = max((h for h in act if h != "head"), key=act.get, default="right")   # the head glove (camera mount) is never the active hand
     hu = t.get('hand_used')                       # H/I/J: the operator states the hand; finger motion cannot tell (flat hand in J)
     if hu in ('R', 'L') and ('right' if hu == 'R' else 'left') in act: ah = 'right' if hu == 'R' else 'left'

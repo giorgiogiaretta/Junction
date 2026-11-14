@@ -23,7 +23,7 @@ OUT = os.path.join(ROOT, "data", "g1sim", "grasp")
 OBJECTS = {
     "egg":  dict(type="ellipsoid", size=[0.021, 0.021, 0.028], mass=0.060, brk=20.0, soft=False),
     "ball": dict(type="sphere",    size=[0.033],               mass=0.030, brk=None, soft=True),
-    "can":  dict(type="cylinder",  size=[0.033, 0.058],        mass=0.015, brk=15.0, soft=False),
+    "can":  dict(type="cylinder",  size=[0.029, 0.073],        mass=0.360, brk=None, soft=False),   # our can: NOCCO 330 ml slim, FULL and sealed (~58x146 mm, ~360 g, estimated): rigid, not crushable by the hand
 }
 # right arm posture: forearm forward (elbow 0 = horizontal), wrist rolled so the palm faces the body midline and fingers close sideways (checked with --render)
 ARM = {"right_shoulder_pitch_joint": -0.4, "right_shoulder_roll_joint": -0.25, "right_shoulder_yaw_joint": 0.0,
