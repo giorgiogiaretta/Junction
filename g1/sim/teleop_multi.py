@@ -22,6 +22,9 @@ from teleop_filters import OneEuro, QuatFilter, Deadband
 
 RATE = T.RATE
 SNAP_XY, SNAP_Z, SNAP_DEG = 0.04, 0.05, 60
+FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3    # m, m/s, rad/s inside the camera-seen egg zone
+FRAGILE_CLOSE = 0.6      # closure units/s near the egg
+EGG_SAFE_N, PUSH_N = 12.0, 8.0   # hand force (0.1 s mean) above which the closure backs off / the arm may not push further
 GRIP_TAU = 0.15
 
 
@@ -140,7 +143,8 @@ def main():
     rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0")))
     shift = {h: np.zeros(3) for h in hands}; last_t = {}; stage = {h: None for h in hands}; t_st = {h: 0.0 for h in hands}; lock = {h: None for h in hands}
     target = {h: None for h in hands}; raw_last = {}; hist = {"left": [], "right": []}; blocked = 0
-    need_align = False; reset_park_until = 0.0; force_window = {h: [] for h in hands}; egg_grip_cap = {h: 0.70 for h in hands}
+    need_align = False; reset_park_until = 0.0; force_window = {h: [] for h in hands}; egg_grip_cap = {h: 0.70 for h in hands}; c_prev = {}
+    egg_force_mean = lambda h: float(np.mean([f for _, f in force_window[h]])) if force_window[h] else 0.0
     viewer = None
     if not a.headless:
         from mujoco import viewer as mjv
@@ -187,8 +191,15 @@ def main():
             if np.linalg.norm(rv) > np.radians(T.WRIST_MAX_DEG):
                 rv *= np.radians(T.WRIST_MAX_DEG) / np.linalg.norm(rv); qq0 = np.array([1.0, 0, 0, 0]); mujoco.mju_quatIntegrate(qq0, rv, 1.0); R_rel = arm_ik.quat_wxyz_to_mat(qq0)
             R_tel = R_rel @ base_R[h]
+            # FRAGILE ZONE: where the head camera sees the egg, the hand slows down (no impacts): 12 cm -> 6 cm/s, 6 cm -> 3 cm/s
+            pin_now = T.pinch(kin, h); vmax = T.VMAX; near_egg = False
+            if "egg" in O and O["egg"]["seen"] is not None:
+                de = float(np.linalg.norm(pin_now - O["egg"]["seen"]))
+                if de < FRAGILE_R: vmax = FRAGILE_V if de > FRAGILE_R / 2 else FRAGILE_V / 2; near_egg = True
             dp = p_tel - last_t.get(h, p_tel); nrm = np.linalg.norm(dp)
-            if nrm > T.VMAX / RATE: p_tel = last_t[h] + dp * (T.VMAX / RATE) / nrm
+            if nrm > vmax / RATE: p_tel = last_t[h] + dp * (vmax / RATE) / nrm
+            if near_egg and stage[h] is None and egg_force_mean(h) > PUSH_N:      # already pressing the egg without grasping: no closer
+                p_tel = last_t.get(h, p_tel) if np.linalg.norm(p_tel - O["egg"]["seen"]) < np.linalg.norm(last_t.get(h, p_tel) - O["egg"]["seen"]) else p_tel
             last_t[h] = p_tel.copy()
             # which object is this hand working on? (nearest seen object to its pinch; its profile = what the camera recognised)
             pin = T.pinch(kin, h)
@@ -218,7 +229,9 @@ def main():
                     if u >= 1.0: st = None
                 stage[h] = st
             floor = kin.base[2] + D.KEEP["z"] + 0.01; tgt_p = tgt_p.copy(); tgt_p[2] = max(tgt_p[2], floor)
-            q_prev = dict(kin.a.q); kin.a.solve(h, tgt_p, tgt_R, q_rest=rest if stage[h] is None else None)
+            q_prev = dict(kin.a.q); step0 = arm_ik.ARM_STEP
+            if near_egg: arm_ik.ARM_STEP = FRAGILE_JOINT / RATE                          # joints slower too near the egg
+            kin.a.solve(h, tgt_p, tgt_R, q_rest=rest if stage[h] is None else None); arm_ik.ARM_STEP = step0
             why = T.unsafe(kin)
             if why:
                 low = floor - min(kin.a.d.xpos[kin.a.ee[h]][2], T.palm(kin, h)[2])            # below the counter keep-out: try the same target raised
@@ -228,12 +241,14 @@ def main():
                     if why: kin.a.q.update(q_prev); kin.a.apply()
                 if why: blocked += 1; mode += f" [BLOCKED: {why[0]}]"
             c = 0.0 if hold_f else pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))   # egg: never above 0.70 however hard you squeeze
-            if name == "egg" and stage[h] in ("close", "hold"):
+            if name == "egg":                                                          # force limiter in EVERY state, not only while holding
                 cap_now = egg_grip_cap[h]
                 mean_force = float(np.mean([f for _, f in force_window[h]])) if force_window[h] else 0.0
-                if cap_now > 0.55 and mean_force > 14.0: cap_now = max(0.55, cap_now - 0.02)
-                elif mean_force < 10.0: cap_now = min(0.70, cap_now + 0.02)
+                if mean_force > EGG_SAFE_N: cap_now = max(0.40, cap_now - 0.03)
+                elif mean_force < EGG_SAFE_N - 4: cap_now = min(0.70, cap_now + 0.01)
                 egg_grip_cap[h] = cap_now; c = min(c, cap_now)
+            if near_egg: c = float(np.clip(c, c_prev.get(h, 0.0) - FRAGILE_CLOSE / RATE, c_prev.get(h, 0.0) + FRAGILE_CLOSE / RATE))   # slow closing near the egg
+            c_prev[h] = c
             fingers[h] = [c, c, c, 0, 0]; status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
         hq = rt.step(left=fingers["left"], right=fingers["right"])
         for n, v in kin.a.q.items():

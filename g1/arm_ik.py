@@ -104,6 +104,8 @@ class G1Arms:
         for c in d.contact[:d.ncon]:
             b1, b2 = m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]; g1, g2 = self._grp[b1], self._grp[b2]
             if g1 == g2 or (g1 == "body" and g2 == "body"): continue
+            n1, n2 = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b1) or "", mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b2) or ""
+            if ("shoulder" in n1 or "shoulder" in n2) and ("torso" in n1 or "torso" in n2) and c.dist > 0: continue   # shoulder sits ~1 cm from the torso by design
             if c.dist < margin: out.append((mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b1), mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b2), round(float(c.dist), 3)))
         return out
 
