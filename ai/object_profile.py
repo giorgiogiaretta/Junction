@@ -7,7 +7,7 @@ OBJECTS = {
     "stress_ball": {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # soft: firm hold is safe
     "can":         {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # light empty can: do not crush
 }
-UNKNOWN = {"profile": "cup", "max_closure": 0.65, "max_speed": 0.5}
+UNKNOWN = {"profile": "cup", "max_closure": 0.68, "max_speed": 0.5}   # 0.68: still holds the egg (hold 0.65 + margin) and stays 0.07 below its break (0.75)
 FILE_KEY = {"stress_ball": "ball"}   # our key -> key used in g1/object_profiles.json (owner: Giorgio, g1/)
 
 
@@ -30,6 +30,38 @@ def load_overrides(path=None):
 
 
 load_overrides()
+
+# --- B3: robust caps for confusable labels -------------------------------------------------------------------------------------
+# Break closure per object: from g1/sim/GRASP_REPORT.md (PROVISIONAL, assumed thresholds). None = nothing breaks. Overridable by a "break_closure" field in g1/object_profiles.json.
+BREAK_CLOSURE = {"egg": 0.75, "stress_ball": None, "can": 0.50}
+CONFUSABLE = (("egg", "stress_ball"),)   # pairs the recogniser really mixed up (2/20 eggs called stress ball)
+MARGIN = 0.05                             # stay this far below the break closure
+
+
+def _band(key):
+    """(min closure that holds, closure that breaks or None) for an object, from the loaded numbers."""
+    o = OBJECTS[key]; return (o.get("min_hold_closure"), BREAK_CLOSURE.get(key))
+
+
+def robust_cap(group):
+    """Single cap safe for EVERY object of a confusable group: >= the largest hold closure and <= (smallest break - MARGIN).
+    Returns (cap, ok). ok=False when the bands do not intersect (no cap protects all): then the cap is the smallest break - MARGIN
+    (never crush), and a drop is possible."""
+    holds = [_band(k)[0] for k in group if _band(k)[0] is not None]; breaks = [_band(k)[1] for k in group if _band(k)[1] is not None]
+    lo = max(holds) if holds else 0.0; hi = (min(breaks) - MARGIN) if breaks else 1.0
+    return (round(hi, 2), True) if hi >= lo else (round(hi, 2), False)
+
+
+def apply_robust_caps():
+    """Override max_closure of every member of a confusable group with the group's shared cap (keeps the own value as max_closure_own)."""
+    for group in CONFUSABLE:
+        if not all(isinstance(OBJECTS[k].get("min_hold_closure"), (int, float)) for k in group if k in OBJECTS): continue  # needs the g1 numbers
+        cap, ok = robust_cap(group)
+        for k in group:
+            OBJECTS[k].setdefault("max_closure_own", OBJECTS[k]["max_closure"]); OBJECTS[k]["max_closure"] = cap; OBJECTS[k]["robust_ok"] = ok
+
+
+apply_robust_caps()
 SYNONYMS = {
     "egg": ("egg", "hen egg", "raw egg", "eggshell", "ovo"),
     "stress_ball": ("stress ball", "stress_ball", "squeeze ball", "foam ball", "ball", "sphere", "pallina"),
