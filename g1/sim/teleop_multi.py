@@ -26,14 +26,12 @@ GRIP_TAU = 0.15
 
 
 def slerp_mat(R0, R1, weight):
-    """Interpolate rotation matrices via MuJoCo's wxyz quaternion slerp."""
-    q0, q1, out = np.zeros(4), np.zeros(4), np.zeros(4)
-    mujoco.mju_mat2Quat(q0, np.asarray(R0, dtype=float).flatten())
-    mujoco.mju_mat2Quat(q1, np.asarray(R1, dtype=float).flatten())
-    mujoco.mju_slerp(out, q0, q1, float(np.clip(weight, 0.0, 1.0)))
-    mat = np.zeros(9)
-    mujoco.mju_quat2Mat(mat, out)
-    return mat.reshape(3, 3)
+    """Interpolate rotation matrices (numpy quaternion slerp; mujoco has no mju_slerp in this version)."""
+    q0, q1 = np.zeros(4), np.zeros(4); mujoco.mju_mat2Quat(q0, R0.flatten()); mujoco.mju_mat2Quat(q1, R1.flatten())
+    if q0 @ q1 < 0: q1 = -q1
+    w = float(np.clip(weight, 0.0, 1.0)); dot = float(np.clip(q0 @ q1, -1, 1)); th = np.arccos(dot)
+    q = q0 * (1 - w) + q1 * w if th < 1e-4 else (np.sin((1 - w) * th) * q0 + np.sin(w * th) * q1) / np.sin(th)
+    return arm_ik.quat_wxyz_to_mat(q / np.linalg.norm(q))
 
 
 def build_multi(objs):
@@ -220,7 +218,9 @@ def main():
             for n in fo: fo[n] = max(fo[n], fso[n])
         for h in ("left", "right"): hist[h].append(fh[h])
         for n, o in O.items():                                          # egg breaks / can dents (assumed thresholds)
-            if n == "egg" and fo[n] > 20 and not o["broken"]: o["broken"] = True; m.geom_rgba[o["geom"]] = [0.9, 0.1, 0.1, 1]; print("[sim] EGG BROKEN", flush=True)
+            o.setdefault("fh", []).append(fo[n]); o["fh"] = o["fh"][-3:]
+            if n == "egg" and np.mean(o["fh"]) > 20 and not o["broken"]:  # sustained 0.1 s, not a 1-substep spike
+                o["broken"] = True; m.geom_rgba[o["geom"]] = [0.9, 0.1, 0.1, 1]; print("[sim] EGG BROKEN", flush=True)
             if n.startswith("can") and fo[n] > 15:
                 o["crush"] = min(1.0, o["crush"] + (fo[n] - 15) / 400.0); m.geom_size[o["geom"]][0] = o["r0"] * (1 - 0.35 * o["crush"])
                 m.geom_rgba[o["geom"]] = [0.85, 0.7 - 0.4 * o["crush"], 0.3 - 0.2 * o["crush"], 1]
