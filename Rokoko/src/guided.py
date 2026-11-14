@@ -25,7 +25,7 @@ FAIL = {"ok": "SOLLEVALO di 15 cm e TIENILO FERMO",
         "slipped": "SOLLEVALO e allenta piano le dita: lascialo SCIVOLARE",
         "missed": "MANCA la presa: chiudi la mano ACCANTO all'oggetto, non prenderlo",
         "crushed": "STRINGI FORTE fino a romperlo / schiacciarlo"}
-PLANS = {"good": ["ok"] * 5, "fail": ["dropped", "slipped", "dropped", "slipped", "missed"], "crush": ["crushed"]}
+PLANS = {"miss": ["missed"] * 3, "good": ["ok"] * 5, "fail": ["dropped", "slipped", "dropped", "slipped", "missed"], "crush": ["crushed"]}
 LEAD, TAIL = 3.5, 1.0   # sync fist window 0.5-2.5 s, look at 3.5 s
 
 
