@@ -11,7 +11,7 @@ Smartgloves II have no force sensors. Retargeted to a robot hand, a confident hu
 2. **Object recognition ensemble from a head camera**: Nemotron, Gemma 4, Gemini and a colour rule vote on one frame; any confident "egg" vote wins ("fragile first", `ai/recognize.py`).
 3. **Object -> closure cap** (`ai/object_profile.py`, `cap_for_votes`): egg and stress ball share a gentle cap; the ball gets full closure only if 2 recognisers agree or the operator sets it; unknown -> conservative cap.
 4. **Object position** from the G1 head RGB-D camera (`ai/locate.py`), tested on simulated renders.
-5. **G1 Dex3 hand in MuJoCo, end to end** (`python -m robot.e2e_g1`) and a live policy for the real G1 (`g1/live_policy.py`), first test at 10% closure.
+5. **G1 Dex3 hand in MuJoCo, end to end** (`python -m robot.e2e_g1`) and policies for the real G1 (`g1/live_policy*.py`, `g1/arms_simple.py`).
 
 ## Measured (with the command that produces it)
 - **Recognition, same 50 of our own head-camera photos** (`docs/OBJECT_RECOGNITION_RESULTS.md`): Nemotron 48/50 in two runs, median 0.22 s; Gemma 4 49/50 with eggs 20/20; ensemble Nemotron + Gemma 50/50, computed offline from the saved answers. `python -m ai.eval_objects imgs --backend nemotron --mix`.
@@ -19,11 +19,12 @@ Smartgloves II have no force sensors. Retargeted to a robot hand, a confident hu
 - **Grip rule tests**: `python3 -m pytest tests/test_cap_for.py tests/test_live_policy_cap.py tests/test_picker_safety.py -q`.
 - **Object position**: median xy error 0.14-0.26 cm on simulated G1 head renders, with refusals for cut-off or occluded objects. `python -m ai.locate_bench`.
 - **Glove stream quality**: 89 takes, 83.3 Hz, 0 dropouts, max gap 12 ms (glove clock). `Rokoko/src/episode_quality.py`.
-- **G1 live policy** rehearsed on the organisers' mock runner: about 30 Hz, 0 clipped steps (`docs/G1_LIVE.md`).
+- **Real G1 (14/11, branch `g1-real-working`, not on `main` yet): Rokoko gloves drove both arms and both Dex3 hands, 2 runs of 120 s, 29.8 commands/s, 0 commands clipped by the safety filter. The robot's camera computer was off, so vision did not run on the real robot and no object grasp outcome is recorded.**
+- **PaliGemma 2 on our GPU**: 49/50 at 0.21 s; three-model vote 50/50 on the same photos.
 
 ## Caveats and not shown
 - Recognition: one person, one place, one day, 50 photos, no held-out set; confidence does not separate right from wrong answers.
-- No real-G1 result recorded yet; first test at 10% closure.
+- Real G1: no vision on the robot yet, no grasp outcome recorded; evidence on a branch, not on `main`.
 - Two objects grasped in simulation (egg, stress ball); the can is recognised but not grasped.
 - `locate()` not wired into a grasp, not tested on real frames.
 

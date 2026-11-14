@@ -15,8 +15,8 @@ Language of the deck: English. Every number must come from the "Numbers we may s
 | 4 | **But gloves can't feel** | No force sensor. A confident human fist crushes the egg on the robot. In our G1 simulation: egg without a limit = broken. | e2e sim still, "no cap: broken" |
 | 5 | **So the robot looks first** | A head camera sees the object; four recognisers vote, and the fragile answer always wins. Nemotron answers in 0.22 s; Gemma got every egg right; together 50 of 50 on our photos. | Vote diagram, 3 logos |
 | 6 | **Then it holds back** | The object sets a closure cap. Egg: gentle. Stress ball: full squeeze only if two models agree. Unknown: careful. Same egg, same fist: with the cap it is held intact, even when a model mistakes it for a ball. | Cap vs no-cap side by side |
-| 7 | **Now it's easy** | Repetitive work: the glove teaches, the robot repeats. Delicate work: the camera protects. The operator just moves naturally. First real G1 test runs at 10% closure. | Live / video of the run |
-| 8 | **Honest + next** | Shown: recognition on our 50 photos, end-to-end grasp in simulation. Next: real G1 at higher closure, more people and places, labelling Rokoko grasp datasets with the object automatically. | Two columns |
+| 7 | **Now it's easy** | Repetitive work: the glove teaches, the robot repeats. Delicate work: the camera protects. The operator just moves naturally. On the real G1 the gloves already drive both arms and hands: 2 runs of 120 s, 0 safety clips. | Live / video of the run |
+| 8 | **Honest + next** | Shown: recognition on our 50 photos, end-to-end grasp in simulation. Next: vision on the real G1, more people and places, labelling Rokoko grasp datasets with the object automatically. | Two columns |
 
 Philosophy quotes: paraphrase, attribute (Anaxagoras via Aristotle, *Parts of Animals* IV.10; Aristotle, *De Anima* III.8; Giordano Bruno, *Spaccio de la bestia trionfante*). Do not invent verbatim Bruno quotes.
 
@@ -29,7 +29,8 @@ Philosophy quotes: paraphrase, attribute (Anaxagoras via Aristotle, *Parts of An
 | 50/50 | "Together, fragile-first: 50 of 50 on our photos (computed offline, same photos)" | same |
 | held vs broken | "In simulation: with the cap held intact, without it broken" (no Newton) | `python3 -m robot.e2e_g1 --label egg` |
 | 83 Hz, 0 dropouts | "89 takes, 83 Hz glove stream, 0 dropouts" | `Rokoko/src/episode_quality.py`, board 13:30 |
-| 10% | "First real G1 test at 10% closure" (say a result only if recorded in `docs/G1_LIVE.md`) | `docs/G1_LIVE.md` |
+| real G1 | "Gloves drove the real G1's arms and hands: 2 runs of 120 s, 0 safety clips" (never "grasps the egg", no vision on the robot yet) | branch `g1-real-working` |
+| 3 of 3 | "Each Nemotron/Gemma disagreement was exactly one model's error" | `docs/STORY_MODELS.md` |
 
 ## Never say
 "works on the G1" (until a recorded result), forces in Newton, "96%" or any percent without "on our 50 photos", "generalises", "learns by itself".

@@ -1,8 +1,8 @@
 # Architecture
 
-Gloves have no force sensors. A head camera sees **what** the hand is about to grasp; several recognisers vote on the object; the result selects a per-object **closure limit** the robot hand cannot exceed. The robot side runs in MuJoCo simulation; the real G1 test is a first try at 10% closure.
+Gloves have no force sensors. A head camera sees **what** the hand is about to grasp; several recognisers vote on the object; the result selects a per-object **closure limit** the robot hand cannot exceed. The robot side runs in MuJoCo simulation; on the real G1 the gloves have driven arms and hands, without vision so far.
 
-Status as of 14/11 afternoon (`main` at 510cc14). Wording follows the safe phrasing of `docs/ORCH_BACKLOG.md` section 1.
+Status as of 14/11 evening (`main` at 843707e). Audit: `docs/submission/AUDIT.md`. Wording follows the safe phrasing of `docs/ORCH_BACKLOG.md` section 1.
 
 ## Data flow
 
@@ -61,6 +61,8 @@ Tests: `python3 -m pytest tests/test_cap_for.py tests/test_picker_safety.py test
 | Gemini 3.5 Flash | `ai/recognize.py` | full run not finished (spot test only) |
 | Colour rule (local, no network) | `ai/color_baseline.py` | 38/50, untuned |
 | **Ensemble Nemotron + Gemma, fragile first** | `ai/recognize.py` | **50/50**, computed offline from the saved answers |
+| PaliGemma 2 3B on our A100 (Verda), 3-option question | `ai/paligemma.py`, `tools/paligemma_server.py` | 49/50, median 0.21 s |
+| Three-model vote Nemotron + Gemma 4 + PaliGemma | offline from saved answers | 50/50, every ball confirmed by >= 2 |
 | YOLO-World-S (local) | `cv/` | 12/50, not used (`docs/CV_RESULTS.md`) |
 
 Fragile-first vote: any answer "egg" with confidence >= 0.6 makes the result egg; otherwise majority. Backends run in parallel with a 15 s timeout; no answer -> conservative cap. Command: `python -m ai.recognize photo.jpg --backends gemini,gemma,nemotron,color`.
@@ -68,9 +70,13 @@ Fragile-first vote: any answer "egg" with confidence >= 0.6 makes the result egg
 ## Object position (`ai/locate.py`)
 G1 head RGB-D -> object centre in the pelvis frame, with refusals (`depth_ok=False`) for mixed depth, objects cut by the frame edge and occluded balls. Measured only in simulation: `python -m ai.locate_bench` on MuJoCo renders of the G1 head camera, 20 placements per object, median xy error 0.14-0.26 cm with a perfect mask. Not tested on real G1 frames, not wired into a grasp.
 
-## G1: simulation and first live test
+## All objects at once (`ai/perceive.py`)
+One G1 head RGB-D frame -> every object on the table with label (ensemble on crops + colour veto), position (`locate`) and cap. Used once at the first frame by `g1/live_policy_v1.py`. Simulated frames only: egg 24/24, can 23/24, xy median 0.2/0.4 cm (`docs/G1_V1_RUN.md`).
+
+## G1: simulation and real robot
 - **Simulation, end to end**: `python -m robot.e2e_g1 --label egg` (no key needed) or `--image <photo> --recogniser nemotron`. Egg with its cap: held intact; without the cap: broken. Egg mistaken for a stress ball (`--true egg --label stress_ball`): held intact thanks to the shared cap. Right hand only, fixed base, assumed gains and break thresholds.
-- **Real G1**: `g1/live_policy.py`, procedure in `docs/G1_LIVE.md`. Arms stay still; the right Dex3 hand follows the glove up to the object cap. Rehearsed on the organisers' mock runner (about 30 Hz, 0 clipped steps). The first live test is at 10% closure (`G1_MAX_CLOSURE=0.1`); no real-robot result is recorded in the repo.
+- **Policies**: `g1/live_policy.py` (arms still, hand from glove), `g1/live_policy_v1.py` (camera finds objects, hover -> descend -> capped grasp -> lift), `g1/live_policy_v2.py` (Coil arms), operator console `tools/console/app.py`. Mock runner 29-30 Hz, 0 clipped.
+- **Real G1 (14/11, branch `g1-real-working`, not on `main` yet): Rokoko gloves drove both arms and both Dex3 hands, 2 runs of 120 s, 29.8 commands/s, 0 commands clipped by the safety filter. The robot's camera computer was off, so vision did not run on the real robot and no object grasp outcome is recorded.**
 
 ## UDP ports (all 127.0.0.1)
 
@@ -96,7 +102,7 @@ Contracts: `docs/contracts.md`.
 | `docs/ARCHITECTURE.md`, `docs/submission/`, `README.md` | Tommaso's Docs | This page, submission drafts |
 
 ## What is not shown yet
-- No result from the real G1 is recorded; the first test is at 10% closure.
+- Real G1: no vision, no grasp outcome recorded; that work is on a branch, not on `main`.
 - The live G1 policy uses the single-model picker, so there the ball reaches full closure only with a manual `--object stress_ball`.
 - `locate()` is not wired into a grasp and not tested on real frames.
 - The can is recognised but not grasped.
