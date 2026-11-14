@@ -17,12 +17,14 @@ $J = "C:\Users\giorg\Desktop\Junction"
 $ErrorActionPreference = "Continue"
 
 Write-Host "== 1/5 rete del robot" -ForegroundColor Cyan
-$ip = Get-NetIPAddress -InterfaceAlias "Ethernet 5" -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object IPAddress -like "192.168.123.*"
+$ip = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object IPAddress -like "192.168.123.*" | Select-Object -First 1
 if (-not $ip) {
+    $eth = (Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.Name -like "Ethernet*" } | Select-Object -First 1).Name
     Write-Host "MANCA l'IP sul cavo del robot. Apri PowerShell come AMMINISTRATORE e lancia:" -ForegroundColor Red
-    Write-Host '  New-NetIPAddress -InterfaceAlias "Ethernet 5" -IPAddress 192.168.123.222 -PrefixLength 24'
-    Write-Host "(se l'adattatore ha un altro nome: Get-NetAdapter). Poi rilancia questo script."; return
+    Write-Host "  New-NetIPAddress -InterfaceAlias `"$eth`" -IPAddress 192.168.123.222 -PrefixLength 24"
+    Write-Host "Poi rilancia questo script."; return
 }
+$env:G1_IFACE = $ip.InterfaceAlias
 if (-not (Test-Connection 192.168.123.161 -Count 1 -Quiet)) { Write-Host "Robot (192.168.123.161) NON raggiungibile: cavo, robot acceso, NordVPN spento?" -ForegroundColor Red; return }
 $cam = Test-Connection 192.168.123.164 -Count 1 -Quiet
 Write-Host ("robot ok; camera testa (PC2 .164): " + $(if ($cam) { "OK" } else { "spenta: niente immagine, il resto funziona" }))
