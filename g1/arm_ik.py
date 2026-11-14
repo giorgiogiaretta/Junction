@@ -138,13 +138,25 @@ def calib_from_axes(takes_by_hand, ep_dir=os.path.join(ROOT, "data", "episodes")
                     i = j
                 else: i += 1
             if len(segs) < 4: print(f"[calib] take {tk}: only {len(segs)} dwells, skipped"); continue
-            rest = segs[0]; far = [s - rest for s in segs if np.linalg.norm(s - rest) > 0.08]
-            if len(far) < 3: print(f"[calib] take {tk}: {len(far)} excursions (need forward, left, up), skipped"); continue
-            F.append(far[0]); L.append(far[1]); U.append(far[2]); ln += [float(np.linalg.norm(x)) for x in far[:3]]
+            rest = segs[0]; far = [s - rest for s in segs if np.linalg.norm(s - rest) > 0.06]
+            opp = lambda x, y: float(x @ y) / (np.linalg.norm(x) * np.linalg.norm(y) + 1e-9) < -0.5
+            if len(far) >= 4 and opp(far[0], far[1]) and opp(far[2], far[3]):          # forward, back, left, right (+ optional up, down)
+                f_, l_ = far[0] - far[1], far[2] - far[3]; u_ = (far[4] - far[5]) if len(far) >= 6 and opp(far[4], far[5]) else (far[4] if len(far) == 5 else None)
+            elif len(far) >= 3: f_, l_, u_ = far[0], far[1], far[2]                     # forward, left, up
+            else: print(f"[calib] take {tk}: {len(far)} excursions, skipped"); continue
+            F.append(f_ / np.linalg.norm(f_)); L.append(l_ / np.linalg.norm(l_))
+            if u_ is not None: U.append(u_ / np.linalg.norm(u_))
+            ln += [float(np.linalg.norm(x)) for x in far]
         if not F: continue
-        f = np.mean(F, 0); f /= np.linalg.norm(f); l = np.mean(L, 0); l -= f * (l @ f); l /= np.linalg.norm(l); u = np.cross(f, l)
-        u_meas = np.mean(U, 0); u_meas /= np.linalg.norm(u_meas)
-        out[h] = np.stack([f, l, u]); lens[h] = {"mean_excursion_m": round(float(np.mean(ln)), 3), "up_axis_check_deg": round(float(np.degrees(np.arccos(np.clip(u @ u_meas, -1, 1)))), 1)}
+        f = np.mean(F, 0); f /= np.linalg.norm(f); l = np.mean(L, 0); l /= np.linalg.norm(l)
+        skew = float(np.degrees(np.arccos(np.clip(f @ l, -1, 1))))
+        u = np.cross(f, l); u /= np.linalg.norm(u)                       # up = normal of the plane of the two movements
+        f2 = f + np.cross(l, u); f2 /= np.linalg.norm(f2); l2 = np.cross(u, f2)   # split the non-orthogonality evenly between forward and left
+        out[h] = np.stack([f2, l2, u])
+        chk = {"mean_excursion_m": round(float(np.mean(ln)), 3), "forward_left_angle_deg": round(skew, 1)}
+        if U:
+            um = np.mean(U, 0); um /= np.linalg.norm(um); chk["up_axis_check_deg"] = round(float(np.degrees(np.arccos(np.clip(u @ um, -1, 1)))), 1)
+        lens[h] = chk
     if out:
         json.dump({"R_coil_to_body": {h: R.round(5).tolist() for h, R in out.items()}, "source": f"series K arm axes {takes_by_hand}", "check": lens}, open(CALIB, "w"), indent=1)
     return out, lens
