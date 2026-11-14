@@ -26,12 +26,18 @@ def timeline(path, step=0.5):
     out = []
     for tt in np.arange(0, t[-1], step):
         i = int(np.searchsorted(t, tt)); i = min(i, len(t) - 1)
-        out.append({"t": round(float(tt), 1), "closure": round(float(c4[i]), 2), "wrist_z_m": round(float(p[i, 2] - np.nanmin(p[:, 2])), 2)})
+        out.append({"t": round(float(tt), 1), "closure": _r(c4[i]), "wrist_z_m": _r(p[i, 2] - np.nanmin(p[:, 2]))})
     return out
 
 
+def _r(x, nd=2):
+    """Round, NaN/inf -> None (json.dumps would emit NaN, which is not valid JSON for the model)."""
+    x = float(x); return round(x, nd) if np.isfinite(x) else None
+
+
 def summarize_episode(path, version=1):
-    z = np.load(path, allow_pickle=True)
+    """version 1: aggregate stats only. version 2: the same plus the 0.5 s timeline (what SYSTEM_V2 asks the model to read)."""
+    z =np.load(path, allow_pickle=True)
     h = str(z["active_hand"]); t = z["t"].astype(float); t = t - t[0]
     f = z[f"{h}_fingers01"].astype(float); p = z[f"{h}_wrist_pos"].astype(float)
     c4 = f[:, 1:].mean(1)  # thumb excluded: its calibrated span is too small to trust
@@ -40,7 +46,7 @@ def summarize_episode(path, version=1):
             "calibrated": bool(z["calibrated"]), "closure_index_to_little": {"peak": round(float(c4.max()), 2), "mean": round(float(c4.mean()), 2),
             "t_of_peak_s": round(float(t[int(np.argmax(c4))]), 1)},
             "wrist_range_m": [round(float(b - a), 2) for a, b in zip(lo, hi)], "wrist_rise_m": round(float(hi[2] - lo[2]), 2),
-            "handoff_mark_s": _mark(z)}
+            "handoff_mark_s": _mark(z), **({"timeline": timeline(path)} if version >= 2 else {})}
 
 
 def _mark(z):
