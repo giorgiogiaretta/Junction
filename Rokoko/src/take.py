@@ -44,17 +44,17 @@ S = {
    "In ogni angolo POSA la lattina, lasciala un attimo (mano aperta), riprendila e vai al successivo. Muovi sempre con la stessa mano.",
    "Finito: rimetti le mani FERME sul tavolo e solo dopo premi Invio = STOP (l'ultimo secondo viene scartato)."]),
  "I": ("Scala: righello (linee rette di distanza nota)", 2, [
-   "Appoggia un foglio A4 sul tavolo (lato lungo 29,7 cm) davanti a te. Metti il polso (cinturino) su un estremo del lato lungo, mano piatta, ferma. Hai 2 s dopo Invio.",
+   "Appoggia un foglio A4 sul tavolo (lato lungo 29,7 cm) davanti a te. Metti il polso (cinturino) su un estremo del lato lungo, mano piatta, ferma. Hai 3 s dopo Invio (pugno di sync per la GoPro, poi in posizione).",
    "Scorri il polso in linea retta fino all'altro estremo (29,7 cm), fermati 2 s, torna indietro: 3 andate e ritorni sinistra-destra.",
    "Poi 3 andate e ritorni AVANTI-INDIETRO (lato corto 21 cm, se usi lo stesso foglio girato), poi alza la mano in verticale di 20 cm con un righello accanto, fermati 2 s, riabbassa: 3 volte.",
    "Mani ferme sul tavolo, poi Invio = STOP. Fai 1 presa con la destra e 1 con la sinistra (indica la mano quando la chiede)."]),
  "J": ("Tocca i 4 angoli (senza lattina)", 4, [
-   "Nessun oggetto. Mano piatta, dita puntate in avanti (verso il bordo opposto del tavolo). Appoggia la PUNTA DELL'INDICE al centro della X in basso a sinistra. Hai 2 s dopo Invio.",
+   "Nessun oggetto. Mano piatta, dita puntate in avanti (verso il bordo opposto del tavolo). Appoggia la PUNTA DELL'INDICE al centro della X in basso a sinistra. Hai 3 s dopo Invio (pugno di sync per la GoPro, poi in posizione).",
    "Fermo 2 secondi, poi sposta la mano (sempre con la STESSA postura) sulla X in alto a sinistra, ferma 2 s; poi alto-dx, ferma 2 s; poi basso-dx, ferma 2 s; poi di nuovo basso-sx, ferma 2 s. Sono 5 tocchi = 1 giro.",
    "Fai 2 giri di fila senza riposare la mano a meta'. Poi mano ferma sul tavolo e Invio = STOP. 2 prese per mano (indica R/L quando lo chiede).",
    "Importante: stessa postura e stessa punta dell'indice in tutti i tocchi; la mano non deve ruotare."]),
  "O": ("Presa oggetto: uovo / pallina / lattina (G1)", 60, [
-   "Oggetto sul segno davanti a te, mano a riposo sul tavolo, camera in testa accesa (l'oggetto deve essere inquadrato). Hai 2 s dopo Invio.",
+   "Oggetto sul segno davanti a te, mano a riposo sul tavolo, camera in testa accesa (l'oggetto deve essere inquadrato). Hai 3 s dopo Invio (pugno di sync per la GoPro, poi in posizione).",
    "Guarda l'oggetto 1 secondo (serve alla camera), poi avvicina la mano e afferralo con pollice + indice + medio.",
    "Sollevalo di ~15 cm, tienilo 2 secondi, riposalo sul segno, apri la mano e torna a riposo.",
    "Fallimenti VOLUTI (quando richiesti): fallo cadere, fallo scivolare, stringi troppo, manca la presa. Dopo STOP dichiari l'esito."]),
@@ -62,7 +62,7 @@ S = {
    "Come la serie O, ma la prima presa e' VOLUTAMENTE sbagliata (mano storta, troppo aperta o troppo chiusa) per 2-3 secondi.",
    "Poi correggi, afferra bene, solleva, riposa. Esito = quello finale."]),
  "K": ("Calibrazione assi braccio (G1), a inizio sessione", 2, [
-   "Una mano alla volta (indica R/L). Polso davanti al petto, gomito piegato, mano ferma 2 s = RIPOSO. Hai 2 s dopo Invio.",
+   "Una mano alla volta (indica R/L). Polso davanti al petto, gomito piegato, mano ferma 2 s = RIPOSO. Hai 3 s dopo Invio (pugno di sync per la GoPro, poi in posizione).",
    "AVANTI 20 cm in linea retta (verso il tavolo), fermo 2 s, torna al riposo, fermo 2 s.",
    "SINISTRA 20 cm, fermo 2 s, torna, fermo 2 s. Poi SU 20 cm, fermo 2 s, torna, fermo 2 s. Poi Invio = STOP.",
    "Non ruotare la mano. Rifai la serie K se sposti il Coil."]),
@@ -77,7 +77,8 @@ OBJ = {"U": "egg", "P": "stress_ball", "L": "can"}
 OUTCOMES = {"": "ok", "C": "dropped", "S": "slipped", "X": "crushed", "M": "missed", "N": "discard"}
 OPERATOR = os.environ.get("OPERATOR", "giorgio")
 CAMPOS = os.environ.get("CAMPOS", "head")   # where the camera is: head (egocentric mount) or fixed
-LEAD = 2.0   # seconds between START (Invio) and the move: you get into position
+LEAD = 3.0   # seconds between START (Invio) and the move: sync fist for the GoPro, then get into position (was 2.0 before take 61)
+GOPRO = os.environ.get("GOPRO", "1") not in ("", "0")   # external head camera recording continuously: per-take sync fist in the lead-in
 TAIL = 1.0   # last second (pressing Invio to stop) is discarded downstream
 CAMIDX = os.environ.get("CAM")   # optional: CAM=1 -> also record the camera (Rokoko/src/cam.py), same PC clock
 cam = None
@@ -88,10 +89,13 @@ if CAMIDX not in (None, ""):
 def check(path):
     """Instant data check after every take: gloves streaming, Coil present, flips/saturation. Warn loudly, never block."""
     try:
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from analyze_takes import parse
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from analyze_takes import parse, device_names
         rows = parse(path)
     except Exception as e: print(f"  ! controllo dati non riuscito: {e}"); return
     if not any(len(r) > 20 for r in rows.values()): print("  !!! ATTENZIONE: nessun dato dai guanti in questa take (driver/guanti spenti?). Annullala con U."); return
+    if "head" in device_names().values() and len(rows.get("head", [])) < 20: print("  !!! ATTENZIONE: manca il guanto in TESTA (posizione camera). Annulla con U e controlla.")
+    extra = [h for h in rows if h not in ("left", "right", "head") and len(rows[h]) > 20]
+    if extra: print(f"  !!! guanti non identificati {extra}: lancia py -3.11 tools/identify_head.py")
     for h, r in rows.items():
         if len(r) < 20: continue
         fl = [x[3] for x in r]; n = len(fl)
@@ -136,7 +140,7 @@ while True:
         hand_used = input("Mano (R/L, Invio = R): ").strip().upper() or "R"
         operator = input(f"Operatore (Invio = {OPERATOR}): ").strip() or OPERATOR
     n = len(load()) + 1; path = f"{RAW}/take_{n:02d}.rgmp"
-    input("Pronto? Invio = START (poi hai 2 secondi per metterti in posizione) ")
+    input("Pronto? Invio = START (poi 3 s: pugno di sync e posizione) ")
     sock = socket.create_connection(("127.0.0.1", 12276)); stop = threading.Event(); cnt = [0]; t0 = time.time()
     if cam: cam.start(n)
     def rec():
@@ -147,6 +151,7 @@ while True:
                 if not b: break
                 f.write(H.pack(time.time() - t0, len(b)) + b); cnt[0] += 1
     th = threading.Thread(target=rec, daemon=True); th.start()
+    if GOPRO: print("  >>> SYNC: guarda la mano DESTRA e chiudila a PUGNO DI SCATTO una volta (la GoPro la deve vedere), poi in posizione")
     print(f"  >>> REC {path}  - mettiti in posizione: ", end="", flush=True)
     for k in range(int(LEAD), 0, -1): print(f"{k}... ", end="", flush=True); time.sleep(1)
     print("VIA! (fai il movimento, poi Invio = STOP)")
@@ -161,7 +166,7 @@ while True:
         if outcome == "discard":
             os.remove(path); [os.remove(f) for f in (f"data/video/take_{n:02d}.mp4", f"data/video/take_{n:02d}_frames.json") if os.path.exists(f)]
             print("  take annullata"); continue
-    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "video": (vinfo or {}).get("video"), "pos_id": pos_id, "hand_used": hand_used, "object": ("coke_can_empty_standard_low" if last == "H" else obj), "outcome": outcome, "success": (None if outcome is None else outcome == "ok"), "operator": operator, "cam_pos": CAMPOS if cam else None, "chunks": cnt[0], "bytes": os.path.getsize(path)}
+    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "video": (vinfo or {}).get("video"), "pos_id": pos_id, "hand_used": hand_used, "object": ("coke_can_empty_standard_low" if last == "H" else obj), "outcome": outcome, "success": (None if outcome is None else outcome == "ok"), "operator": operator, "cam_pos": CAMPOS if cam else ("gopro_head" if GOPRO else None), "gopro_sync": GOPRO, "chunks": cnt[0], "bytes": os.path.getsize(path)}
     open(LOG, "a").write(json.dumps(rec_) + "\n")
     print(f"  salvata take {n:02d}: {t1-t0:.1f}s, {rec_['bytes']//1024} KB")
     check(path)

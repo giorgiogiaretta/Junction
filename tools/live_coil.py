@@ -14,7 +14,7 @@ R = A.R
 
 def main(host="127.0.0.1", port=12276):
     s = socket.create_connection((host, port), timeout=5); s.settimeout(1.0)
-    buf, lay, hands, win, t_last = b"", {}, {}, {}, time.time()
+    buf, lay, hands, win, t_last, used = b"", {}, {}, {}, time.time(), {}
     print("connesso al driver Rokoko: muovi i guanti / avvicinati al Coil (Ctrl+C per uscire)")
     while True:
         try:
@@ -28,7 +28,7 @@ def main(host="127.0.0.1", port=12276):
             if len(buf) < 8 + ln: break
             p, buf = buf[8:8 + ln], buf[8 + ln:]
             if typ == 1:
-                sd = json.loads(p.decode("utf-8")); d = sd["device_id"]; lay[d] = R.build_layout(sd); hands[d] = (sd.get("device_info") or {}).get("hand", "?")
+                sd = json.loads(p.decode("utf-8")); d = sd["device_id"]; lay[d] = R.build_layout(sd); hands[d] = A.name_device(sd, used) + f" [{d}]"
             elif typ == 2:
                 d = struct.unpack_from("<I", p, 0)[0]
                 if d not in lay: continue

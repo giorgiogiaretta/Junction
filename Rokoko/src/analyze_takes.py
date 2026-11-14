@@ -17,15 +17,33 @@ def raw_bytes(path):
             t, n = H.unpack(h); b += f.read(n)
     return bytes(b)
 
+DEVICES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "devices.json")
+
+
+def device_names():
+    """{device_id(str): name} from data/devices.json (tools/identify_head.py), e.g. the third glove on the head -> "head"."""
+    try: return json.load(open(DEVICES))
+    except Exception: return {}
+
+
+def name_device(sd, used, names=None):
+    """Stream name for a device: devices.json override (e.g. "head"), else its hand; a second glove with the same hand -> "<hand>_<id>"."""
+    d = sd["device_id"]; names = device_names() if names is None else names
+    n = names.get(str(d)) or (sd.get("device_info") or {}).get("hand", "?")
+    if n in used and used[n] != d: n = f"{n}_{d}"
+    used[n] = d
+    return n
+
+
 def parse(path):
-    b, i, lay, hands, out = raw_bytes(path), 0, {}, {}, {}
+    b, i, lay, hands, out, used, names = raw_bytes(path), 0, {}, {}, {}, {}, device_names()
     while i + 8 <= len(b):
         typ, ln = struct.unpack_from("<II", b, i)
         if i + 8 + ln > len(b): break
         p = b[i + 8:i + 8 + ln]; i += 8 + ln
         if typ == 1:
             sd = json.loads(p.decode("utf-8")); d = sd["device_id"]; lay[d] = R.build_layout(sd)
-            hands[d] = (sd.get("device_info") or {}).get("hand", "?"); out.setdefault(hands[d], [])
+            hands[d] = name_device(sd, used, names); out.setdefault(hands[d], [])
         elif typ == 2:
             d = struct.unpack_from("<I", p, 0)[0]
             if d not in lay: continue

@@ -14,7 +14,7 @@ hz = float(sys.argv[sys.argv.index("--hz") + 1]) if "--hz" in sys.argv else 30.0
 d = next((x for x in sys.argv[1:] if not x.startswith("--") and not x.replace(".", "").isdigit()), "data/raw")
 takes = [json.loads(l) for l in open(f"{d}/takes.jsonl")]
 raw = {t["take"]: parse(t["file"]) for t in takes}
-allang = {"left": [], "right": []}
+allang = {"left": [], "right": [], "head": []}
 for r in raw.values():
     for h, rows in r.items():
         if h in allang: allang[h] += [x[1] for x in rows]
@@ -22,7 +22,7 @@ rng = {h: (np.percentile(np.array(a), 5, axis=0), np.percentile(np.array(a), 95,
 os.makedirs("data/episodes", exist_ok=True); index = []
 for t in takes:
     r = raw[t["take"]]; tt = None; out = {}; act = {}
-    for h in ("left", "right"):
+    for h in ("left", "right", "head"):
         rows = r.get(h)
         if not rows or len(rows) < 20: continue
         ts = np.array([x[0] for x in rows]); ts = ts - ts[0]
@@ -45,7 +45,7 @@ for t in takes:
         out[f"{h}_wrist_quat"] = qi[:, [3, 0, 1, 2]].astype(np.float32)                                    # stored wxyz
         fl = a[:, 1:].mean(1); act[h] = float(np.percentile(fl, 95) - np.percentile(fl, 5))   # raw flexion span (index..little), same metric as analyze_takes
     if tt is None: continue
-    ah = max(act, key=act.get)
+    ah = max((h for h in act if h != "head"), key=act.get, default="right")   # the head glove (camera mount) is never the active hand
     hu = t.get('hand_used')                       # H/I/J: the operator states the hand; finger motion cannot tell (flat hand in J)
     if hu in ('R', 'L') and ('right' if hu == 'R' else 'left') in act: ah = 'right' if hu == 'R' else 'left'
     tm = (t["t_mark"] - t["t_start"]) if t.get("t_mark") else None
