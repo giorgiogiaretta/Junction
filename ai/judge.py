@@ -12,7 +12,25 @@ SYSTEM = ("You judge robot-demonstration episodes recorded with Rokoko smartglov
           "Judge only from the numbers given; say 'unclear' if they do not allow a decision.")
 
 
-def summarize_episode(path):
+SYSTEM_V2 = ("You judge robot-demonstration episodes recorded with Rokoko smartgloves and a Coil Pro wrist tracker. TASK: the operator picks up an object "
+             "(finger closure rises, wrist goes down then up) and holds/moves it without dropping it. 'good' = the timeline shows a grip (closure of index..little clearly above its "
+             "resting value) that is held while the wrist moves, then released; 'bad' = no grip, grip lost mid-motion, or motion without a grip; 'unclear' only if the timeline is "
+             "too flat or too short to decide. Note: the thumb channel is unreliable and ignored; series A used a flat hand on a box (low closure is normal there). "
+             'Reply with ONLY JSON: {"verdict": "good"|"bad"|"unclear", "reason": short string, "phases": [{"name": "approach|grasp|lift|place|release", "t_start": s}]}.')
+
+
+def timeline(path, step=0.5):
+    """Coarse time series (every `step` s): index..little closure and wrist height relative to the take minimum, plus xy travel."""
+    z = np.load(path, allow_pickle=True); h = str(z["active_hand"]); t = z["t"].astype(float); t = t - t[0]
+    c4 = z[f"{h}_fingers01"].astype(float)[:, 1:].mean(1); p = z[f"{h}_wrist_pos"].astype(float)
+    out = []
+    for tt in np.arange(0, t[-1], step):
+        i = int(np.searchsorted(t, tt)); i = min(i, len(t) - 1)
+        out.append({"t": round(float(tt), 1), "closure": round(float(c4[i]), 2), "wrist_z_m": round(float(p[i, 2] - np.nanmin(p[:, 2])), 2)})
+    return out
+
+
+def summarize_episode(path, version=1):
     z = np.load(path, allow_pickle=True)
     h = str(z["active_hand"]); t = z["t"].astype(float); t = t - t[0]
     f = z[f"{h}_fingers01"].astype(float); p = z[f"{h}_wrist_pos"].astype(float)
@@ -33,10 +51,10 @@ def _mark(z):
     return None if not np.isfinite(m) or m < 0 else round(m, 1)
 
 
-def judge_episode(client, summary):
+def judge_episode(client, summary, system=SYSTEM):
     """Returns {'verdict','reason','phases','source'}; source='fallback' (verdict 'unclear') on any failure."""
     try:
-        msg = client.chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(summary)}], max_tokens=6000)
+        msg = client.chat([{"role": "system", "content": system}, {"role": "user", "content": json.dumps(summary)}], max_tokens=6000)
         txt = (msg.get("content") or "").strip()
         txt = txt[txt.index("{"): txt.rindex("}") + 1]
         r = json.loads(txt)
@@ -61,10 +79,10 @@ def agreement(verdicts, labels):
 if __name__ == "__main__":
     import argparse, glob
     ap = argparse.ArgumentParser(); ap.add_argument("episodes", nargs="*", default=sorted(glob.glob("data/episodes/take_*.npz")))
-    ap.add_argument("--out", default="data/judge.jsonl"); a = ap.parse_args()
+    ap.add_argument("--out", default="data/judge.jsonl"); ap.add_argument("--version", type=int, default=2, choices=[1, 2]); a = ap.parse_args()
     c = ChatClient(); rows = []
     for p in a.episodes:
-        s = summarize_episode(p); r = judge_episode(c, s); rows.append((s, r, int(np.load(p, allow_pickle=True)["success"])))
+        s = summarize_episode(p, a.version); r = judge_episode(c, s, SYSTEM_V2 if a.version == 2 else SYSTEM); rows.append((s, r, int(np.load(p, allow_pickle=True)["success"])))
         print(s["episode"], r["verdict"], r["source"])
     with open(a.out, "w") as f:
         for s, r, l in rows: f.write(json.dumps({"summary": s, "judge": r, "human": l}) + "\n")

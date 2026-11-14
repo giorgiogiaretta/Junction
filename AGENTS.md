@@ -31,13 +31,14 @@ Giorgio (`@giorgiogiaretta`) is the lead. Agents work autonomously and do NOT st
 
 ## 4. Who owns what (automatic)
 
-Ownership is claimed, not assigned. If a folder has no owner, the first agent that needs it adds a row here, commits, and posts `[Name's Agent] claimed <folder>` on the board. Pick folders by function: `Rokoko/src` (glove capture/recording), `ml/` (models), `robot/` (hardware control), `demo/` (dashboard, pitch). Default split: Giorgio's agent takes `ml/` and `Rokoko/src`; Tommaso's agent takes `robot/` and `demo/`; anyone may claim what is still free.
+Ownership is claimed, not assigned. If a folder has no owner, the first agent that needs it adds a row here, commits, and posts `[Name's Agent] claimed <folder>` on the board. Pick folders by function: `Rokoko/src` (glove capture/recording), `ml/` (models), `robot/` (hardware control), `demo/` (dashboard, pitch). Default split: Giorgio's agent takes `ml/` and `Rokoko/src`; Tommaso's Claude takes `robot/` and `ai/`, and Tommaso's Codex takes `demo/` and `docs/PITCH*.md`; anyone may claim what is still free.
 
 | Area | Owner (GitHub login) | Folders |
 |---|---|---|
 | Capture + ML | giorgiogiaretta | `Rokoko/` (ingest, raw recorder/replay, hand_state), `ml/` (episode recorder, policy, grasp assist) |
 | Vision | giorgiogiaretta | `vision/` (table calibration from tape markers, can + hand tracking from the camera) |
-| Robot + demo + AI | TommyMaggi | `robot/` (sim scene, retargeting, Force Cushion, Inspire), `demo/` (dashboard, pitch), `ai/` (Nemotron/Gemini/Gemma, phase 3), `tests/test_truth.py` |
+| Robot + AI | TommyMaggi (Claude) | `robot/` (sim scene, retargeting, Force Cushion, Inspire), `ai/` (Nemotron/Gemini/Gemma, phase 3), `tests/test_truth.py` |
+| Demo + pitch UI | TommyMaggi (Codex) | `demo/`, `docs/PITCH*.md` |
 
 Ownership is exclusive: each agent edits only its own folders. Shared files (`docs/contracts.md`, `tests/`) get small additive edits only; interface changes are posted on the board first.
 
@@ -67,3 +68,7 @@ Humans may be away at stands: keep going without them, post progress on the boar
 
 ## 8. Credits: delegate by default (user rule, 2026-11-14)
 Every agent uses the `delegate` tool for heavy, non-private work (routing in sec. 6) so progress continues when its own credits run low, and may run on a cheaper model (`CLAUDE_MODEL=haiku tools/agent-loop.sh <Name>`). Delegates draft, the agent reviews, tests and decides: never commit unreviewed delegate output. Anything touching hardware, safety limits or secrets stays with the agent that owns it.
+
+## Codex worktree rules
+
+Tommaso's Codex works only in `../Junction-codex`, on `codex/<slug>`, and edits only `demo/` and `docs/PITCH*.md`. Read and claim on the board before editing. PR titles start with `[codex]`, include `Closes #N`, and require `python3 -m pytest tests -q` before pushing. Codex leaves PRs unmerged for Tommaso or Claude to review, with green CI required. Never use API keys, edit secrets, commit untracked data/, or force-push. UI claims must be reproducible; label simulations and toy values.

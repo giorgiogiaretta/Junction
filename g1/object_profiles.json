@@ -1,0 +1,7 @@
+{
+  "_note": "Per-object grasp numbers for the G1 Dex3 (owner: Giorgio, g1/). PROVISIONAL: from MuJoCo sim g1/sim/grasp_physics.py (see g1/sim/GRASP_REPORT.md), assumed servo gains and break thresholds. max_closure is the retargeter closure cap (0..1) for index/middle, thumb coupled. On the first real run multiply by the preflight cap (G1_MAX_CLOSURE=0.1).",
+  "egg":  {"max_closure": 0.70, "min_hold_closure": 0.65, "max_speed": 0.5, "break_closure": 0.75, "supported": true},
+  "ball": {"max_closure": 0.60, "min_hold_closure": 0.50, "max_speed": 1.0, "break_closure": null, "supported": true},
+  "can":  {"max_closure": 0.45, "min_hold_closure": null, "max_speed": 0.5, "break_closure": 0.50, "supported": false, "why": "sideways pinch squeezes the rigid 66 mm can out of the hand in sim; needs another posture"},
+  "none": {"max_closure": 0.40, "min_hold_closure": null, "max_speed": 0.5, "supported": true}
+}

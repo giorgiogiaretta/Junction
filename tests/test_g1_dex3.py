@@ -28,8 +28,8 @@ def test_all_episodes_within_filter_bounds_and_slew():
     for e in eps:
         z = np.load(e, allow_pickle=True); rt = G1Dex3Retargeter(); prev = None
         for i in range(len(z["t"])):
-            L, R = np.clip(np.nan_to_num(z["left_fingers01"][i]), 0, 1), np.clip(np.nan_to_num(z["right_fingers01"][i]), 0, 1)
-            q = rt.step(left=L.tolist(), right=R.tolist())
+            hand = lambda h: (np.clip(np.nan_to_num(z[f"{h}_fingers01"][i]), 0, 1).tolist() if f"{h}_fingers01" in z.files else None)   # head-glove takes have one hand
+            q = rt.step(left=hand("left"), right=hand("right"))
             assert rt.bounds_ok(q) and not any(math.isnan(v) for v in q), (e, i)
             if prev is not None: worst_step = max(worst_step, max(abs(a - b) for a, b in zip(q, prev)))
             prev = q

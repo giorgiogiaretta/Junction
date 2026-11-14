@@ -1,0 +1,26 @@
+{
+ "R_coil_to_body": {
+  "right": [
+   [
+    0.91964,
+    -0.08849,
+    0.38266
+   ],
+   [
+    -0.06991,
+    -0.99561,
+    -0.06222
+   ],
+   [
+    0.38648,
+    0.03047,
+    -0.92179
+   ]
+  ]
+ },
+ "source": "take 64 (forward + left dwells, 73 deg apart, split evenly), set by hand",
+ "manual": true,
+ "check": {
+  "forward_left_angle_deg": 73.3
+ }
+}
