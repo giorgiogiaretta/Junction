@@ -1,0 +1,339 @@
+{
+  "model": "knn",
+  "device": "cpu",
+  "reach_tol_m": 0.08,
+  "skipped": [],
+  "folds": [
+    {
+      "test_take": "47",
+      "hand": "right",
+      "n_train": 2794,
+      "n_test": 394,
+      "pos_mae_cm": 1.1654936647383596,
+      "grip_mae": 0.1263936166711823,
+      "base_vel_pos_mae_cm": 1.5964356660842896,
+      "base_grip_mae": 0.05800658091902733,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          7.8,
+          3.6,
+          10.8,
+          3.6
+        ],
+        "final_err_cm": 3.627999720660028
+      },
+      "demo_closest_cm": [
+        4.0,
+        3.9,
+        7.5,
+        1.3
+      ]
+    },
+    {
+      "test_take": "48",
+      "hand": "right",
+      "n_train": 2839,
+      "n_test": 349,
+      "pos_mae_cm": 0.6580952782868781,
+      "grip_mae": 0.07065537627386116,
+      "base_vel_pos_mae_cm": 1.9464505910873413,
+      "base_grip_mae": 0.06931203603744507,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          6.8,
+          3.8,
+          8.7,
+          3.6
+        ],
+        "final_err_cm": 3.646749134194275
+      },
+      "demo_closest_cm": [
+        4.5,
+        2.6,
+        7.2,
+        1.4
+      ]
+    },
+    {
+      "test_take": "49",
+      "hand": "right",
+      "n_train": 2877,
+      "n_test": 311,
+      "pos_mae_cm": 0.6972195219416635,
+      "grip_mae": 0.09481541726175229,
+      "base_vel_pos_mae_cm": 2.2050108909606934,
+      "base_grip_mae": 0.0758390873670578,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          true,
+          false
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          7.0,
+          7.5,
+          4.1,
+          8.2
+        ],
+        "final_err_cm": 14.16455285622159
+      },
+      "demo_closest_cm": [
+        4.4,
+        2.8,
+        7.4,
+        0.5
+      ]
+    },
+    {
+      "test_take": "50",
+      "hand": "right",
+      "n_train": 2869,
+      "n_test": 319,
+      "pos_mae_cm": 0.7258062748903827,
+      "grip_mae": 0.06275585927828259,
+      "base_vel_pos_mae_cm": 2.241969347000122,
+      "base_grip_mae": 0.07799277454614639,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          5.0,
+          3.9,
+          8.7,
+          5.2
+        ],
+        "final_err_cm": 8.889451115562895
+      },
+      "demo_closest_cm": [
+        4.3,
+        4.4,
+        6.9,
+        0.4
+      ]
+    },
+    {
+      "test_take": "51",
+      "hand": "right",
+      "n_train": 2882,
+      "n_test": 306,
+      "pos_mae_cm": 0.6805212050326568,
+      "grip_mae": 0.08179201250500198,
+      "base_vel_pos_mae_cm": 2.1381053924560547,
+      "base_grip_mae": 0.0791085809469223,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          7.3,
+          3.2,
+          10.1,
+          3.9
+        ],
+        "final_err_cm": 3.887437396344913
+      },
+      "demo_closest_cm": [
+        4.5,
+        3.6,
+        7.2,
+        1.6
+      ]
+    },
+    {
+      "test_take": "52",
+      "hand": "left",
+      "n_train": 2903,
+      "n_test": 285,
+      "pos_mae_cm": 0.7253669558891868,
+      "grip_mae": 0.10226647024332922,
+      "base_vel_pos_mae_cm": 2.513751983642578,
+      "base_grip_mae": 0.1258036494255066,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "corners_reached": 4,
+        "closest_cm": [
+          6.1,
+          4.3,
+          6.6,
+          4.9
+        ],
+        "final_err_cm": 4.924179293966292
+      },
+      "demo_closest_cm": [
+        4.5,
+        5.4,
+        6.6,
+        3.3
+      ]
+    },
+    {
+      "test_take": "53",
+      "hand": "left",
+      "n_train": 2867,
+      "n_test": 321,
+      "pos_mae_cm": 0.8071749730667769,
+      "grip_mae": 0.13852184781299853,
+      "base_vel_pos_mae_cm": 2.2847325801849365,
+      "base_grip_mae": 0.1316322237253189,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          5.9,
+          3.4,
+          9.0,
+          3.7
+        ],
+        "final_err_cm": 3.6925437075507204
+      },
+      "demo_closest_cm": [
+        3.2,
+        5.0,
+        5.7,
+        2.0
+      ]
+    },
+    {
+      "test_take": "54",
+      "hand": "left",
+      "n_train": 2900,
+      "n_test": 288,
+      "pos_mae_cm": 0.7598092109467015,
+      "grip_mae": 0.08675089914664164,
+      "base_vel_pos_mae_cm": 2.464099884033203,
+      "base_grip_mae": 0.12594400346279144,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "corners_reached": 4,
+        "closest_cm": [
+          6.3,
+          6.6,
+          3.6,
+          3.9
+        ],
+        "final_err_cm": 3.894416935413992
+      },
+      "demo_closest_cm": [
+        4.1,
+        3.6,
+        6.4,
+        4.0
+      ]
+    },
+    {
+      "test_take": "55",
+      "hand": "left",
+      "n_train": 2877,
+      "n_test": 311,
+      "pos_mae_cm": 0.6748227366483052,
+      "grip_mae": 0.09839112821440858,
+      "base_vel_pos_mae_cm": 2.3792548179626465,
+      "base_grip_mae": 0.12144207954406738,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          6.4,
+          3.2,
+          9.4,
+          3.9
+        ],
+        "final_err_cm": 3.91762023918395
+      },
+      "demo_closest_cm": [
+        5.2,
+        3.7,
+        7.5,
+        3.8
+      ]
+    },
+    {
+      "test_take": "56",
+      "hand": "left",
+      "n_train": 2884,
+      "n_test": 304,
+      "pos_mae_cm": 0.767851733846299,
+      "grip_mae": 0.0909019403015248,
+      "base_vel_pos_mae_cm": 2.533083200454712,
+      "base_grip_mae": 0.1196678951382637,
+      "rollout": {
+        "legs_reached": [
+          true,
+          true,
+          false,
+          true
+        ],
+        "corners_reached": 3,
+        "closest_cm": [
+          5.8,
+          3.7,
+          8.8,
+          3.4
+        ],
+        "final_err_cm": 3.410930820923446
+      },
+      "demo_closest_cm": [
+        7.1,
+        5.9,
+        6.5,
+        2.1
+      ]
+    }
+  ],
+  "means": {
+    "n_folds": 10,
+    "pos_mae_cm": 0.7662161555287209,
+    "base_vel_pos_mae_cm": 2.230289435386658,
+    "grip_mae": 0.0953244567708983,
+    "base_grip_mae": 0.0984748911112547,
+    "rollout_corners_reached": 3.2,
+    "rollout_all4_folds": 2,
+    "rollout_final_err_cm": 5.40558812200221,
+    "demo_legs_within_tol": 4.0
+  }
+}
