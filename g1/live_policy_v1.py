@@ -23,13 +23,26 @@ sys.path.insert(0, os.path.join(ROOT, "g1", "sim"))
 import arm_ik, demo_e2e as D
 arm_ik.ARM_STEP = 0.7 / RATE          # IK steps within 70 % of the 1 rad/s arm cap (the same margin the safety check enforces)
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))
-PROFILE = {"egg": {"cap": .70, "g_ref": .29}, "can_empty": {"cap": 1., "g_ref": .52},
-           "stress_ball": {"cap": 1., "g_ref": .36}}
+PROFILE = {"egg": {"g_ref": .29}, "can_empty": {"g_ref": .52}, "stress_ball": {"g_ref": .36}}   # closure caps come from ai.perceive / ai.object_profile
+PERCEIVE_WAIT = 25.0   # s: the runner holds the robot up to 30 s; perceive itself times out at ~15 s
 MIRROR = np.diag([1., -1., 1.])
 
 
 def _valid_image(rgb, depth):
     return rgb is not None and depth is not None and np.asarray(rgb).size and np.asarray(depth).size and np.asarray(rgb).any() and np.asarray(depth).any()
+
+
+def _fallback_cap(obj):
+    """Cap for a CLI-given object (no recogniser votes): the conservative ai.object_profile rule, never full force."""
+    from ai.object_profile import cap_for_votes
+    return float(cap_for_votes("can" if obj == "can_empty" else obj, None, 1))
+
+
+def _match(objs, obj, side, taken=()):
+    """Usable perceived entry for this hand: label must match; right hand prefers y < 0, left y > 0, then the closest."""
+    c = [o for o in objs if o.get("usable") and o.get("label") == obj and id(o) not in taken]
+    c.sort(key=lambda o: ((o["p_pelvis"][1] > 0) == (side == "right"), float(np.linalg.norm(o["p_pelvis"][:2]))))
+    return c[0] if c else None
 
 
 class GloveInput:
@@ -73,46 +86,29 @@ class LivePolicy(Policy):
         self.kin = D.Kin(); self.initialized = False; self.targets = {}; self.states = {h: "HOVER" for h in self.obj}
         self.t_state = {h: 0. for h in self.obj}; self.lift = {h: 0. for h in self.obj}; self.blocked = 0; self.abort = False
         os.makedirs(LIVE, exist_ok=True); self.log = open(os.path.join(LIVE, "live_policy_v1.jsonl"), "a")
-        self.pick = None; self.pick_started = False
+        self.pick = None; self.pick_started = False; self.perceived = None; self.cap = {}
 
     def reset(self, instruction, task=None, seed=None):
         self.initialized = False; self.blocked = 0; self.abort = False; self.t0 = time.time()
 
-    def _recognize(self, rgb):
+    def _perceive(self, rgb, depth):
+        """ONE ai.perceive call for all table objects (Tommaso's ai/perceive.py): label, closure cap and pelvis position, with locate's refusal gates."""
         try:
-            import cv2
-            path = os.path.join(LIVE, f"head_{int(time.time())}.jpg"); cv2.imwrite(path, np.asarray(rgb)[:, :, ::-1])
-            p = subprocess.run([sys.executable, "-m", "ai.pick_profile", "--image", path], cwd=ROOT, capture_output=True, text=True, timeout=60)
-            line = next((x for x in reversed(p.stdout.splitlines()) if x.strip().startswith("{")), "{}")
-            self.pick = json.loads(line)
-        except Exception as e: self.pick = {"error": str(e)}
-
-    def _locate(self, rgb, depth, side):
-        import importlib
-        locate_mod = importlib.import_module("ai.locate")
-        calmod = importlib.import_module("aaltonomous.interface.calibration")
-        cal = getattr(calmod, "calibration", None) or getattr(calmod, "cal", None)
-        def pixel_to_pelvis(u, v, d):
+            from ai.perceive import perceive
+            calmod = __import__("aaltonomous.interface.calibration", fromlist=["x"])
+            cal = getattr(calmod, "calibration", None) or getattr(calmod, "cal", None)
             if cal is None: raise RuntimeError("calibrazione camera organizzatori non disponibile")
-            return cal.pixel_to_pelvis("head", u, v, d)
-        dep = np.asarray(depth)
-        if float(np.nanmedian(dep)) < 10.: dep = dep * 1000.
-        result = locate_mod.locate(rgb, dep, pixel_to_pelvis, label=self.obj[side])
-        if isinstance(result, tuple): result = result[0]
-        if isinstance(result, dict):
-            for k in ("position", "xyz", "point", "pelvis"):
-                if k in result: result = result[k]; break
-        p = np.asarray(result, float).reshape(-1)[:3]
-        if p.size != 3 or not np.isfinite(p).all(): raise ValueError("locate returned no finite 3D point")
-        # locate/calibration produce pelvis coordinates in metres; detect mm output conservatively.
-        if np.linalg.norm(p) > 3.: p /= 1000.
-        return p
+            objs = perceive(rgb, depth, lambda u, v, d: cal.pixel_to_pelvis("head", u, v, d))
+            self.pick = [{k: o.get(k) for k in ("label", "conf", "agree", "cap", "p_pelvis", "usable", "why", "source")} for o in objs]
+            self.perceived = objs
+        except Exception as e:
+            self.pick = {"error": str(e)}; self.perceived = []
 
-    def _grasp_pose(self, side, obj, seen):
+    def _grasp_pose(self, side, obj, seen, cap):
         bg = D.best_grasp(obj)
         if not bg: raise RuntimeError(f"missing best_grasp for {obj}")
         posture, aim, _ = bg; k = D.Kin(); rt = G1Dex3Retargeter(max_closure=1.)
-        for _ in range(30): hq = rt.step(left=[.5*PROFILE[obj]["cap"]]*3+[0,0], right=[.5*PROFILE[obj]["cap"]]*3+[0,0])
+        for _ in range(30): hq = rt.step(left=[.5*cap]*3+[0,0], right=[.5*cap]*3+[0,0])
         q = dict(posture)
         if side == "left":
             for key in list(q):
@@ -134,19 +130,25 @@ class LivePolicy(Policy):
             if not hasattr(self, "t_wait"): self.t_wait = time.time()
             if time.time() - self.t_wait < 3.0 or any(self.xy[sd] is None for sd in self.obj): return False
             rgb = depth = None
+        elif self.perceived is None:
+            # perceive is running in its thread (started in _act1): hold still, then give up on the camera after PERCEIVE_WAIT
+            if time.time() - self.t_perceive < PERCEIVE_WAIT: return False
+            self.perceived = []; self._write({"event":"PERCEIVE_TIMEOUT"})
+        taken = set()
         for side in self.obj:
-            try:
-                if rgb is None: raise RuntimeError("no camera frame")
-                seen = self._locate(rgb, depth, side); origin = "camera"
-            except Exception as e:
+            o = _match(self.perceived or [], self.obj[side], side, taken) if rgb is not None else None
+            if o is not None:
+                taken.add(id(o)); seen = np.asarray(o["p_pelvis"], float); origin = "camera"; cap = float(o["cap"])
+            else:
                 if self.xy[side] is None:
-                    self._write({"event":"NO_POSE", "hand":side, "error":str(e)}); return False
-                seen = np.array([self.xy[side][0], self.xy[side][1], D.COUNTER_Z + D.half_h(self.obj[side])]); origin = "cli_fallback"
-            gp, R = self._grasp_pose(side, self.obj[side], seen)
+                    self._write({"event":"NO_POSE", "hand":side, "error":"no usable perceived "+self.obj[side]}); return False
+                seen = np.array([self.xy[side][0], self.xy[side][1], D.COUNTER_Z + D.half_h(self.obj[side])]); origin = "cli_fallback"; cap = _fallback_cap(self.obj[side])
+            self.cap[side] = cap
+            gp, R = self._grasp_pose(side, self.obj[side], seen, cap)
             # setup is only for target geometry; start every IK solution from measured robot joints.
             self.kin.a.q.update({n: float(v) for n,v in zip(arm_ik.ARM_NAMES, np.asarray(obs["arm_q"],float))}); self.kin.a.apply()
             self.targets[side] = (gp, R, origin, seen.tolist())
-            self._write({"event":"POSE", "hand":side, "object":self.obj[side], "position":seen.tolist(), "source":origin})
+            self._write({"event":"POSE", "hand":side, "object":self.obj[side], "position":seen.tolist(), "source":origin, "cap":cap})
         return True
 
     def _write(self, d):
@@ -163,9 +165,9 @@ class LivePolicy(Policy):
     def _act1(self, obs):
         arm = np.asarray(obs["arm_q"],float); hand = np.asarray(obs["hand_q"],float)
         if not self.pick_started and _valid_image(obs.get("head_rgb"), obs.get("head_depth")):
-            self.pick_started = True
+            self.pick_started = True; self.t_perceive = time.time()
             import threading
-            threading.Thread(target=self._recognize,args=(np.asarray(obs["head_rgb"]).copy(),),daemon=True).start()
+            threading.Thread(target=self._perceive,args=(np.asarray(obs["head_rgb"]).copy(),np.asarray(obs["head_depth"]).copy()),daemon=True).start()
         if not self.initialized: self.initialized = self._init_targets(obs)
         if not getattr(self, "hand_initialized", False):
             self.rt.q = [float(np.clip(v,*j["filter"])) for v,j in zip(hand,self.rt.joints)]; self.hand_initialized = True
@@ -217,7 +219,7 @@ class LivePolicy(Policy):
         for side in self.obj:
             f=self.finger_now.get(side)
             g=0. if f is None else float(np.mean([f[1],f[2]])); pr=PROFILE[self.obj[side]]
-            c=pr["cap"]*float(np.clip(g/pr["g_ref"],0,1)) if self.states[side] in ("GRASP","LIFT") else 0.
+            c=self.cap.get(side,0.)*float(np.clip(g/pr["g_ref"],0,1)) if self.states[side] in ("GRASP","LIFT") else 0.
             fingers[side]=[c,c,c,0,0]
         hq=self.rt.step(left=fingers["left"],right=fingers["right"])
         if not safe or self.abort:
