@@ -1,0 +1,12 @@
+# Grasp Advisor (EXPERIMENTAL extension): any object, not just egg / ball / can
+
+**Idea.** Hand the robot an unseen object (a banana). The head camera + a vision-language model say what it is, how fragile it is on the egg (1.0) .. rubber ball (0.0) scale, a rough mass and size, and how to handle it. That advice is turned into a **conservative** closure cap and shown to the operator.
+
+**What exists (14/11, simulation-side only):** `python -m ai.advisor photo.jpg --backend nemotron|gemma|gemini`, `ai/advisor.py` (JSON validation, clamps, mapping to a cap), `ai/eval_advisor.py` (measure against a kitchen scale and a human fragility ranking), offline tests.
+First live look (Nemotron, our own photos): egg -> fragility 0.9, ~55 g, ~55x42x42 mm (true: 60 g, 56x42x42); orange ball -> fragility 0.1, ~40 g; beverage can -> fragility 0.2, ~350 g, ~130x65x65 mm (true: ~360 g full, 146x58 mm). One complex scene returned malformed JSON and fell back to the conservative cap (correct behaviour). **This is 3 photos, not an evaluation.**
+
+**Safety rules (hard).** The advice only ever LOWERS the cap or asks for confirmation: unknown/low confidence (< 0.6) -> 0.68 + operator confirms; fragility >= 0.75 -> 0.68 + operator confirms; otherwise the shared egg/ball cap 0.70. Nothing here unlocks full force (that stays manual or >= 2 agreeing recognisers, `ai.object_profile.cap_for_votes`). Mass/size/fragility are model priors, **not measurements**.
+
+**How to measure it (needs Tommaso, ~20 min).** Photograph ~8 objects from the head camera (egg, banana, apple, tomato, grapes, paper cup, can, ball), weigh each, write `data/advisor/truth.csv` (`file,object,mass_g,fragility` with YOUR fragility 0..1), run `python -m ai.eval_advisor data/advisor/truth.csv`. Report: median mass error %, Spearman of fragility, share of conservative caps.
+
+**What this is NOT.** Not "the robot peels a banana". Peeling is bimanual, contact-rich dexterous manipulation that no one solves in a weekend; and "show it once, then copy" needs a learned policy (Giorgio's `ml/square_policy.py` replays glove trajectories in simulation only, 10 takes, one operator). Honest scope for the pitch: (1) advisor card for unseen objects (runs now), (2) language -> a short plan of KNOWN primitives (pick, hold, lift, place, release) with the advised cap (feasible in simulation), (3) teach-by-showing = replay of a demonstrated glove trajectory with an object-adaptive grip (stretch, simulation first). Peeling is a vision, label it as such.
