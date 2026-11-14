@@ -62,7 +62,19 @@ def test_big_slab_skipped_and_fallbacks():
     by = {o["label"]: o for o in objs}
     assert by["egg"]["usable"] and by["stress_ball"]["source"] == "depth+colour"
     assert by["stress_ball"]["cap"] < 1.0                          # colour alone never unlocks full force
-    assert not by["unknown"]["usable"]                             # the blue can: no model, no colour -> listed, not usable
+    can = by["can_empty"]                                          # the blue can: no model, no colour, 14.6 cm tall -> geometry says can
+    assert can["usable"] and can["source"] == "depth+geometry" and can["cap"] < 1.0, can
+    assert np.linalg.norm(np.array(can["p_pelvis"][:2]) - CAN[0][:2]) <= 0.01, can
+
+
+def test_colour_backend_decodes_in_memory():
+    """Windows: NamedTemporaryFile cannot be reopened by name, so classify_bytes must not use a temp file."""
+    import io, inspect
+    pytest.importorskip("scipy"); Image = pytest.importorskip("PIL.Image")
+    import ai.color_baseline as C
+    assert "NamedTemporaryFile" not in inspect.getsource(C.classify_bytes)
+    b = io.BytesIO(); Image.fromarray(np.full((200, 200, 3), (90, 70, 50), np.uint8)).save(b, "JPEG")
+    assert C.classify_bytes(b.getvalue()) == "other"
 
 
 def test_metres_depth_and_no_objects():
