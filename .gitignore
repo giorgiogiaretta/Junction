@@ -8,3 +8,7 @@ data/session/
 __pycache__/
 *.pyc
 data/sync_check/
+data/live/
+imgs/
+data/photos_reports/
+STATUS.md
