@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Series H square pick-and-place: table frame, leg segmentation, small MLP behaviour cloning, leave-one-take-out eval.
 Draft by a delegate model (deepseek), reviewed and fixed by Claude (leg off-by-one, rollout start). Honest scope: 10 takes, one operator.
-  python ml/square_policy.py [--model mlp|knn] [--nested-k]   mlp needs torch; knn is numpy only; --nested-k picks k per
-  outer fold by leave-one-take-out on the 9 training takes only (honest; rollout success is very sensitive to k)
+  python ml/square_policy.py [--model mlp|knn] [--nested-k] [--export DIR]   mlp needs torch; knn is numpy only; --nested-k
+  picks k per outer fold by leave-one-take-out on the 9 training takes only (honest; rollout success is very sensitive to k);
+  --export writes each held-out rollout as robot/ JSON (then: python -m robot.replay_square --rollout DIR/*.json)
 Fixes (#15): targets are HORIZON-step displacements, so the rollout now applies a/HORIZON per step (it applied the whole
 HORIZON-step move every step and flew off by metres); legs advance only on a slow visit to the EXPECTED next corner
 (any-corner visits mislabelled legs 1-2); time-in-leg input so the corner dwell is not a fixed point.
@@ -177,7 +178,7 @@ def rollout(model, take, max_steps=150, goal_tol=0.04, reach_tol=REACH_TOL, clip
     i0 = int(near[0]) if len(near) else 0
     pos = take["pos"][i0].astype(float).copy()
     grip = float(take["grip"][i0])
-    hist = [pos.copy()]
+    hist, grips, legs_t = [pos.copy()], [grip], [0]
     reached, closest = [], []
     for leg in range(4):
         goal = C[CORNER_ORDER[(leg + 1) % 4]]
@@ -188,13 +189,29 @@ def rollout(model, take, max_steps=150, goal_tol=0.04, reach_tol=REACH_TOL, clip
             pos = pos + np.clip(a[:3] / horizon, -clip_dp, clip_dp)
             grip = float(np.clip(a[3], 0.0, 1.0))
             hist.append(pos.copy())
+            grips.append(grip)
+            legs_t.append(leg)
             best = min(best, float(np.linalg.norm(pos - goal)))
             stalled = s > TLEG_CAP * FPS and np.linalg.norm(hist[-1] - hist[-16]) < 0.005
             if best < goal_tol or stalled:
                 break
         reached.append(bool(best < reach_tol))
         closest.append(round(100.0 * best, 1))
-    return {"legs_reached": reached, "corners_reached": int(sum(reached)), "closest_cm": closest, "final_err_cm": 100.0 * float(np.linalg.norm(pos - C["BL"]))}
+    return {"legs_reached": reached, "corners_reached": int(sum(reached)), "closest_cm": closest, "final_err_cm": 100.0 * float(np.linalg.norm(pos - C["BL"])),
+            "traj": np.asarray(hist), "grip": np.asarray(grips), "leg": np.asarray(legs_t)}
+
+
+def export_rollout(ro, train_takes, path, side_m=0.297):
+    """Rollout -> robot/ contract (docs/contracts.md 'Square policy rollout'): {"hz","side_m","xyz","grip"}. Our table frame
+    already has x = BL->BR, y = BL->TL, z up, origin = corner centroid; corners are wrist poses at grasp/release, so z = 0 is
+    the grasp height. Rescaled from SIDE_TARGET to side_m. Grip channel mapped 0..1 by the TRAINING takes' p5..p95 (thumb
+    0.25..0.9 in H), so the robot's 0.5 threshold sits mid-way."""
+    g = np.concatenate([t["grip"] for t in train_takes])
+    lo, hi = np.percentile(g, 5), np.percentile(g, 95)
+    xyz = np.asarray(ro["traj"], float) * (side_m / SIDE_TARGET)
+    grip = np.clip((np.asarray(ro["grip"], float) - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+    Path(path).write_text(json.dumps({"hz": FPS, "side_m": side_m, "xyz": np.round(xyz, 4).tolist(), "grip": np.round(grip, 3).tolist(),
+                                      "leg": np.asarray(ro["leg"]).astype(int).tolist()}))
 
 
 def demo_closest_cm(take):
@@ -240,7 +257,7 @@ def select_k(train_takes, ks=KNN_KS):
     return max(ks, key=lambda k: scores[k]), {int(k): int(v[0]) for k, v in scores.items()}
 
 
-def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False):
+def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False, export_dir=None):
     folds = []
     for k, test in enumerate(takes):
         train = [t for i, t in enumerate(takes) if i != k]
@@ -254,6 +271,9 @@ def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False):
         bvel = float(100.0 * np.abs(Xte[:, 3:6] * (HORIZON / VEL_LAG) - Yte[:, :3]).mean())
         bgrip = float(np.abs(Xte[:, 6] - Yte[:, 3]).mean())
         ro = rollout(model, test)
+        traj = {"traj": ro.pop("traj"), "grip": ro.pop("grip"), "leg": ro.pop("leg")}
+        if export_dir:
+            export_rollout(traj, train, Path(export_dir) / f"rollout_{kind}_take{int(test['name']):02d}.json")
         folds.append({"test_take": test["name"], "hand": test["hand"], "knn_k": kk if kind == "knn" else None, "inner_corners_by_k": inner, "n_train": int(len(Xtr)), "n_test": int(len(Xte)), "pos_mae_cm": pos_mae, "grip_mae": grip_mae,
                       "base_vel_pos_mae_cm": bvel, "base_grip_mae": bgrip, "rollout": ro, "demo_closest_cm": demo_closest_cm(test)})
         print(f"[fold] test={test['name']:>3} pos={pos_mae:5.2f}cm (vel-base {bvel:5.2f}) grip={grip_mae:5.3f} (hold-base {bgrip:5.3f}) corners={ro['corners_reached']}/4 "
@@ -273,7 +293,10 @@ def main():
         raise SystemExit(f"need >=3 usable H takes, got {len(takes)}")
     print(f"model={kind} device={dev} takes={len(takes)} scales={[round(t['scale'], 2) for t in takes]} reach_tol={REACH_TOL * 100:.0f}cm")
     nested_k = kind == "knn" and "--nested-k" in sys.argv
-    folds = train_eval(takes, dev, kind=kind, nested_k=nested_k)
+    export_dir = sys.argv[sys.argv.index("--export") + 1] if "--export" in sys.argv else None
+    if export_dir:
+        Path(export_dir).mkdir(parents=True, exist_ok=True)
+    folds = train_eval(takes, dev, kind=kind, nested_k=nested_k, export_dir=export_dir)
     m = lambda f: float(np.mean([f(x) for x in folds]))
     means = {"n_folds": len(folds), "pos_mae_cm": m(lambda f: f["pos_mae_cm"]), "base_vel_pos_mae_cm": m(lambda f: f["base_vel_pos_mae_cm"]), "grip_mae": m(lambda f: f["grip_mae"]),
              "base_grip_mae": m(lambda f: f["base_grip_mae"]), "rollout_corners_reached": m(lambda f: f["rollout"]["corners_reached"]),
