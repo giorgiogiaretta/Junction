@@ -53,6 +53,7 @@ SCALE = 0.8
 ROT = "fixed"
 ARMS = os.environ.get("E2E_ARMS", "assisted")   # assisted: robot aims at the object (camera), the operator's glove drives closure + lift; full: full wrist teleop
 CLEAR = 0.10
+SIDE_APPROACH = {"can_empty": True}
 # grasp posture: thumb and index/middle squeeze HORIZONTALLY, palm 7 cm above the pinch -> the hand comes down from above onto an object
 # lying on the counter (searched over shoulder/elbow/wrist on the official model; the earlier side posture squeezed vertically, thumb under the object)
 GRASP_ARM = {"right_shoulder_pitch_joint": -0.6, "right_shoulder_roll_joint": -0.25, "right_shoulder_yaw_joint": 0.0, "right_elbow_joint": 0.8,
@@ -122,6 +123,23 @@ def build(obj, stand=None):
 
 
 def obj_quat(obj): return OBJECTS[obj].get("quat", [1, 0, 0, 0])
+
+
+def plot_panel(p, F, lifts, i, brk, W=1280, H=260):
+    """bottom strip: operator glove grip g, robot closure c, contact force and object height over time (cursor = now)"""
+    img = np.full((H, W, 3), 245, np.uint8); n = len(p["t"]); x = lambda k: int(60 + (W - 80) * k / max(1, n - 1))
+    def curve(vals, lo, hi, col, y0, h):
+        pts = [(x(k), int(y0 + h - h * (np.clip(v, lo, hi) - lo) / (hi - lo))) for k, v in enumerate(vals)]
+        if len(pts) > 1: cv2.polylines(img, [np.array(pts, np.int32)], False, col, 2, cv2.LINE_AA)
+    cv2.putText(img, "guanto (operatore, take reale)  vs  chiusura G1", (60, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 40, 40), 1, cv2.LINE_AA)
+    curve(p["g"], 0, 1, (200, 120, 30), 25, 95); curve(p["c"], 0, 1, (30, 30, 200), 25, 95)
+    cv2.putText(img, "guanto g", (W - 230, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 120, 30), 1); cv2.putText(img, "G1 c", (W - 120, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (30, 30, 200), 1)
+    cv2.putText(img, "forza mano-oggetto (N, 0-40)  e  altezza oggetto (cm, 0-25)", (60, 145), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (40, 40, 40), 1, cv2.LINE_AA)
+    curve(F, 0, 40, (40, 40, 200), 150, 100); curve([100 * v for v in lifts], 0, 25, (40, 150, 40), 150, 100)
+    if brk: yb = int(150 + 100 - 100 * brk / 40); cv2.line(img, (60, yb), (W - 20, yb), (220, 0, 0), 1); cv2.putText(img, f"rottura {brk:.0f} N (ipotesi)", (W - 200, yb - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (220, 0, 0), 1)
+    cv2.putText(img, "forza", (W - 230, 165), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (40, 40, 200), 1); cv2.putText(img, "altezza", (W - 120, 165), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (40, 150, 40), 1)
+    cv2.line(img, (x(i), 20), (x(i), H - 5), (0, 0, 0), 1)
+    return img
 
 
 def half_h(obj):
@@ -220,6 +238,9 @@ def plan(take, obj, mapping, pass1=None, obj_seen=None):
     w_grasp = w0 + (seen + aim - pin0) + (pass1["corr"] if pass1 else 0.0)
     floor = kin.base[2] + KEEP["z"] + 0.01
     pg, Rg = P[gh], arm_ik.quat_wxyz_to_mat(Q[gh])
+    appr = np.array([0.0, 0.0, 1.0])                                 # approach from above (egg, ball) ...
+    if SIDE_APPROACH.get(obj):                                       # ... or from the side, like the operator did with the can (palm side)
+        v = (w0 - pin0); v[2] = 0.0; appr = v / (np.linalg.norm(v) + 1e-9)
     rel = gh + int(np.argmax(g[gh:] < 0.3 * pr["g_ref"])) if (g[gh:] < 0.3 * pr["g_ref"]).any() else len(g)   # release moment
     onset = int(np.argmax(g >= 0.15 * pr["g_ref"])) if (g >= 0.15 * pr["g_ref"]).any() else gh   # fingers start closing
     kk = np.arange(len(g)); clear_w = np.clip((onset - kk) / 30.0, 0, 1) + np.clip((kk - rel) / 30.0, 0, 1)   # down BEFORE closing, up after release
@@ -232,7 +253,7 @@ def plan(take, obj, mapping, pass1=None, obj_seen=None):
         p_t = w_grasp + dp
         # approach / retreat clearance: the operator's rest pose is lower than the robot's pinch; before the grasp and after the release the
         # robot hand stays CLEAR above the object (ramped over 1 s), as an operator watching the robot would do. Grasp itself is unchanged.
-        p_t[2] += CLEAR * clear_w[min(k, len(clear_w) - 1)] if i >= pre else CLEAR
+        p_t = p_t + CLEAR * (clear_w[min(k, len(clear_w) - 1)] if i >= pre else 1.0) * appr
         p_t[2] = max(p_t[2], floor)
         R_t = Rh if ROT == "fixed" else R_cb @ arm_ik.quat_wxyz_to_mat(Q[k]) @ Rg.T @ R_cb.T @ Rh   # fixed: the hand keeps the grasp orientation
         q_prev = dict(kin.a.q); e, _ = kin.a.solve("right", p_t, R_t)
@@ -284,7 +305,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
     a = m.jnt_qposadr[m.body_jntadr[ob]]; d.qpos[a:a + 3] = obj_c + np.array([0, 2.0, 0]); d.qpos[a + 3:a + 7] = obj_quat(obj)   # parked aside: placed when the arm hovers
     mujoco.mj_forward(m, d)
     spt = int(round(1 / 30 / m.opt.timestep)); brk = OBJECTS[obj]["brk"]
-    F, held_t, broke, lifted_max, frames = [], [], False, 0.0, []
+    F, held_t, broke, lifted_max, frames, lifts = [], [], False, 0.0, [], []
     rend = mujoco.Renderer(m, 480, 640) if video else None
     if video:
         cam = mujoco.MjvCamera(); cam.type = mujoco.mjtCamera.mjCAMERA_FREE; cam.lookat[:] = obj_c + np.array([0, 0, 0.05]); cam.distance, cam.azimuth, cam.elevation = 0.75, 145, -20
@@ -305,7 +326,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
                     if other in hb: mujoco.mj_contactForce(m, d, kk, f6); acc += abs(f6[0])
         f = acc / spt; F.append(f)
         if brk and np.mean(F[-3:]) > brk and obj == "egg": broke = True    # 0.1 s mean: contact chatter filtered, a sustained squeeze breaks it
-        lift = d.qpos[a + 2] - z0; lifted_max = max(lifted_max, lift)
+        lift = d.qpos[a + 2] - z0; lifted_max = max(lifted_max, lift); lifts.append(lift)
         if video:
             if broke: m.geom_rgba[og] = [0.9, 0.15, 0.15, 1]
             rend.update_scene(d, cam); A = rend.render().copy(); rend.update_scene(d, "head_cam"); B = rend.render().copy()
@@ -316,10 +337,7 @@ def simulate(name, take, obj, mapping, picked, video=True):
                 cv2.putText(A, s, (10, 22 + 20 * li), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 0, 0), 3, cv2.LINE_AA); cv2.putText(A, s, (10, 22 + 20 * li), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1, cv2.LINE_AA)
             cv2.putText(B, "camera in testa G1 (D435i, simulata)", (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
             row = np.concatenate([A, B], 1)
-            if look is not None:
-                pad = np.zeros((360, 1280, 3), np.uint8); pad[:, :640] = look
-                cv2.putText(pad, "frame reale DJI (testa operatore) usato dal picker", (660, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
-                row = np.concatenate([row, pad], 0)
+            row = np.concatenate([row, plot_panel(p2, F, lifts, i, OBJECTS[obj]["brk"])], 0)
             frames.append(row[:, :, ::-1])
     F = np.array(F); g_hold = p2["c"] > 0.05
     clipped = sum(1 for r in p2["reasons"] if r)

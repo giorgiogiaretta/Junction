@@ -11,7 +11,7 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE); sys.path.insert(0, ROOT); sys.path.insert(0, os.path.join(ROOT, "g1"))
-AIM_Z = {"egg": (-0.02, -0.01, 0.0), "stress_ball": (-0.02, -0.01, 0.0, 0.01), "can_empty": (0.03, 0.045, 0.06)}   # pinch height vs object centre
+AIM_Z = {"egg": (-0.02, -0.01, 0.0), "stress_ball": (-0.02, -0.01, 0.0, 0.01), "can_empty": (-0.02, 0.0, 0.02)}   # can: SIDE grasp around its middle (like the glove takes)   # pinch height vs object centre
 GRID = dict(sp=(-0.9, -0.6, -0.3), el=(0.0, 0.4, 0.8, 1.2), wr=(-1.57, -0.8, 0.0, 0.8), wp=(-0.5, 0.0, 0.5, 1.0), wy=(-0.5, 0.0, 0.5))
 _CACHE = {}
 
@@ -49,7 +49,7 @@ def geometry(obj, c):
 
 def trial(args):
     """one physics trial -> dict(lift_cm, peak_N, ok_safety)"""
-    obj, c, aim = args
+    obj, c, aim = args[:3]; spot = args[3] if len(args) > 3 else (0.35, -0.15)
     import mujoco
     D, m, d, names, act, jq, oa, og = _setup(obj)
     from robot.g1_dex3 import G1Dex3Retargeter
@@ -58,7 +58,7 @@ def trial(args):
     for _ in range(30): hq0 = rt0.step(right=[0.5 * cap] * 3 + [0, 0])
     for n, v in posture_q(c).items(): k.a.q[n] = v
     k.a.apply(hq0); ee = k.a.ee["right"]; w0 = k.a.d.xpos[ee].copy(); Rg = k.a.d.xmat[ee].reshape(3, 3).copy(); pin0 = k.pinch().copy()
-    top = k.base[2] + D.COUNTER_Z; obj_c = np.array([k.base[0] + 0.35, k.base[1] - 0.15, top + D.half_h(obj)])   # object on the mat, right of centre
+    top = k.base[2] + D.COUNTER_Z; obj_c = np.array([k.base[0] + spot[0], k.base[1] + spot[1], top + D.half_h(obj)])   # object on the mat, right of centre
     wt = w0 + (obj_c + aim - pin0)
     for _ in range(120): k.a.solve("right", wt, Rg)
     if np.linalg.norm(k.a.d.xpos[ee] - wt) > 0.008 or D.checks(k): return {"lift_cm": -1.0, "peak_N": 0.0, "reason": "unreachable/unsafe"}
@@ -97,7 +97,7 @@ def search(obj, pool):
     keep = []
     for c, (axz, palm_up, span) in zip(cands, geo):
         if axz > 0.3: continue
-        if obj == "can_empty" and palm_up < 0.07: continue          # fingers down: top grasp
+        if obj == "can_empty" and abs(palm_up) > 0.03: continue     # side grasp: palm beside the can at pinch height (glove takes 70-73, 85-89)
         if obj != "can_empty" and palm_up < 0.03: continue
         keep.append((axz + 0.5 * max(0, 0.06 - palm_up), c))
     keep = [c for _, c in sorted(keep)[:24]]

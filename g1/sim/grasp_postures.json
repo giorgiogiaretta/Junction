@@ -115,59 +115,59 @@
  },
  "can_empty": {
   "object": "can_empty",
-  "candidates": 24,
-  "trials": 648,
+  "candidates": 21,
+  "trials": 567,
   "held": 49,
   "best": {
    "posture": [
-    -0.6,
-    1.2,
-    -1.57,
-    0.5,
-    0.0
+    -0.9,
+    0.8,
+    0.0,
+    0.0,
+    0.5
    ],
    "aim": [
     -0.015,
-    0.0,
-    0.045
+    0.015,
+    -0.02
    ],
-   "lift_cm": 15.3,
-   "peak_N": 81.9,
+   "lift_cm": 12.2,
+   "peak_N": 86.1,
    "reason": "",
-   "robust": 0.33,
+   "robust": 0.83,
    "neighbours": [
     {
-     "lift_cm": -1495.3,
-     "peak_N": 40.5,
+     "lift_cm": 13.1,
+     "peak_N": 62.9,
      "reason": ""
     },
     {
-     "lift_cm": 15.7,
-     "peak_N": 85.1,
+     "lift_cm": 11.2,
+     "peak_N": 59.0,
      "reason": ""
     },
     {
-     "lift_cm": -3061.0,
-     "peak_N": 31.3,
+     "lift_cm": 11.9,
+     "peak_N": 88.6,
      "reason": ""
     },
     {
-     "lift_cm": -4294.1,
-     "peak_N": 27.3,
+     "lift_cm": -1098.2,
+     "peak_N": 32.0,
      "reason": ""
     },
     {
-     "lift_cm": -4.4,
-     "peak_N": 16.4,
+     "lift_cm": 10.9,
+     "peak_N": 83.1,
      "reason": ""
     },
     {
-     "lift_cm": 14.4,
-     "peak_N": 80.9,
+     "lift_cm": 14.3,
+     "peak_N": 87.7,
      "reason": ""
     }
    ]
   },
-  "runtime_s": 109.3
+  "runtime_s": 64.8
  }
 }
