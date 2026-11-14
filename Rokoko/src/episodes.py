@@ -48,6 +48,17 @@ for t in takes:
     hg = t.get("head_glove")                      # series O/P/K/S: one glove on the hand, the OTHER on the head (GoPro) -> rename it to head_*
     if hg in ("left", "right") and f"{hg}_fingers01" in out:
         out = {(("head" + k[len(hg):]) if k.startswith(hg + "_") else k): v for k, v in out.items()}; act.pop(hg, None)
+    if "head_wrist_pos" in out and "right_wrist_pos" in out or "head_wrist_pos" in out and "left_wrist_pos" in out:
+        hand_k = "right" if hg == "left" else "left"
+        if f"{hand_k}_wrist_pos" in out:                           # hand pose in the HEAD sensor frame: p = R_head^T (p_hand - p_head), q = q_head^-1 * q_hand (wxyz)
+            ph, qh, pw, qw = (out[k].astype(float) for k in ("head_wrist_pos", "head_wrist_quat", f"{hand_k}_wrist_pos", f"{hand_k}_wrist_quat"))
+            def qmat(q):
+                w, x, y, z = q.T
+                return np.stack([np.stack([1-2*(y*y+z*z), 2*(x*y-w*z), 2*(x*z+w*y)], -1), np.stack([2*(x*y+w*z), 1-2*(x*x+z*z), 2*(y*z-w*x)], -1),
+                                 np.stack([2*(x*z-w*y), 2*(y*z+w*x), 1-2*(x*x+y*y)], -1)], 1)
+            Rh = qmat(qh); out["hand_in_head_pos"] = np.einsum("nji,nj->ni", Rh, pw - ph).astype(np.float32)
+            w1, x1, y1, z1 = qh.T; w2, x2, y2, z2 = qw.T; x1, y1, z1 = -x1, -y1, -z1
+            out["hand_in_head_quat"] = np.stack([w1*w2-x1*x2-y1*y2-z1*z2, w1*x2+x1*w2+y1*z2-z1*y2, w1*y2-x1*z2+y1*w2+z1*x2, w1*z2+x1*y2-y1*x2+z1*w2], 1).astype(np.float32)
     ah = max((h for h in act if h != "head"), key=act.get, default="right")   # the head glove (camera mount) is never the active hand
     hu = t.get('hand_used')                       # H/I/J: the operator states the hand; finger motion cannot tell (flat hand in J)
     if hu in ('R', 'L') and ('right' if hu == 'R' else 'left') in act: ah = 'right' if hu == 'R' else 'left'
