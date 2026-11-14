@@ -35,6 +35,14 @@ for t in takes:
         out[f"{h}_fingers01"] = np.stack([np.interp(tt, ts, f01[:, k]) for k in range(5)], 1).astype(np.float32)
         out[f"{h}_wrist_pos"] = np.stack([np.interp(tt, ts, pos[:, k]) for k in range(3)], 1).astype(np.float32)
         out[f"{h}_coil_ok"] = np.interp(tt, ts, coil).astype(np.float32)
+        q = np.array([x[4] if len(x) > 4 and x[4] else [np.nan] * 4 for x in rows], dtype=float)          # xyzw, Coil frame
+        prev = None
+        for i in range(len(q)):                                                                              # sign continuity (q ~ -q) before interpolation
+            if np.isnan(q[i]).any(): continue
+            if prev is not None and np.dot(q[i], prev) < 0: q[i] = -q[i]
+            prev = q[i]
+        qi = np.stack([np.interp(tt, ts, q[:, k]) for k in range(4)], 1); qi /= np.linalg.norm(qi, axis=1, keepdims=True) + 1e-12
+        out[f"{h}_wrist_quat"] = qi[:, [3, 0, 1, 2]].astype(np.float32)                                    # stored wxyz
         fl = a[:, 1:].mean(1); act[h] = float(np.percentile(fl, 95) - np.percentile(fl, 5))   # raw flexion span (index..little), same metric as analyze_takes
     if tt is None: continue
     ah = max(act, key=act.get)
@@ -42,8 +50,8 @@ for t in takes:
     if hu in ('R', 'L') and ('right' if hu == 'R' else 'left') in act: ah = 'right' if hu == 'R' else 'left'
     tm = (t["t_mark"] - t["t_start"]) if t.get("t_mark") else None
     np.savez_compressed(f"data/episodes/take_{t['take']:02d}.npz", t=(tt - float(t.get('lead_s', 0))).astype(np.float32), series=t["series"], active_hand=ah, t_mark=-1.0 if tm is None else tm,
-             success=-1 if t.get("success") is None else int(t["success"]), obj_pos=np.array(t.get("obj_pos") or [np.nan] * 3, dtype=np.float32), calibrated=bool(cal), **out)
-    index.append({"take": t["take"], "series": t["series"], "active_hand": ah, "dur_s": round(float(tt[-1]), 1), "t_mark": tm, "samples": len(tt), "success": t.get("success"), "obj_pos": t.get("obj_pos")})
+             success=-1 if t.get("success") is None else int(t["success"]), object=str(t.get("object") or ""), outcome=str(t.get("outcome") or ""), operator=str(t.get("operator") or ""), obj_pos=np.array(t.get("obj_pos") or [np.nan] * 3, dtype=np.float32), calibrated=bool(cal), **out)
+    index.append({"take": t["take"], "series": t["series"], "active_hand": ah, "dur_s": round(float(tt[-1]), 1), "t_mark": tm, "samples": len(tt), "success": t.get("success"), "obj_pos": t.get("obj_pos"), "object": t.get("object"), "outcome": t.get("outcome"), "operator": t.get("operator"), "video": t.get("video")})
 json.dump(index, open("data/episodes/index.json", "w"), indent=1)
 from collections import Counter
 print("episodes:", len(index), dict(Counter(i["series"] for i in index)), "| active hand:", dict(Counter(i["active_hand"] for i in index)))

@@ -31,13 +31,13 @@ def parse(path):
             if d not in lay: continue
             _, name, ts, items = R.decode(lay[d], p)
             if name != "default": continue
-            ang, pos, flags = [0.0] * 5, None, 0
+            ang, pos, flags, quat = [0.0] * 5, None, 0, None
             for s, v in items:
                 tf, mt, ref = s["target_frame"], s["measure_type"], s.get("reference_frame")
                 if mt == "TRANSFORM" and tf.endswith("finger_sensor"): ang[FRAMES.index(tf.split("_")[0])] = R.angle_of(R.quat(v))
-                elif mt == "TRANSFORM" and tf == "arm_sensor" and ref == "coil_pro": pos = v[:3]
+                elif mt == "TRANSFORM" and tf == "arm_sensor" and ref == "coil_pro": pos, quat = v[:3], v[3:7]   # quat xyzw
                 elif mt == "STATUS_FLAGS" and tf == "arm_sensor": flags = int(v[0])
-            out[hands[d]].append((ts / 1e6, ang, pos, flags))
+            out[hands[d]].append((ts / 1e6, ang, pos, flags, quat))   # 5th field (wrist orientation, Coil frame) added for arm IK
     return out
 
 def analyze(hand_rows):

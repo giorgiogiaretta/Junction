@@ -7,7 +7,11 @@
   "t_mark": null,
   "samples": 328,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 2,
@@ -17,7 +21,11 @@
   "t_mark": null,
   "samples": 265,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 3,
@@ -27,7 +35,11 @@
   "t_mark": null,
   "samples": 273,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 4,
@@ -37,7 +49,11 @@
   "t_mark": null,
   "samples": 265,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 5,
@@ -47,7 +63,11 @@
   "t_mark": null,
   "samples": 282,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 6,
@@ -57,7 +77,11 @@
   "t_mark": null,
   "samples": 379,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 7,
@@ -67,7 +91,11 @@
   "t_mark": null,
   "samples": 224,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 8,
@@ -77,7 +105,11 @@
   "t_mark": null,
   "samples": 273,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 9,
@@ -87,7 +119,11 @@
   "t_mark": null,
   "samples": 219,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 10,
@@ -97,7 +133,11 @@
   "t_mark": null,
   "samples": 302,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 11,
@@ -107,7 +147,11 @@
   "t_mark": null,
   "samples": 217,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "cardboard_box_empty_coil",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 12,
@@ -117,7 +161,11 @@
   "t_mark": null,
   "samples": 266,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 13,
@@ -127,7 +175,11 @@
   "t_mark": null,
   "samples": 197,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 14,
@@ -137,7 +189,11 @@
   "t_mark": null,
   "samples": 268,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 15,
@@ -147,7 +203,11 @@
   "t_mark": null,
   "samples": 245,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 16,
@@ -157,7 +217,11 @@
   "t_mark": null,
   "samples": 232,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 17,
@@ -167,7 +231,11 @@
   "t_mark": null,
   "samples": 256,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 18,
@@ -177,7 +245,11 @@
   "t_mark": null,
   "samples": 223,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 19,
@@ -187,7 +259,11 @@
   "t_mark": null,
   "samples": 241,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 20,
@@ -197,7 +273,11 @@
   "t_mark": null,
   "samples": 231,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 21,
@@ -207,7 +287,11 @@
   "t_mark": null,
   "samples": 189,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 22,
@@ -217,7 +301,11 @@
   "t_mark": null,
   "samples": 206,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 23,
@@ -227,7 +315,11 @@
   "t_mark": 5.717894792556763,
   "samples": 423,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 24,
@@ -237,7 +329,11 @@
   "t_mark": 6.78244686126709,
   "samples": 517,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 25,
@@ -247,7 +343,11 @@
   "t_mark": 5.15986442565918,
   "samples": 453,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 26,
@@ -257,7 +357,11 @@
   "t_mark": 5.860323190689087,
   "samples": 465,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 27,
@@ -267,7 +371,11 @@
   "t_mark": 5.608532667160034,
   "samples": 444,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 28,
@@ -277,7 +385,11 @@
   "t_mark": 4.686131000518799,
   "samples": 405,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 29,
@@ -287,7 +399,11 @@
   "t_mark": 6.784083843231201,
   "samples": 470,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 30,
@@ -297,7 +413,11 @@
   "t_mark": 4.733967065811157,
   "samples": 379,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 31,
@@ -307,7 +427,11 @@
   "t_mark": 5.805778741836548,
   "samples": 389,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 32,
@@ -317,7 +441,11 @@
   "t_mark": 4.723738193511963,
   "samples": 381,
   "success": true,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "can_250ml_almost_empty",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 33,
@@ -327,7 +455,11 @@
   "t_mark": null,
   "samples": 453,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 34,
@@ -337,7 +469,11 @@
   "t_mark": null,
   "samples": 625,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 35,
@@ -347,7 +483,11 @@
   "t_mark": null,
   "samples": 608,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 36,
@@ -357,7 +497,11 @@
   "t_mark": null,
   "samples": 300,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 37,
@@ -367,7 +511,11 @@
   "t_mark": null,
   "samples": 469,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 38,
@@ -377,7 +525,11 @@
   "t_mark": 7.751541376113892,
   "samples": 420,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 39,
@@ -387,7 +539,11 @@
   "t_mark": 5.980334043502808,
   "samples": 368,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 40,
@@ -397,7 +553,11 @@
   "t_mark": 5.7702484130859375,
   "samples": 355,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 41,
@@ -407,7 +567,11 @@
   "t_mark": null,
   "samples": 389,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 42,
@@ -417,7 +581,11 @@
   "t_mark": null,
   "samples": 323,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 43,
@@ -427,7 +595,11 @@
   "t_mark": null,
   "samples": 252,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 44,
@@ -437,7 +609,11 @@
   "t_mark": null,
   "samples": 433,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 45,
@@ -447,7 +623,11 @@
   "t_mark": null,
   "samples": 527,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 46,
@@ -457,7 +637,11 @@
   "t_mark": null,
   "samples": 506,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 47,
@@ -467,7 +651,11 @@
   "t_mark": null,
   "samples": 402,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 48,
@@ -477,7 +665,11 @@
   "t_mark": null,
   "samples": 357,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 49,
@@ -487,7 +679,11 @@
   "t_mark": null,
   "samples": 319,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 50,
@@ -497,7 +693,11 @@
   "t_mark": null,
   "samples": 327,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 51,
@@ -507,7 +707,11 @@
   "t_mark": null,
   "samples": 314,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 52,
@@ -517,7 +721,11 @@
   "t_mark": null,
   "samples": 293,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 53,
@@ -527,7 +735,11 @@
   "t_mark": null,
   "samples": 329,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 54,
@@ -537,7 +749,11 @@
   "t_mark": null,
   "samples": 296,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 55,
@@ -547,7 +763,11 @@
   "t_mark": null,
   "samples": 319,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 56,
@@ -557,7 +777,11 @@
   "t_mark": null,
   "samples": 312,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": "coke_can_empty_standard_low",
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 57,
@@ -567,7 +791,11 @@
   "t_mark": null,
   "samples": 899,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 58,
@@ -577,7 +805,11 @@
   "t_mark": null,
   "samples": 917,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 59,
@@ -587,7 +819,11 @@
   "t_mark": null,
   "samples": 874,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  },
  {
   "take": 60,
@@ -597,6 +833,10 @@
   "t_mark": null,
   "samples": 901,
   "success": null,
-  "obj_pos": null
+  "obj_pos": null,
+  "object": null,
+  "outcome": null,
+  "operator": null,
+  "video": null
  }
 ]
