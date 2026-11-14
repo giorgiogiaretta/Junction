@@ -76,3 +76,15 @@ def test_pick_place_schedule_home_snaps_only_near_misses():
     p0, g0 = SP.pick_place_schedule(xyz, leg, goals=G)
     off0 = np.where((g0[:-1] >= 0.5) & (g0[1:] < 0.5))[0] + 1
     assert np.allclose(p0[off0[0], :2], [0, 0.10], atol=1e-6)
+
+
+def test_pick_place_schedule_home_snaps_first_pick():
+    # --home also homes the first grasp onto the start pad (goals[-1], the square closes) when the policy starts near it
+    G = np.array([[-0.15, 0.15], [-0.15, -0.15]])
+    xyz = np.array([[-0.10, -0.15, 0], [-0.15, 0.15, 0], [-0.15, 0.15, 0], [-0.15, -0.15, 0]])   # starts 5 cm off the start pad
+    leg = np.array([0, 0, 1, 1])
+    p, g = SP.pick_place_schedule(xyz, leg, goals=G, home_m=0.08)
+    on = int(np.argmax(g >= 0.5))
+    assert np.allclose(p[on, :2], G[-1], atol=1e-6) and p[on, 2] <= 0.01
+    p0, g0 = SP.pick_place_schedule(xyz, leg, goals=G)
+    assert np.allclose(p0[int(np.argmax(g0 >= 0.5)), :2], [-0.10, -0.15], atol=1e-6)

@@ -228,7 +228,8 @@ def pick_place_schedule(xyz, leg, goals=None, hz=FPS, hov=0.12, t_move=1.0, t_gr
     goals (4x2, the leg targets) cut each leg at its closest approach: the closed loop passes the corner (that is what
     'corners reached' scores) then overshoots 20-30 cm before the leg switches, and releasing there drops the cube off the pad.
     home_m > 0 (needs goals): SCRIPTED fine homing, not learned: if the cut leg ends within home_m of its pad, carry straight
-    to the pad before lowering (stand-in for a camera-located pad); farther misses are left as they are."""
+    to the pad before lowering (stand-in for a camera-located pad); farther misses are left as they are. The first pick is homed
+    the same way onto goals[-1] (the square closes, so the start pad is the last leg's target)."""
     xyz, leg = np.asarray(xyz, float), np.asarray(leg, int)
     out_p, out_g = [np.r_[xyz[0, :2], hov]], [0.0]
 
@@ -237,6 +238,9 @@ def pick_place_schedule(xyz, leg, goals=None, hz=FPS, hov=0.12, t_move=1.0, t_gr
         for s in np.arange(1, n + 1) / n:
             out_p.append(np.r_[a + (b - a) * s, za + (zb - za) * s]); out_g.append(g)
     start = xyz[0, :2]
+    if home_m > 0 and goals is not None and np.linalg.norm(np.asarray(goals)[-1, :2] - start) < home_m:
+        start = np.asarray(goals, float)[-1, :2]   # first pick homed too: the loop starts on the last leg's pad
+        seg(xyz[0, :2], start, hov, hov, 0.0, np.linalg.norm(start - xyz[0, :2]) / v_carry)
     for k in range(int(leg.max()) + 1):
         path = xyz[leg == k, :2]
         if not len(path):
