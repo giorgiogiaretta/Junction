@@ -78,6 +78,23 @@ def test_cli_flags_objects_the_g1_cannot_grasp(monkeypatch):
     assert "supported" not in r
 
 
+def test_cli_operator_object_unlocks_full_force(monkeypatch):
+    from ai import pick_profile as cli
+    from ai.object_profile import cap_for
+    sent = []; monkeypatch.setattr(cli, "socket", FakeSocketModule(sent))
+    r = cli.main(["--object", "stress_ball"], client=client([]))   # no model call
+    assert r["source"] == "manual" and r["object_key"] == "stress_ball" and cap_for(r)["max_closure"] == 1.0
+    r = cli.main(["--object", "egg"], client=client([]))
+    assert r["profile"] == "egg" and cap_for(r)["max_closure"] < 0.75 and sent[-1] == {"profile": "egg"}
+
+
+def test_break_closure_from_g1_file(tmp_path, monkeypatch):
+    import ai.object_profile as op
+    p = tmp_path / "p.json"; p.write_text(json.dumps({"egg": {"max_closure": 0.7, "break_closure": 0.8}}))
+    monkeypatch.setitem(op.OBJECTS, "egg", dict(op.OBJECTS["egg"]))
+    op.load_overrides(str(p)); assert op._band("egg")[1] == 0.8
+
+
 def test_cli_without_gemini_key_skips_backup(monkeypatch):
     from ai import pick_profile as cli
     for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY"): monkeypatch.delenv(k, raising=False)

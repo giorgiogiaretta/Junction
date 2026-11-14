@@ -23,7 +23,7 @@ def load_overrides(path=None):
     for key, cur in OBJECTS.items():
         e = d.get(FILE_KEY.get(key, key))
         if not isinstance(e, dict) or not isinstance(e.get("max_closure"), (int, float)): continue
-        for f in ("max_closure", "max_speed", "min_hold_closure", "supported", "why"):
+        for f in ("max_closure", "max_speed", "min_hold_closure", "break_closure", "supported", "why"):
             if f in e: cur[f] = e[f]
         done.append(key)
     return done
@@ -40,7 +40,7 @@ MARGIN = 0.05                             # stay this far below the break closur
 
 def _band(key):
     """(min closure that holds, closure that breaks or None) for an object, from the loaded numbers."""
-    o = OBJECTS[key]; return (o.get("min_hold_closure"), BREAK_CLOSURE.get(key))
+    o = OBJECTS[key]; return (o.get("min_hold_closure"), o["break_closure"] if "break_closure" in o else BREAK_CLOSURE.get(key))
 
 
 def robust_cap(group):
