@@ -69,8 +69,10 @@ class G1Arms:
             for n, v in zip(self.hand_names, hand_q): self.d.qpos[self.qadr[n]] = v
         mujoco.mj_kinematics(self.m, self.d); mujoco.mj_comPos(self.m, self.d)
 
-    def solve(self, side, p_t, R_t, iters=12, w_rot=0.3, lam=0.05, q_rest=None, k_rest=0.1):
-        """DLS from the current solution; per-tick joint change clamped to ARM_STEP, joints to FILTER bounds. Returns (pos err m, rot err rad)."""
+    def solve(self, side, p_t, R_t, iters=12, w_rot=0.3, lam=0.05, q_rest=None, k_rest=0.1, uniform=False):
+        """DLS from the current solution; per-tick joint change clamped to ARM_STEP, joints to FILTER bounds. Returns (pos err m, rot err rad).
+        uniform=True: the whole joint step is SCALED (direction kept) so that no joint moves more than ARM_STEP, instead of clipping
+        each joint on its own (per-joint clipping bends the path and makes the hand lag then catch up in jerks)."""
         m, d, names = self.m, self.d, self.arm[side]; dofs = [self.dadr[n] for n in names]
         q0 = np.array([self.q[n] for n in names]); q = q0.copy()
         jp, jr = np.zeros((3, m.nv)), np.zeros((3, m.nv))
@@ -81,7 +83,10 @@ class G1Arms:
             Jp = J.T @ np.linalg.inv(J @ J.T + lam ** 2 * np.eye(6)); dq = Jp @ e
             if q_rest is not None:                                 # null space: drift toward a natural posture (elbow down, no twisted wrist)
                 dq = dq + (np.eye(len(names)) - Jp @ J) @ (k_rest * (np.array([q_rest[n] for n in names]) - q))
-            q = np.clip(q + dq, q0 - ARM_STEP, q0 + ARM_STEP)
+            if uniform:                                            # shrink the whole accumulated step, keep its direction
+                tot = q + dq - q0; s = float(np.max(np.abs(tot))) / ARM_STEP
+                q = q0 + (tot / s if s > 1.0 else tot)
+            else: q = np.clip(q + dq, q0 - ARM_STEP, q0 + ARM_STEP)
             q = np.array([np.clip(v, *FILTER[n]) for v, n in zip(q, names)])
             for n, v in zip(names, q): self.q[n] = float(v)
             self.apply()

@@ -1,7 +1,11 @@
 """Two-hand teleoperation with SEVERAL objects on the table (default: egg on the right, empty can on the left).
-OpenCV keys: A/C align and re-centre; R reset scene; Q quit.
-  py -3.11 g1/sim/teleop_multi.py --cam                 # live gloves + Coil, uses the table calibration of teleop_sim.py (--calib to redo it)
-  py -3.11 g1/sim/teleop_multi.py --objs "egg:0.35,-0.15;can_empty:0.35,0.15" --cam
+OpenCV keys: A/C re-anchor (then hands flat + still on the table for 1 s); R reset scene; Q quit.
+  py -3.11 g1/sim/teleop_multi.py --calib --cam         # short SEATED calibration (forward/left per hand, ~12 s each), then live
+  py -3.11 g1/sim/teleop_multi.py --cam                 # live gloves + Coil with the saved calibration
+  py -3.11 g1/sim/teleop_multi.py --replay 77 --hands right --objs "egg:0.35,-0.15" --metrics out.json [--legacy]   # scripted replay + numbers
+Seated beside the robot: start with both gloves FLAT and STILL on the table = robot rest pose; a hand resting still on the table for 1 s
+re-anchors automatically (Coil drift removed). The whole glove/Coil -> arm chain lives in g1/coil_chain.py (shared with live_policy_v2.py);
+--legacy runs the previous chain for before/after numbers (docs/G1_TEST_PLAN.md section A).
 What is new vs teleop_sim.py
 - both hands collide with the objects; every object is localised by the HEAD CAMERA (perceive.py) and recognised (in sim the label is known;
   on the robot: Tommaso's recognizer); each hand uses the profile of the object it is closest to:
@@ -18,14 +22,12 @@ import demo_e2e as D, perceive as PC, arm_ik
 import teleop_sim as T
 from robot.g1_dex3 import G1Dex3Retargeter
 from live_sim import GloveLive
-from teleop_filters import OneEuro, QuatFilter, Deadband
+import coil_chain as CC
 
 RATE = T.RATE
-SNAP_XY, SNAP_Z, SNAP_DEG = 0.04, 0.05, 60
 FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3    # m, m/s, rad/s inside the camera-seen egg zone
 FRAGILE_CLOSE = 0.6      # closure units/s near the egg
 EGG_SAFE_N, PUSH_N = 12.0, 8.0   # hand force (0.1 s mean) above which the closure backs off / the arm may not push further
-GRIP_TAU = 0.15
 
 
 def slerp_mat(R0, R1, weight):
@@ -88,20 +90,35 @@ def force_plot(hist, W=640, H=220):
     return img
 
 
+def assign_objects(O, hands, kin, forced):
+    """A5: ONE object per hand for the whole run (CLI --right-obj/--left-obj, else the seen object on that hand's side)."""
+    out = {}
+    for h in hands:
+        if forced.get(h): out[h] = forced[h]; continue
+        side = [n for n, o in O.items() if (o["p0"][1] - kin.base[1] < 0) == (h == "right") and o["G"].get(h)]
+        out[h] = side[0] if side else next((n for n in O if O[n]["G"].get(h)), None)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--objs", default="egg:0.35,-0.15;can_empty:0.35,0.15"); ap.add_argument("--hands", default="both", choices=["both", "right", "left"])
-    ap.add_argument("--cam", action="store_true"); ap.add_argument("--calib", action="store_true"); ap.add_argument("--zoff", type=float, default=0.10)
-    ap.add_argument("--gain", type=float, default=1.0); ap.add_argument("--smooth", type=float, default=0.7); ap.add_argument("--seconds", type=float, default=1800)
+    ap.add_argument("--right-obj"); ap.add_argument("--left-obj")
+    ap.add_argument("--cam", action="store_true"); ap.add_argument("--calib", action="store_true", help="short seated calibration (forward/left per hand), then run")
+    ap.add_argument("--zoff", type=float, default=None, help="m: your wrist height above the flat-hand height when you grasp (default 0.04)")
+    ap.add_argument("--gain", type=float, default=1.0); ap.add_argument("--seconds", type=float, default=1800)
     ap.add_argument("--headless", action="store_true")
+    ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
+    ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--metrics", help="write latency/jerk/blocked/grasp numbers to this JSON file")
     a = ap.parse_args(); hands = ["left", "right"] if a.hands == "both" else [a.hands]
+    cfg = CC.Cfg.old() if a.legacy else CC.Cfg()
+    cfg.gain = a.gain
+    if a.zoff is not None: cfg.zoff = a.zoff
     objs = [(n.split(":")[0], [float(v) for v in n.split(":")[1].split(",")]) for n in a.objs.split(";")]
-    if a.calib:
-        gs = {h: GloveLive(h) for h in hands}; T.table_calib({h: gs[h].read for h in hands}, hands)
+    if a.calib and not a.replay:
+        gs = {h: GloveLive(h) for h in hands}; CC.seated_calib({h: gs[h].read for h in hands}, hands, arm_ik.CALIB)
         for g0 in gs.values(): g0.s.close()
-    TC = json.load(open(arm_ik.CALIB)).get("hands", {})
-    miss = [h for h in hands if h not in TC]
-    if miss: sys.exit(f"no table calibration for {miss}: run with --calib")
     m, d = build_multi(objs); names = [j["joint"] for j in G1Dex3Retargeter().joints]
     act = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, m.actuator_trnid[i, 0]): i for i in range(m.nu)}
     jq = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j): m.jnt_qposadr[j] for j in range(m.njnt)}
@@ -113,7 +130,7 @@ def main():
         p = kin.base + np.array([sp[0], sp[1], D.COUNTER_Z + D.half_h(name)]); d.qpos[oa:oa + 3] = p; d.qpos[oa + 3:oa + 7] = D.obj_quat(name)
         og = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, f"g_{name}")
         O[name] = dict(body=ob, adr=oa, dof=m.body_dofadr[ob], geom=og, p0=p, q0=D.obj_quat(name), r0=float(m.geom_size[og][0]), rgba0=np.array(D.OBJECTS[name]["rgba"], dtype=float),
-                       crush=0.0, broken=False)
+                       crush=0.0, broken=False, zmax=float(p[2]))
     mujoco.mj_forward(m, d)
     for name, o in O.items():                                   # head camera: where is each object?
         rgb, dep, mk = PC.render_head(m, d, seg_geom=o["geom"])
@@ -129,33 +146,61 @@ def main():
         if right_pose is not None:
             rp, rR, rpin = right_pose
             O["can_empty"]["G"]["left"] = (M @ rp, M @ rR @ M, M @ rpin)
-    # each hand is anchored on the nearest object on its side (your table centre = that spot)
-    anchor, base_R = {}, {}
+    floor = kin.base[2] + D.KEEP["z"] + 0.01
+    assigned = assign_objects(O, hands, kin, {"right": a.right_obj, "left": a.left_obj})
+    rest_pose = {h: (kin.a.d.xpos[kin.a.ee[h]].copy(), kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3).copy()) for h in hands}
+    # operator axes: replay = the 14/11 session calibration; live = seated calibration (or the older table calibration)
+    Rh = {h: (CC.TAKE64_R if a.replay else CC.load_axes(arm_ik.CALIB, h)) for h in hands}
+    miss = [h for h in hands if Rh[h] is None]
+    if miss: sys.exit(f"no calibration for {miss}: run with --calib")
+    chains = {}
     for h in hands:
-        side = [n for n, o in O.items() if (o["p0"][1] - kin.base[1] < 0) == (h == "right") and o["G"].get(h)]
-        pick = side[0] if side else next((n for n in O if O[n]["G"].get(h)), None)
-        anchor[h], base_R[h] = (O[pick]["G"][h][0], O[pick]["G"][h][1]) if pick else (kin.a.d.xpos[kin.a.ee[h]].copy(), kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3).copy())
-        print(f"[map] {h} hand: table centre = robot hand on the {pick}", flush=True)
-    gl = {h: GloveLive(h) for h in hands}
-    grip_f = {h: None for h in hands}
-    PF = {h: OneEuro(freq=RATE, min_cutoff=a.smooth, beta=0.02) for h in hands}; QF = {h: QuatFilter(freq=RATE, min_cutoff=a.smooth, beta=0.02) for h in hands}
-    DB = {h: Deadband(0.003) for h in hands}
+        n = assigned[h]; gr = None
+        if n is not None and O[n]["G"].get(h): gp, gR, pin_t = O[n]["G"][h]; gr = (gp, gR, pin_t, n, D.PROFILE.get(n, D.PROFILE["unknown"]))
+        chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], gr, cfg, floor)
+        print(f"[map] {h} hand -> {n}; start pose = robot rest pose (hand flat on your table)", flush=True)
+    # input: live gloves or scripted replay (sim time, deterministic)
+    if a.replay:
+        takes = [int(x) for x in a.replay.split(",")]; src = {}
+        for h, tk in zip(["right", "left"], takes + takes[:1] if len(takes) == 1 else takes):
+            if h not in hands: continue
+            z = np.load(os.path.join(ROOT, "data", "episodes", f"take_{tk:02d}.npz")); P = z["right_wrist_pos"]; P0 = P[:10].mean(0)
+            ch = chains[h]; goal = ch.human_target(ch.grasp[0] + np.array([0, 0, 0.02])) if ch.grasp else np.array([0.15, 0, 0.05])
+            P2, Q2, F2, info = CC.align_take(P, z["right_wrist_quat"], z["right_fingers01"], CC.TAKE64_R, P0, goal, mirror=(h == "left"))
+            src[h] = (F2, P2, Q2); print(f"[replay] {h}: take {tk}, reach scaled x{info['scale']} rotated {info['rot_deg']} deg to land 2 cm above the grasp", flush=True)
+        n_ticks = max(len(s[0]) for s in src.values())
+        def read(h, i): s = src[h]; j = min(i, len(s[0]) - 1); return s[0][j], s[1][j], s[2][j]
+        a.headless = True
+    else:
+        gl = {h: GloveLive(h) for h in hands}; n_ticks = None
+        def read(h, i): return gl[h].read()
     rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0")))
-    shift = {h: np.zeros(3) for h in hands}; last_t = {}; stage = {h: None for h in hands}; t_st = {h: 0.0 for h in hands}; lock = {h: None for h in hands}
-    target = {h: None for h in hands}; raw_last = {}; hist = {"left": [], "right": []}; blocked = 0
+    hist = {"left": [], "right": []}; blocked = {h: 0 for h in hands}; consec = {h: 0 for h in hands}; max_consec = 0
     need_align = False; reset_park_until = 0.0; force_window = {h: [] for h in hands}; egg_grip_cap = {h: 0.70 for h in hands}; c_prev = {}
+    log = {h: [] for h in hands}; events = []
     egg_force_mean = lambda h: float(np.mean([f for _, f in force_window[h]])) if force_window[h] else 0.0
     viewer = None
     if not a.headless:
         from mujoco import viewer as mjv
         viewer = mjv.launch_passive(m, d)
-    rend = mujoco.Renderer(m, 240, 320) if a.cam else None
+    rend = mujoco.Renderer(m, 240, 320) if a.cam and not a.headless else None
     spt = int(round(1 / RATE / m.opt.timestep)); f6 = np.zeros(6); t0 = time.time(); tick = 0
     hand_bodies = {h: {b for b in range(m.nbody) if (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "").startswith(f"{h}_hand_")} for h in ("left", "right")}
-    while time.time() - t0 < a.seconds and (viewer is None or viewer.is_running()):
-        t_tick = time.time(); fingers = {"left": None, "right": None}; status = []
+
+    def near_egg_v(pin):
+        if "egg" in O and O["egg"]["seen"] is not None:
+            de = float(np.linalg.norm(pin - O["egg"]["seen"]))
+            if de < FRAGILE_R: return FRAGILE_V if de > FRAGILE_R / 2 else FRAGILE_V / 2
+        return None
+
+    def unsafe(k):
+        r = T.unsafe(k)
+        if len(hands) == 2 and np.linalg.norm(T.palm(k, "left") - T.palm(k, "right")) < 0.10: r.append("palms_too_close")
+        return r
+
+    while (n_ticks is None and time.time() - t0 < a.seconds and (viewer is None or viewer.is_running())) or (n_ticks is not None and tick < n_ticks):
+        t_tick = time.time(); t_now = tick / RATE if a.replay else t_tick; fingers = {"left": None, "right": None}; status = []
         if need_align:
-            # Keep the reset posture and park objects until the operator realigns with A.
             if reset_park_until and t_tick >= reset_park_until:
                 for o in O.values():
                     d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = o["q0"]
@@ -168,88 +213,46 @@ def main():
                 k = cv2.waitKey(1) & 0xFF
                 if k in (ord("a"), ord("A")) and reset_park_until == 0.0:
                     need_align = False
-                    for h in hands:
-                        if h in raw_last: shift[h] = -np.array(TC[h]["R"]) @ (raw_last[h] - np.array(TC[h]["origin"]))
-                        PF[h].reset(); QF[h].reset(); DB[h].reset(); grip_f[h] = None
-                    print("[key] A: teleop riallineato", flush=True)
+                    for h in hands: chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], chains[h].grasp, cfg, floor)
+                    print("[key] A: appoggia le mani piatte e ferme sul tavolo per 1 s", flush=True)
                 elif k in (ord("q"), ord("Q")): break
             tick += 1; time.sleep(max(0.0, 1 / RATE - (time.time() - t_tick))); continue
         for h in hands:
-            s = gl[h].read()
+            s = read(h, tick)
             if s is None or s[1] is None or s[2] is None or np.isnan(s[1]).any(): status.append(f"{h}: no Coil"); continue
-            F, P, Q = s; g_raw = 0.5 * (F[1] + F[2]); raw_last[h] = np.asarray(P, float).copy()
-            if grip_f[h] is None: grip_f[h] = (g_raw, t_tick)
-            else:
-                dt = max(t_tick - grip_f[h][1], 1e-6); alpha = 1.0 - np.exp(-dt / GRIP_TAU)
-                grip_f[h] = (grip_f[h][0] + alpha * (g_raw - grip_f[h][0]), t_tick)
-            g = grip_f[h][0]
-            P = DB[h](PF[h](P, t_tick)); Q = QF[h](Q, t_tick)
-            Tc = TC[h]; Rh_ = np.array(Tc["R"]); rel = Rh_ @ (P - np.array(Tc["origin"])) + shift[h]; rel[2] -= a.zoff
-            p_tel = anchor[h] + a.gain * rel
-            R_rel = Rh_ @ arm_ik.quat_wxyz_to_mat(Q) @ arm_ik.quat_wxyz_to_mat(np.array(Tc["q_origin"])).T @ Rh_.T
-            rv = np.zeros(3); qq = np.zeros(4); mujoco.mju_mat2Quat(qq, R_rel.flatten()); mujoco.mju_quat2Vel(rv, qq, 1.0)
-            if np.linalg.norm(rv) > np.radians(T.WRIST_MAX_DEG):
-                rv *= np.radians(T.WRIST_MAX_DEG) / np.linalg.norm(rv); qq0 = np.array([1.0, 0, 0, 0]); mujoco.mju_quatIntegrate(qq0, rv, 1.0); R_rel = arm_ik.quat_wxyz_to_mat(qq0)
-            R_tel = R_rel @ base_R[h]
-            # FRAGILE ZONE: where the head camera sees the egg, the hand slows down (no impacts): 12 cm -> 6 cm/s, 6 cm -> 3 cm/s
-            pin_now = T.pinch(kin, h); vmax = T.VMAX; near_egg = False
-            if "egg" in O and O["egg"]["seen"] is not None:
-                de = float(np.linalg.norm(pin_now - O["egg"]["seen"]))
-                if de < FRAGILE_R: vmax = FRAGILE_V if de > FRAGILE_R / 2 else FRAGILE_V / 2; near_egg = True
-            dp = p_tel - last_t.get(h, p_tel); nrm = np.linalg.norm(dp)
-            if nrm > vmax / RATE: p_tel = last_t[h] + dp * (vmax / RATE) / nrm
-            if near_egg and stage[h] is None and egg_force_mean(h) > PUSH_N:      # already pressing the egg without grasping: no closer
-                p_tel = last_t.get(h, p_tel) if np.linalg.norm(p_tel - O["egg"]["seen"]) < np.linalg.norm(last_t.get(h, p_tel) - O["egg"]["seen"]) else p_tel
-            last_t[h] = p_tel.copy()
-            # which object is this hand working on? (nearest seen object to its pinch; its profile = what the camera recognised)
-            pin = T.pinch(kin, h)
-            if stage[h] is None:
-                cands = [(np.hypot(*(pin - O[n]["seen"])[:2]), n) for n in O if O[n]["seen"] is not None and O[n]["G"].get(h)]
-                target[h] = min(cands)[1] if cands else None
-            name = target[h]; pr = D.PROFILE.get(name, D.PROFILE["unknown"]); tgt_p, tgt_R, mode, hold_f = p_tel, R_tel, "teleop", False
-            if name is not None:
-                gp, gR, pin_t = O[name]["G"][h]; dv = pin - pin_t; dxy = float(np.hypot(dv[0], dv[1]))
-                r_e = np.degrees(np.linalg.norm(arm_ik.rot_err(gR, kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3))))
-                st = stage[h]
-                if st is None:
-                    if dxy < SNAP_XY and abs(dv[2]) < SNAP_Z and r_e < SNAP_DEG and g > 0.3 * pr["g_ref"]:
-                        st, t_st[h] = "close", time.time(); print(f"[{h}] snap grasp on the {name}", flush=True)
-                    elif dxy < 0.06 and -0.02 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]:
-                        w = float(np.clip((0.06 - dxy) / 0.04, 0, 1)); tgt_p = p_tel + w * np.clip(gp - p_tel, -0.03, 0.03); mode = f"assist {w:.1f} ({name})"
-                        tgt_R = slerp_mat(R_tel, gR, w)
-                if st == "close":
-                    tgt_p, tgt_R, mode = gp, gR, f"closing on the {name}"
-                    if g > 0.6 * pr["g_ref"] and time.time() - t_st[h] > 0.5: st = "hold"; lock[h] = gp - p_tel
-                    if g < 0.15 * pr["g_ref"]: st = None
-                elif st == "hold":
-                    tgt_p, tgt_R, mode = p_tel + lock[h], gR, f"holding the {name}"
-                    if g < 0.25 * pr["g_ref"]: st, t_st[h] = "retreat", time.time(); lock[h] = p_tel + lock[h]
-                elif st == "retreat":
-                    u = min(1.0, (time.time() - t_st[h]) / 1.0); tgt_p, tgt_R, hold_f, mode = lock[h] + np.array([0, 0, 0.10 * u]), gR, True, "release"
-                    if u >= 1.0: st = None
-                stage[h] = st
-            floor = kin.base[2] + D.KEEP["z"] + 0.01; tgt_p = tgt_p.copy(); tgt_p[2] = max(tgt_p[2], floor)
-            q_prev = dict(kin.a.q); step0 = arm_ik.ARM_STEP
-            if near_egg: arm_ik.ARM_STEP = FRAGILE_JOINT / RATE                          # joints slower too near the egg
-            kin.a.solve(h, tgt_p, tgt_R, q_rest=rest if stage[h] is None else None); arm_ik.ARM_STEP = step0
-            why = T.unsafe(kin)
+            F, P, Q = s; ch = chains[h]; name = ch.grasp[3] if ch.grasp else None
+            if not cfg.fixed_target and ch.stage is None:                     # legacy A5: nearest seen object every tick
+                pin = T.pinch(kin, h); cands = [(np.hypot(*(pin - O[n]["seen"])[:2]), n) for n in O if O[n]["seen"] is not None and O[n]["G"].get(h)]
+                if cands and min(cands)[1] != name:
+                    n = min(cands)[1]; gp, gR, pin_t = O[n]["G"][h]; ch.grasp = (gp, gR, pin_t, n, D.PROFILE.get(n, D.PROFILE["unknown"])); name = n
+            def push_block(p_new, p_old, h=h):
+                if not (name == "egg" and near_egg_v(T.pinch(kin, h)) is not None and egg_force_mean(h) > PUSH_N): return False
+                return np.linalg.norm(p_new - O["egg"]["seen"]) < np.linalg.norm(p_old - O["egg"]["seen"])
+            out = ch.update(F, P, Q, t_now, T.pinch(kin, h), kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3), near_egg=near_egg_v, push_block=push_block,
+                            wrist_p_now=kin.a.d.xpos[kin.a.ee[h]].copy())
+            if out["ev"]: events.append((round(t_now, 2), h, out["ev"])); print(f"[{h}] {out['ev']}", flush=True)
+            near = near_egg_v(T.pinch(kin, h)) is not None
+            step0 = arm_ik.ARM_STEP; arm_ik.ARM_STEP = (min(cfg.joint_speed, FRAGILE_JOINT) if near else cfg.joint_speed) / RATE
+            why = CC.solve_arm(kin, h, out, cfg, rest, unsafe, floor, T.palm); arm_ik.ARM_STEP = step0
+            mode = out["mode"]
             if why:
-                low = floor - min(kin.a.d.xpos[kin.a.ee[h]][2], T.palm(kin, h)[2])            # below the counter keep-out: try the same target raised
-                kin.a.q.update(q_prev); kin.a.apply()
-                if low > 0:
-                    kin.a.solve(h, tgt_p + np.array([0, 0, low + 0.01]), tgt_R, q_rest=rest if stage[h] is None else None); why = T.unsafe(kin)
-                    if why: kin.a.q.update(q_prev); kin.a.apply()
-                if why: blocked += 1; mode += f" [BLOCKED: {why[0]}]"
-            c = 0.0 if hold_f else pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))   # egg: never above 0.70 however hard you squeeze
-            if name == "egg":                                                          # force limiter in EVERY state, not only while holding
-                cap_now = egg_grip_cap[h]
-                mean_force = float(np.mean([f for _, f in force_window[h]])) if force_window[h] else 0.0
+                blocked[h] += 1; consec[h] += 1; max_consec = max(max_consec, consec[h]); mode += f" [BLOCKED: {why[0]}]"
+            else: consec[h] = 0
+            if ch.stage == "close" and (not log[h] or log[h][-1]["stage"] != "close"): events.append((round(t_now, 2), h, f"snap grasp on the {name}"))
+            g = out["g"]; c = out["c"]
+            if name == "egg":                                                          # force limiter in EVERY state
+                cap_now = egg_grip_cap[h]; mean_force = egg_force_mean(h)
                 if mean_force > EGG_SAFE_N: cap_now = max(0.40, cap_now - 0.03)
                 elif mean_force < EGG_SAFE_N - 4: cap_now = min(0.70, cap_now + 0.01)
                 egg_grip_cap[h] = cap_now; c = min(c, cap_now)
-            if near_egg: c = float(np.clip(c, c_prev.get(h, 0.0) - FRAGILE_CLOSE / RATE, c_prev.get(h, 0.0) + FRAGILE_CLOSE / RATE))   # slow closing near the egg
+            if near: c = float(np.clip(c, c_prev.get(h, 0.0) - FRAGILE_CLOSE / RATE, c_prev.get(h, 0.0) + FRAGILE_CLOSE / RATE))
             c_prev[h] = c
             fingers[h] = [c, c, c, 0, 0]; status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
+            log[h].append(dict(t=t_now, engaged=ch.P0 is not None, p_raw=out["p_raw"], p_filt=out["p_filt"], p_tel=ch.p_tel.copy(), p_cmd=kin.a.d.xpos[kin.a.ee[h]].copy(),
+                               q=[kin.a.q[n] for n in kin.a.arm[h]], mode=out["mode"], stage=ch.stage, blocked=bool(why),
+                               pin_err=(T.pinch(kin, h) - ch.grasp[2]) if ch.grasp else np.zeros(3), tgt=out["p"].copy(), c=c,
+                               oz=float(d.qpos[O[name]["adr"] + 2] - O[name]["p0"][2]) if name else 0.0,
+                               rot_err=float(np.degrees(np.linalg.norm(arm_ik.rot_err(out["R"], kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3)))))))
         hq = rt.step(left=fingers["left"], right=fingers["right"])
         for n, v in kin.a.q.items():
             if n in act and "_hand_" not in n: d.ctrl[act[n]] = v
@@ -267,37 +270,35 @@ def main():
             for h in fh: fh[h] = max(fh[h], fs[h])
             for n in fo: fo[n] = max(fo[n], fso[n])
         for h in hands:
-            force_window[h].append((t_tick, fo.get("egg", 0.0) if target[h] == "egg" else 0.0))
-            force_window[h] = [(ts, f) for ts, f in force_window[h] if t_tick - ts <= 0.1]
+            tg = chains[h].grasp[3] if chains[h].grasp else None
+            force_window[h].append((t_now, fo.get("egg", 0.0) if tg == "egg" else 0.0))
+            force_window[h] = [(ts, f) for ts, f in force_window[h] if t_now - ts <= 0.1]
         for h in ("left", "right"): hist[h].append(fh[h])
         for n, o in O.items():                                          # egg breaks / can dents (assumed thresholds)
-            o.setdefault("fh", []).append(fo[n]); o["fh"] = o["fh"][-3:]
+            o.setdefault("fh", []).append(fo[n]); o["fh"] = o["fh"][-3:]; o["zmax"] = max(o["zmax"], float(d.qpos[o["adr"] + 2]))
             if n == "egg" and np.mean(o["fh"]) > 20 and not o["broken"]:  # sustained 0.1 s, not a 1-substep spike
-                o["broken"] = True; m.geom_rgba[o["geom"]] = [0.9, 0.1, 0.1, 1]; print("[sim] EGG BROKEN", flush=True)
+                o["broken"] = True; m.geom_rgba[o["geom"]] = [0.9, 0.1, 0.1, 1]; print(f"[sim] EGG BROKEN at t={t_now:.2f} s", flush=True)
             if n.startswith("can") and fo[n] > 15:
                 o["crush"] = min(1.0, o["crush"] + (fo[n] - 15) / 400.0); m.geom_size[o["geom"]][0] = o["r0"] * (1 - 0.35 * o["crush"])
                 m.geom_rgba[o["geom"]] = [0.85, 0.7 - 0.4 * o["crush"], 0.3 - 0.2 * o["crush"], 1]
             if d.qpos[o["adr"] + 2] < kin.base[2] - 0.5:
                 d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = D.obj_quat(n); d.qvel[o["dof"]:o["dof"] + 6] = 0
-        line = " | ".join(status) + f" | L {fh['left']:4.1f} N R {fh['right']:4.1f} N | " + " ".join(f"{n}:{'ROTTO' if o['broken'] else ('ammaccata %d%%' % (100 * o['crush']) if o['crush'] > 0 else 'ok')}" for n, o in O.items()) + f" | blocked {blocked}"
+        line = " | ".join(status) + f" | L {fh['left']:4.1f} N R {fh['right']:4.1f} N | " + " ".join(f"{n}:{'ROTTO' if o['broken'] else ('ammaccata %d%%' % (100 * o['crush']) if o['crush'] > 0 else 'ok')}" for n, o in O.items()) + f" | blocked {sum(blocked.values())}"
         if viewer is not None:
             with viewer.lock():
                 viewer.user_scn.ngeom = 0
                 viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, "teleop", line)])
             viewer.sync()
-        if tick % 15 == 0: print(line, flush=True)
+        if tick % (90 if a.replay else 15) == 0: print(line, flush=True)
         if not a.headless and tick % 3 == 0:
-            cv2.imshow("forze", force_plot(hist));
+            cv2.imshow("forze", force_plot(hist))
             if rend is not None:
                 rend.update_scene(d, "head_cam"); cv2.imshow("camera in testa G1", rend.render()[:, :, ::-1].copy())
             k = cv2.waitKey(1) & 0xFF
             if k != 255: print(f"[key] {chr(k) if 32 <= k < 127 else k}", flush=True)
-            if k in (ord("a"), ord("A"), ord("c"), ord("C")):
-                need_align = False
-                for h in hands:
-                    if h in raw_last: shift[h] = -np.array(TC[h]["R"]) @ (raw_last[h] - np.array(TC[h]["origin"]))
-                    PF[h].reset(); QF[h].reset(); DB[h].reset(); grip_f[h] = None; stage[h] = None; lock[h] = None
-                print("[clutch] re-centred", flush=True)
+            if k in (ord("a"), ord("A"), ord("c"), ord("C")):             # manual re-anchor: hands flat + still on the table for 1 s
+                for h in hands: chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], chains[h].grasp, cfg, floor)
+                print("[clutch] appoggia le mani piatte e ferme sul tavolo per 1 s", flush=True)
             if k in (ord("r"), ord("R")):
                 kin.a.q.update(rest); kin.a.apply()
                 for n, v in rest.items():
@@ -306,20 +307,32 @@ def main():
                 for n, v in zip(names, hq):
                     d.ctrl[act[n]] = v
                     if n in jq: d.qpos[jq[n]] = v
-                last_t.clear()
                 for name, o in O.items():
                     d.qpos[o["adr"]:o["adr"] + 3] = o["p0"] + np.array([0.0, 0.0, -1.0]); d.qpos[o["adr"] + 3:o["adr"] + 7] = o["q0"]
                     d.qvel[o["dof"]:o["dof"] + 6] = 0
                     m.geom_size[o["geom"]][0] = o["r0"]; m.geom_rgba[o["geom"]] = o["rgba0"]
                     o["crush"], o["broken"] = 0.0, False
                 for h in hands:
-                    stage[h] = None; lock[h] = None; target[h] = None; t_st[h] = 0.0; grip_f[h] = None
-                    shift[h].fill(0); PF[h].reset(); QF[h].reset(); DB[h].reset(); force_window[h].clear(); egg_grip_cap[h] = 0.70
+                    chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], chains[h].grasp, cfg, floor); force_window[h].clear(); egg_grip_cap[h] = 0.70
                 need_align = True; reset_park_until = time.time() + 1.0
                 mujoco.mj_forward(m, d)
                 print("[key] R: scena resettata, premi A per riallineare", flush=True)
             if k in (ord("q"), ord("Q")): break
-        tick += 1; time.sleep(max(0.0, 1 / RATE - (time.time() - t_tick)))
+        tick += 1
+        if not a.replay: time.sleep(max(0.0, 1 / RATE - (time.time() - t_tick)))
+    # --- numbers ------------------------------------------------------------------------------------------------------------
+    res = {"chain": "legacy" if a.legacy else "new", "replay": a.replay, "ticks": tick, "blocked": blocked, "max_consecutive_blocks": max_consec,
+           "events": events, "hands": {}, "objects": {}}
+    for h in hands:
+        res["hands"][h] = CC.metrics(log[h]); res["hands"][h]["reanchors"] = chains[h].reanchors
+        if log[h]: res["hands"][h]["closest_pinch_cm"] = round(100 * min(float(np.linalg.norm(r["pin_err"])) for r in log[h]), 1)
+    if os.environ.get("TELEOP_DUMP"): np.save(os.environ["TELEOP_DUMP"], np.array([log[h] for h in hands], dtype=object), allow_pickle=True)
+    for n, o in O.items():
+        lift = o["zmax"] - o["p0"][2]
+        res["objects"][n] = dict(lift_cm=round(100 * lift, 1), broken=o["broken"], crush_pct=round(100 * o["crush"]),
+                                 grasp_success=bool(lift > 0.03 and not o["broken"]))
+    print("[metrics] " + json.dumps(res["hands"]) + " " + json.dumps(res["objects"]) + f" blocked {blocked}", flush=True)
+    if a.metrics: json.dump(res, open(a.metrics, "w"), indent=1, default=float)
 
 
 if __name__ == "__main__":
