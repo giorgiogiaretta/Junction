@@ -1,0 +1,5 @@
+# Extra pip packages for g1/sim/g1_sim.py (tested with Python 3.11 on Windows 11)
+mujoco>=3.0          # tested 4.0.1; kinematic model + offscreen mujoco.Renderer
+numpy
+opencv-python        # image composition + mp4 writer
+# no torch needed. ffmpeg (optional, on PATH) re-encodes the mp4 to h264.
