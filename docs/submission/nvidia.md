@@ -1,21 +1,22 @@
 # NVIDIA Nemotron prize: draft
 
+Reference story: `docs/STORY_MODELS.md`. Numbers: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/PROMPT_ITERATION.md`.
+
 ## Model
-Nemotron 3.5 Super VL, called through the hackathon Verda endpoint (OpenAI-compatible chat API, image input, tool calls). Client: `ai/llm.py`. The exact model id string is marked unverified in `ai/llm.py`; confirm with the NVIDIA mentors before submitting.
+Nemotron 3.5 Super VL via the hackathon Verda endpoint (OpenAI-compatible API, image input, tool call `set_grasp_profile`, thinking off). Client `ai/llm.py`; confirm the exact model id with the NVIDIA mentors (marked unverified in the code).
 
-## Role in the system
-Nemotron is the **primary object recogniser**. Before a grasp, one head-camera frame (optionally cropped around the hand, `ai/crop.py`) is sent to Nemotron, which returns the object (egg / stress ball / can / other) and a confidence through a tool call. That answer selects the grip limit the robot hand must respect (`ai/pick_profile.py` -> `ai/object_profile.py` -> UDP 14070).
-
-A second use: Nemotron as a text judge of recorded glove episodes ("was the grasp held?"), `ai/judge.py`.
+## Role: the real-time eyes
+One head-camera frame before the grasp -> object + grasp profile, median **0.22 s**. It is one of the two keys of the vote (`ai/recognize.py`, `ai/perceive.py`) that sets the closure cap of the robot hand (`ai/object_profile.py: cap_for_votes`).
 
 ## Why it is essential
-Smartgloves have no force sensors, so the system has no other way to know whether it is about to squeeze an egg or a can. Without the recogniser the picker falls back to a conservative `cup` limit for everything: safe, but it gives up the per-object behaviour that is the point of the project.
+Gloves cannot feel force, so the hand must know what it holds before it closes. Nemotron is the only API model we measured that is both accurate and fast enough to sit inside that decision (Gemma 4 via API: 7.7 s median).
 
-## How we improved the output (measured)
-- **Recognition**: 48 of 50 of our own head-camera photos in one run (egg 18/20, stress ball 22/22, can 8/8). `python -m ai.eval_objects imgs --backend nemotron --mix`; `docs/OBJECT_RECOGNITION_RESULTS.md`. One person, one place, one day.
-- **Making the errors safe**: both errors were small eggs called "stress ball", the dangerous direction. We made the model report a confidence and added rules that only soften: a stress-ball answer with confidence < 0.9 becomes egg, < 0.6 becomes at most the conservative `cup`, and timeouts fall back to `cup`, never to no limit. `python3 -m pytest tests/test_picker_safety.py -q`. Thresholds are hand-picked and not yet calibrated on live confidences.
-- **Episode judge prompt**: adding a task definition to the prompt raised positives judged good from 5/32 to 22/32 (a repeat run gave 25/32, so noise is about ±3). Positives only, no labelled negatives, so precision is unknown. `python3 -m ai.judge --version 2`; `docs/JUDGE_RESULTS.md`.
-- **Reliability lesson**: the endpoint stopped answering after the recognition run (calls timed out from 11:45). This is why the picker has fast failure (20 s, 1 retry), a Gemini backup and a safe fallback.
+## How we improved its output (measured, same 50 photos)
+1. **Latency**: thinking off, 0.22 s median (max 0.31 s); the first full result (48/50) was reproduced in a second run.
+2. **Prompt iteration**, three repeats each (`docs/PROMPT_ITERATION.md`): prompt A 47, 49, 49 of 50; prompt B with visual cues (pale oval shell, orange ball, metal can) 49 (one failed call, no wrong answer), 50, 50. B was written after seeing the failing eggs of this set, so it is optimistic; run-to-run variation (47-49 at temperature 0) means single runs are weak evidence.
+3. **Safety layer around it**: confidence does not separate right from wrong (0.90 on errors and on the lowest right answers), so one confident answer never unlocks full force; egg and ball share a cap; fragile-first vote; fallback is conservative, never "squeeze".
+4. **Second key**: its disagreements with Gemma 4 catch exactly its errors on the 50 photos (3 of 3, none shared, `docs/STORY_MODELS.md`).
+5. **Outages**: every call has a timeout and a conservative fallback, after the endpoint went down mid-day.
 
-## Honest limits
-Latency of the model itself was not measured (the run was dominated by our client rate limiter). The 48/50 run could not be repeated yet.
+## Caveats
+50 photos, one person, one place, one day; no held-out set. Vision has not run on the real G1 yet (its camera computer was off during the session).

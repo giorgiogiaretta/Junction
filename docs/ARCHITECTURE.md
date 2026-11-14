@@ -1,94 +1,109 @@
 # Architecture
 
-Gloves have no force sensors. A head camera sees **what** the hand is about to grasp; a model names the object; the name selects a per-object **closure limit** that the robot hand cannot exceed. Everything below runs on a laptop; the robot side is simulated in MuJoCo.
+Gloves have no force sensors. A head camera sees **what** the hand is about to grasp; several recognisers vote on the object; the result selects a per-object **closure limit** the robot hand cannot exceed. The robot side runs in MuJoCo simulation; on the real G1 the gloves have driven arms and hands, without vision so far.
 
-Status labels used on this page: **main** = code on `main` with a command; **PR** = code in an open PR, not on `main`; **missing** = does not exist yet. Source for every status: `docs/ORCH_BACKLOG.md` section 1.
+Status as of 14/11 evening (`main` at 843707e). Audit: `docs/submission/AUDIT.md`. Wording follows the safe phrasing of `docs/ORCH_BACKLOG.md` section 1.
 
 ## Data flow
 
 ```mermaid
 flowchart LR
   subgraph Rokoko["Rokoko/  (Giorgio)"]
-    G[Smartgloves II + Coil Pro<br/>Rokoko Studio] -->|RGMP raw 12276| C[rgmp_client.py]
-    C -->|hand_state v1<br/>UDP 14043 single / 14053 bimanual| F
+    G[Smartgloves II + Coil Pro] -->|RGMP| C[rgmp_client.py]
   end
-  subgraph Head["Head rig"]
-    CAM[Head camera<br/>phone / GoPro]
-    HS[Rokoko sensor on head<br/>hand_in_head: missing]
+  subgraph Head["Head camera"]
+    CAM[Operator: DJI webcam + glove on head<br/>G1: RealSense D435i]
   end
   subgraph ai["ai/  (Tommaso's Claude)"]
-    CR[crop.py<br/>crop around hand<br/>intrinsics ASSUMED]
-    P[pick_profile.py<br/>safety rules + fallback cup]
-    N[Nemotron 3.5 Super VL<br/>Verda endpoint, primary]
-    GM[Gemini<br/>backup, never called live]
-    OP[object_profile.py<br/>object -> profile + max_closure]
-  end
-  subgraph cv["cv/  (Codex-CV, PR #93)"]
-    L[YOLO-World-S local<br/>benchmark only]
+    RE[recognize.py ensemble<br/>Gemini + Gemma + Nemotron + colour<br/>vote: fragile first]
+    PP[pick_profile.py<br/>single model + fallback]
+    LO[locate.py<br/>object position from RGB-D]
+    OP[object_profile.py<br/>cap_for_votes]
   end
   subgraph demo["demo/  (Codex)"]
-    F[fanout.py<br/>14043 -> 14044/14045/14046]
-    D[dashboard.py<br/>reads 14044 + 14060]
+    F[fanout.py] --> D[dashboard.py]
   end
-  subgraph robot["robot/  +  g1/"]
-    S[robot.sim_server<br/>MuJoCo 5-finger hand<br/>Force Cushion]
-    R[robot.run_udp<br/>dry / sim / serial]
-    G1[g1/sim G1 Dex3<br/>geometry on main,<br/>grasp physics PR #79]
+  subgraph robot["robot/ + g1/"]
+    E2E[robot.e2e_g1<br/>label -> cap -> G1 Dex3 MuJoCo<br/>held / broken, with and without cap]
+    S[robot.sim_server<br/>5-finger MuJoCo, Force Cushion]
+    LP[g1/live_policy.py<br/>G1 right hand = cap x glove]
   end
-  CAM --> CR
-  HS -.-> CR
-  CR --> P
-  P --> N
-  P -.timeout.-> GM
-  L -.not wired.-> P
-  P --> OP
-  OP -->|"{profile} UDP 14070"| S
-  OP -->|"{profile} UDP 14070"| R
-  F --> D
-  F --> R
+  C -->|hand_state v1 UDP 14043 / 14053| F
+  CAM --> RE --> OP
+  CAM --> PP --> OP
+  CAM --> LO
+  OP -->|"{object, profile, max_closure} UDP 14070"| S
+  OP --> E2E
+  OP --> LP
   F --> S
+  C --> LP
   S -->|state UDP 14060| D
-  OP -.missing: B4 end-to-end.-> G1
+  LO -.not wired into a grasp yet.-> LP
 ```
 
-Dashed arrows are not wired on `main` today.
+Dashed arrows are not wired today.
+
+## Grip rule (`ai/object_profile.py`, `cap_for_votes`)
+- Egg and unknown objects never get full closure. Unknown, error or no answer -> conservative cap 0.68.
+- Egg and stress ball share one cap (0.70), so an egg/ball mix-up neither drops nor crushes the egg in the simulation.
+- The stress ball gets full closure (1.0) **only** if at least 2 independent recognisers agree with confidence >= 0.9, or the operator sets it by hand (`--set stress_ball`). One confident model is not enough: confidence does not separate right from wrong answers (`docs/OBJECT_RECOGNITION_RESULTS.md`).
+- The can is recognised but not grasped (vision only, `supported=false` in `g1/object_profiles.json`).
+- Closure levels are tuned in simulation; forces printed by the simulation are model outputs with assumed thresholds, not measurements.
+
+Tests: `python3 -m pytest tests/test_cap_for.py tests/test_picker_safety.py tests/test_live_policy_cap.py -q`.
+
+## Recognisers (same 50 head-camera photos, `docs/OBJECT_RECOGNITION_RESULTS.md`)
+
+| Recogniser | Where | Result |
+|---|---|---|
+| Nemotron 3.5 Super VL (NVIDIA, Verda) | `ai/pick_profile.py`, `ai/recognize.py` | 48/50 in two runs, median 0.22 s per call (second run) |
+| Gemma 4 26B A4B (Google API) | `ai/recognize.py` | 49/50, eggs 20/20, median 7.7 s |
+| Gemini 3.5 Flash | `ai/recognize.py` | full run not finished (spot test only) |
+| Colour rule (local, no network) | `ai/color_baseline.py` | 38/50, untuned |
+| **Ensemble Nemotron + Gemma, fragile first** | `ai/recognize.py` | **50/50**, computed offline from the saved answers |
+| PaliGemma 2 3B on our A100 (Verda), 3-option question | `ai/paligemma.py`, `tools/paligemma_server.py` | 49/50, median 0.21 s |
+| Three-model vote Nemotron + Gemma 4 + PaliGemma | offline from saved answers | 50/50, every ball confirmed by >= 2 |
+| YOLO-World-S (local) | `cv/` | 12/50, not used (`docs/CV_RESULTS.md`) |
+
+Fragile-first vote: any answer "egg" with confidence >= 0.6 makes the result egg; otherwise majority. Backends run in parallel with a 15 s timeout; no answer -> conservative cap. Command: `python -m ai.recognize photo.jpg --backends gemini,gemma,nemotron,color`.
+
+## Object position (`ai/locate.py`)
+G1 head RGB-D -> object centre in the pelvis frame, with refusals (`depth_ok=False`) for mixed depth, objects cut by the frame edge and occluded balls. Measured only in simulation: `python -m ai.locate_bench` on MuJoCo renders of the G1 head camera, 20 placements per object, median xy error 0.14-0.26 cm with a perfect mask. Not tested on real G1 frames, not wired into a grasp.
+
+## All objects at once (`ai/perceive.py`)
+One G1 head RGB-D frame -> every object on the table with label (ensemble on crops + colour veto), position (`locate`) and cap. Used once at the first frame by `g1/live_policy_v1.py`. Simulated frames only: egg 24/24, can 23/24, xy median 0.2/0.4 cm (`docs/G1_V1_RUN.md`).
+
+## G1: simulation and real robot
+- **Simulation, end to end**: `python -m robot.e2e_g1 --label egg` (no key needed) or `--image <photo> --recogniser nemotron`. Egg with its cap: held intact; without the cap: broken. Egg mistaken for a stress ball (`--true egg --label stress_ball`): held intact thanks to the shared cap. Right hand only, fixed base, assumed gains and break thresholds.
+- **Policies**: `g1/live_policy.py` (arms still, hand from glove), `g1/live_policy_v1.py` (camera finds objects, hover -> descend -> capped grasp -> lift), `g1/live_policy_v2.py` (Coil arms), operator console `tools/console/app.py`. Mock runner 29-30 Hz, 0 clipped.
+- **Real G1 (14/11, branch `g1-real-working`, not on `main` yet): Rokoko gloves drove both arms and both Dex3 hands, 2 runs of 120 s, 29.8 commands/s, 0 commands clipped by the safety filter. The robot's camera computer was off, so vision did not run on the real robot and no object grasp outcome is recorded.**
 
 ## UDP ports (all 127.0.0.1)
 
-| Port | Payload | Producer -> consumer | Source |
-|---|---|---|---|
-| 12276 | Raw RGMP | Rokoko Studio (or `Rokoko/src/replay_rgmp.py`) -> `rgmp_client.py` | `docs/contracts.md` |
-| 14043 | hand_state v1 `{fingers[5], hand, t, ...}` | `rgmp_client.py` / `mock_stream.py` -> `demo/fanout.py` | `docs/contracts.md` |
-| 14053 | Bimanual `{left[5]\|null, right[5]\|null, t}` | `rgmp_client.py --bimanual-port` -> fanout | `docs/contracts.md` |
-| 14044 / 14045 / 14046 | Copies of the glove stream | fanout -> dashboard / `robot.run_udp` / `robot.sim_server` | `demo/run_demo.sh` |
-| 14060 | Sim state `{obj, force, broken, lifted, cap, profile, latency}` | `robot.sim_server` -> dashboard | `robot/sim_server.py` |
-| 14070 | `{"profile": "cup\|egg\|can\|none"}` | `ai.pick_profile` -> sim_server, run_udp | `docs/contracts.md` |
+| Port | Payload | Producer -> consumer |
+|---|---|---|
+| 12276 | Raw RGMP | Rokoko Studio / `Rokoko/src/replay_rgmp.py` -> `rgmp_client.py` |
+| 14043 | hand_state v1 `{fingers[5], hand, t, ...}` | `rgmp_client.py` / mock -> fanout, `g1/live_policy.py --source udp:14043` |
+| 14053 | Bimanual `{left, right, t}` | `rgmp_client.py --bimanual-port` -> fanout |
+| 14044 / 14045 / 14046 | Copies of the glove stream | fanout -> dashboard / `robot.run_udp` / `robot.sim_server` |
+| 14060 | Sim state `{obj, force, broken, lifted, cap, profile}` | `robot.sim_server` -> dashboard |
+| 14070 | `{object, profile, max_closure, max_speed}` | `ai.pick_profile` / `ai.recognize --publish` -> sim_server, run_udp |
 
-## Recognition tiers
-
-| Tier | Where | Status | Measured |
-|---|---|---|---|
-| 1. Nemotron 3.5 Super VL (NVIDIA, Verda endpoint) | `ai/llm.py`, `ai/pick_profile.py` | main; model id marked unverified in `ai/llm.py`; endpoint timed out from 11:45 | 48 of 50 of our photos, one run (`docs/OBJECT_RECOGNITION_RESULTS.md`) |
-| 2. Gemini (Google) | `ai/pick_profile.py` backup, `ai/eval_objects.py --backend gemini` | main; never called live; id `gemini-2.5-flash` unverified | none |
-| 3. Local detector YOLO-World-S | `cv/` | PR #93 | 12/50 on the same photos, 0/20 eggs: not usable as picker (`docs/CV_RESULTS.md` in #93) |
-| Last resort | `python -m ai.pick_profile --set egg` | main | manual |
-
-Safety rules in the picker (`python3 -m pytest tests/test_picker_safety.py -q`): fallback is `cup`, never "no limit"; a `stress_ball` answer with confidence < 0.9 becomes `egg`; confidence < 0.6 becomes at most `cup`. Thresholds are hand-picked, tested with fake transports only.
+Contracts: `docs/contracts.md`.
 
 ## Folder boundaries (AGENTS.md section 4)
 
 | Folder | Owner | Role |
 |---|---|---|
-| `Rokoko/`, `ml/`, `vision/`, `g1/` | Giorgio's agents | Glove capture, episodes, G1 IK and grasp physics, profile numbers |
-| `ai/`, `robot/` | Tommaso's Claude | Recognition, object -> profile table, Force Cushion, Dex3 retargeting |
-| `demo/`, `docs/PITCH*.md` | Tommaso's Codex | Dashboard, one-command demo, pitch |
+| `Rokoko/`, `ml/`, `vision/`, `g1/` | Giorgio's agents | Glove capture, episodes, G1 IK, grasp physics, live policy |
+| `ai/`, `robot/` | Tommaso's Claude | Recognition ensemble, locate, object -> cap, e2e sim command, Dex3 retargeting |
+| `demo/`, `deck/`, `docs/PITCH*.md` | Tommaso's Codex | Dashboard, demo, pitch |
 | `cv/` | Tommaso's Codex-CV | Local detector benchmark |
 | `docs/ARCHITECTURE.md`, `docs/submission/`, `README.md` | Tommaso's Docs | This page, submission drafts |
 
-## What is not connected yet
-
-- No command runs photo -> object -> profile -> G1 grasp in MuJoCo -> held/broken (backlog B4).
-- The MuJoCo grasp with a closure limit on `main` uses a 5-finger hand (`robot/scene.py`), not the G1 Dex3. G1 Dex3 grasp physics is in PR #79.
-- The can is recognised but not held by the simulated G1 hand (`g1/sim/GRASP_REPORT.md` in PR #79).
-- Head sensor pose and `hand_in_head` are in no episode on `main`; camera intrinsics are assumed.
-- Nothing has run on the real G1.
+## What is not shown yet
+- Real G1: no vision, no grasp outcome recorded; that work is on a branch, not on `main`.
+- The live G1 policy uses the single-model picker, so there the ball reaches full closure only with a manual `--object stress_ball`.
+- `locate()` is not wired into a grasp and not tested on real frames.
+- The can is recognised but not grasped.
+- Recognition: one person, one place, one day, 50 photos, no held-out set; the ensemble 50/50 is computed offline on the same photos.
