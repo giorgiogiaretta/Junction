@@ -33,3 +33,12 @@ No automatic loop agent on this Mac (credits). Extra agents only via docs/CODEX_
 - **NVIDIA:** is the Verda endpoint stable until the end; limits (RPM/tokens); does the endpoint accept video or only frames; which model id is the one to name in the submission form.
 - **Google DeepMind:** Gemini model id for video/live; key and quota; what counts as "best use" in the form.
 - **Rokoko (Victoria Stein):** how to read the Smartgloves II button via SDK (RGMP has none); the real stream rate (83 Hz vs 250 Hz) and latency; Coil Pro flip/out-of-range recommendations.
+
+## UPDATE 14/11 ~09:00: new focus (approved by the Rokoko technician via Giorgio) supersedes the QC focus
+**Camera + computer vision recognises the object (egg, stress ball, can) and the hand behaves accordingly (closure/speed per object), on the G1 (arms + hands, no Inspire), MuJoCo first, Isaac (Aalto, Verda) before the live test.** Gloves have no force sensors, so vision supplies the missing sense. Head camera (GoPro on the head); a glove on the head gives camera-to-hand relative pose from the Coil (relative = inverse(head pose) * hand pose).
+
+Ownership (no overlap): Giorgio = `Rokoko/`, `ml/`, `vision/`, `g1/` (IK 7 DoF, Coil->torso calibration, physics, profile NUMBERS, Rokoko dataset converter, head-glove geometry). Tommaso's Claude = `ai/` (recognition, object -> profile table `ai/object_profile.py`, Nemotron + Gemini) and `robot/g1_dex3.py` (library). Tommaso's Codex = `demo/`.
+
+Recognition tiers: Nemotron VL on one frame (verified, ~1-2 s, ~0.4 s with thinking off), Gemini VL as second opinion / egocentric video (needs key + model id), fast local detector on `vision/` (#66) for continuous tracking.
+First measurable result: `python -m ai.eval_objects <photo folder> --backend nemotron|gemini` (photos named `egg_01.jpg`, `stress_ball_01.jpg`, `can_01.jpg`, `other_01.jpg`).
+Extra mentor question: does the G1 runner accept arm commands or hands only, through which interface and limits; which head camera and how are frames read; are the hands Dex3.
