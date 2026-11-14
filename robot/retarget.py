@@ -3,7 +3,7 @@ Inspire RH56 (G1 dexterous hand): 6 DoF in order [pinky, ring, middle, index, th
 each 0..1000 where 1000 = OPEN, 0 = CLOSED (verify with Aalto mentors / hand manual).
 Includes smoothing and a per-finger force/current limit hook for fragile grasps (#14).
 """
-import time
+import os, time
 
 INSPIRE_ORDER = ["pinky", "ring", "middle", "index", "thumb_bend", "thumb_rot"]
 
@@ -24,13 +24,24 @@ class Smoother:
         return list(self.y)
 
 
-def to_inspire(fingers, thumb_rot_gain=0.7, close_cap=1.0):
+def thumb_rot_open():
+    """Register value of thumb_rotation with the hand OPEN: 1000 (repo default) or 0.
+    UNCONFIRMED: a third-party transcription of the RH56 manual says 0 = retracted, 1000 = across the palm (docs/RESEARCH_NIGHT.md #4),
+    i.e. the opposite of our default. Flip on site with INSPIRE_THUMB_ROT_OPEN=0 after checking a 10% move by eye."""
+    v = os.environ.get("INSPIRE_THUMB_ROT_OPEN", "1000").strip()
+    if v not in ("0", "1000"): raise ValueError("INSPIRE_THUMB_ROT_OPEN must be 0 or 1000, got %r" % v)
+    return int(v)
+
+
+def to_inspire(fingers, thumb_rot_gain=0.7, close_cap=1.0, rot_open=None):
     """fingers: glove order, 1=closed. close_cap<1 limits max closure (fragile objects).
+    rot_open: thumb_rotation value when open (1000 or 0); None -> env INSPIRE_THUMB_ROT_OPEN (default 1000).
     Returns 6 ints 0..1000 in INSPIRE_ORDER."""
     th, ix, md, rg, pk = [max(0.0, min(close_cap, float(x))) for x in list(fingers)[:5]]
     thumb_rot = thumb_rot_gain * th  # opposition grows as thumb closes
-    vals = [pk, rg, md, ix, th, thumb_rot]
-    return [int(round(1000 * (1.0 - v))) for v in vals]
+    out = [int(round(1000 * (1.0 - v))) for v in (pk, rg, md, ix, th, thumb_rot)]
+    if (thumb_rot_open() if rot_open is None else rot_open) == 0: out[5] = 1000 - out[5]
+    return out
 
 
 def to_g1_inspire_q(fingers, close_cap=1.0):
