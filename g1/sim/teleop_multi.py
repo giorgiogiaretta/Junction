@@ -110,9 +110,11 @@ def main():
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
     ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--old-rest", action="store_true", help="previous robot rest pose (wrists rolled, palms sideways)")
+    ap.add_argument("--slow", action="store_true", help="previous speed/filter settings (before the 14/11 evening latency tuning)")
     ap.add_argument("--metrics", help="write latency/jerk/blocked/grasp numbers to this JSON file")
     a = ap.parse_args(); hands = ["left", "right"] if a.hands == "both" else [a.hands]
-    cfg = CC.Cfg.old() if a.legacy else CC.Cfg()
+    cfg = CC.Cfg.old() if a.legacy else (CC.Cfg.slow() if a.slow else CC.Cfg())
     cfg.gain = a.gain
     if a.zoff is not None: cfg.zoff = a.zoff
     objs = [(n.split(":")[0], [float(v) for v in n.split(":")[1].split(",")]) for n in a.objs.split(";")]
@@ -122,7 +124,7 @@ def main():
     m, d = build_multi(objs); names = [j["joint"] for j in G1Dex3Retargeter().joints]
     act = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, m.actuator_trnid[i, 0]): i for i in range(m.nu)}
     jq = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j): m.jnt_qposadr[j] for j in range(m.njnt)}
-    kin = D.Kin(); rest = dict(kin.a.q)
+    kin = D.Kin(); rest = dict(kin.a.q) if a.legacy or a.old_rest else CC.palm_down_rest(kin, D.COUNTER_Z)   # hands open, palm down, in front
     for n, v in kin.a.q.items(): d.qpos[jq[n]] = v; d.ctrl[act[n]] = v
     O = {}
     for name, sp in objs:
@@ -154,6 +156,7 @@ def main():
     miss = [h for h in hands if Rh[h] is None]
     if miss: sys.exit(f"no calibration for {miss}: run with --calib")
     chains = {}
+    if not a.replay: CC.load_neutral(arm_ik.CALIB, hands)
     for h in hands:
         n = assigned[h]; gr = None
         if n is not None and O[n]["G"].get(h): gp, gR, pin_t = O[n]["G"][h]; gr = (gp, gR, pin_t, n, D.PROFILE.get(n, D.PROFILE["unknown"]))
