@@ -58,7 +58,7 @@ class Demo:
         self.objs = ["stress_ball", "can_empty", "egg"]
         self.m, self.d = TM.build_multi([(o, None) for o in self.objs]); m = self.m
         m.vis.global_.offwidth, m.vis.global_.offheight = 1920, 1080
-        self.kin = D.Kin(); self.vlm = tuple(vlm); self.engine = engine; self.assist = True
+        self.kin = D.Kin(); self.vlm = tuple(vlm); self.engine = engine; self.assist = True; self.meta = []; self.seg = ""; self.vision_off = False
         self.act = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, m.actuator_trnid[i, 0]): i for i in range(m.nu)}
         self.jq = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j): m.jnt_qposadr[j] for j in range(m.njnt)}
         self.home = dict(self.kin.a.q)
@@ -174,9 +174,13 @@ class Demo:
                 broken = True; m.geom_rgba[og] = [0.95, 0.85, 0.2, 1.0]      # yolk: the egg broke
             lift = 100 * (d.qpos[self.oa[work] + 2] - z0); max_lift = max(max_lift, lift)
             self.fhist.append(force); self.chist.append(c); self.caphist.append(cap)
-            if tick % 2 == 0 or head_img is None: head_img = self.head_view(label, rec)
+            if tick % 2 == 0 or head_img is None:
+                if self.vision_off:
+                    self.headr.update_scene(self.d, "head_cam"); head_img = (self.headr.render()[:, :, ::-1] * 0.35).astype(np.uint8)
+                    put(head_img, "COMPUTER VISION OFF", (150, 220), 1.2, (80, 80, 255), 3); put(head_img, "nothing recognised -> no closure limit", (120, 270), 0.75, (200, 200, 210), 2)
+                else: head_img = self.head_view(label, rec)
             frame = self.compose(title, sub, state, F, c, cap, force, brk, lift, broken, work, head_img, label, rec)
-            if writer is not None: writer.write(frame)
+            if writer is not None: writer.write(frame); self.meta.append(dict(seg=self.seg, kind="grasp", state=state, lift=round(float(lift), 2), broken=broken))
             if show:
                 cv2.imshow("G1 x Rokoko x Computer Vision", cv2.resize(frame, (1280, 720))); k = cv2.waitKey(1) & 0xFF
                 if k in (ord("q"), 27): raise KeyboardInterrupt
@@ -249,7 +253,7 @@ class Demo:
             fr = self.compose(title, sub, "SCANNING", np.zeros(5), 0.0, 1.0, 0.0, None, 0.0, False, None, img, None, None)
             y = 760 + 0 * i
             put(fr, f"objects found: {len(res['objects'])}   recognition time {res.get('t_wall', 0)} s   engine: {res.get('engine', '') or 'geometry + colour'}", (36, 822), 0.6, ACC, 2)
-            if writer is not None: writer.write(fr)
+            if writer is not None: writer.write(fr); self.meta.append(dict(seg=self.seg, kind="scan"))
             if show:
                 cv2.imshow("G1 x Rokoko x Computer Vision", cv2.resize(fr, (1280, 720)))
                 if (cv2.waitKey(1) & 0xFF) in (ord("q"), 27): raise KeyboardInterrupt
@@ -272,13 +276,19 @@ def main():
     ap.add_argument("--vlm", default=""); ap.add_argument("--engine", default="g1", choices=["g1", "ai"], help="g1 = geometry+colour (offline); ai = + Tommaso ai.perceive ensemble (with --vlm nemotron: NVIDIA)"); ap.add_argument("--out", default=os.path.join(ROOT, "data", "video", "demo_cv.mp4"))
     ap.add_argument("--no-compare", action="store_true", help="skip the final egg-without-vision comparison")
     ap.add_argument("--no-assist", action="store_true", help="pure physics: no grasp assist (objects may slip)")
+    ap.add_argument("--only", default="", help="comma list of objects to show (default all three)")
+    ap.add_argument("--caps", default="", help="override caps, e.g. stress_ball=0.7,can_empty=0.6")
+    ap.add_argument("--meta", default="", help="write per-frame state JSON (for cutting a montage)")
     a = ap.parse_args(); show = not a.no_show
     demo = Demo(vlm=[b for b in a.vlm.split(",") if b], engine=a.engine); demo.det = {}; demo.assist = not a.no_assist
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     writer = None if a.live else cv2.VideoWriter(a.out, cv2.VideoWriter_fourcc(*"mp4v"), RATE, (W, H))
+    for kv in [x for x in a.caps.split(",") if x]: SIM_CAP[kv.split("=")[0]] = float(kv.split("=")[1])
+    order = [o for o in demo.objs if not a.only or o in a.only.split(",")]
     summary = []
     try:
-        for k, work in enumerate(demo.objs):
+        for work in order:
+            k = demo.objs.index(work); demo.seg = work
             demo.place(work); rgb, res, T = demo.recognise(); demo.det = match(res, demo, work); rec = demo.det.get(work)
             lab = rec["label"] if rec else "unknown"; cap = SIM_CAP.get(lab, SIM_CAP["unknown"])
             for o in list(res["objects"]) + list(demo.det.values()): o["cap"] = SIM_CAP.get(o["label"], SIM_CAP["unknown"])
@@ -288,7 +298,7 @@ def main():
             r = demo.grasp(work, glove, cap, lab, f"{k + 1}/3  GRASP: {NAME.get(lab, lab)}", f"real glove take {TAKES[work]} + closure limit from vision {cap:.2f}", writer, show, rec)
             summary.append((work, lab, cap, r)); print(f"[grasp] {work}: {r}", flush=True)
         if not a.no_compare and not a.live:
-            demo.place("egg"); demo.det = {}
+            demo.place("egg"); demo.det = {}; demo.seg = "compare"; demo.vision_off = True
             r = demo.grasp("egg", TakeGlove(TAKES["egg"]), 1.0, "egg", "COMPARISON: EGG WITHOUT VISION", "same glove take, no limit: full force 1.00", writer, show, None)
             summary.append(("egg (no vision)", "-", 1.0, r)); print(f"[grasp] egg WITHOUT vision: {r}", flush=True)
     except KeyboardInterrupt:
@@ -298,6 +308,8 @@ def main():
         cv2.destroyAllWindows()
     print("\nRESULT"); [print(f"  {w:18s} seen {l:12s} cap {c:.2f}  {r}") for w, l, c, r in summary]
     if writer is not None: print("video:", a.out)
+    if a.meta:
+        import json; json.dump(demo.meta, open(a.meta, "w")); print("meta:", a.meta)
 
 
 if __name__ == "__main__":
