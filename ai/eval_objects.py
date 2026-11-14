@@ -14,6 +14,11 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 
 
 def make_client(backend):
+    if backend == "gemma":
+        # Local/own-GPU Gemma (vLLM, OpenAI-compatible) when GEMMA_BASE_URL is set (e.g. http://127.0.0.1:8000/v1 through an SSH tunnel to the Verda GPU); else Gemma on the Google API (free tier).
+        if os.environ.get("GEMMA_BASE_URL"):
+            return ChatClient(api_key=os.environ.get("GEMMA_API_KEY", "local"), base_url=os.environ["GEMMA_BASE_URL"], model=os.environ.get("GEMMA_MODEL", "google/gemma-4-26b-a4b-it"), timeout=60)
+        c = make_client("gemini"); c.model = os.environ.get("GEMMA_MODEL", "gemma-4-26b-a4b-it"); return c
     if backend == "gemini":
         return ChatClient(api_key=os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"), base_url=GEMINI_URL,
                           model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"), timeout=60)  # model id UNVERIFIED
@@ -28,7 +33,7 @@ def recognize(client, image_bytes, mime="image/jpeg", fast=True):
     try:
         extra = {"chat_template_kwargs": {"enable_thinking": False}} if (fast and "datacrunch" in client.url) else None
         msg = client.chat([{"role": "system", "content": SYSTEM}, {"role": "user", "content": content}], max_tokens=1500 if not extra else 200, extra=extra)
-        txt = (msg.get("content") or ""); r = json.loads(txt[txt.index("{"): txt.rindex("}") + 1])
+        txt = (msg.get("content") or ""); r, _ = json.JSONDecoder().raw_decode(txt[txt.index("{"):])   # first JSON object, ignore trailing text
         return {"object": normalize(r.get("object")), "confidence": r.get("confidence"), "latency_s": client.last_http_s if client.last_http_s is not None else time.time() - t, "ok": True}
     except (LLMError, ValueError, KeyError) as e:
         return {"object": "other", "confidence": None, "latency_s": time.time() - t, "ok": False, "error": str(e)}

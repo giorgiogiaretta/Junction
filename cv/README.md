@@ -72,3 +72,16 @@ Results have `label`, `score`, `scores`, `raw_label`, `rejected`. This is whole-
 classification, without boxes. The probe can learn only labels present in training;
 `other` rejection is not validated on real unknowns. No trained probe is presented
 as a deployable safety policy. Use `cv.eval_embeddings` for held-out evaluation.
+
+## RGB-D localization and stricter model validation
+
+- [cv.locate contract and geometry checks](LOCATE_RESULTS.md): reuse `ai.locate`
+  with validated aligned RGB-D, caller-supplied calibration and explicit mask/box
+  or detector. No camera-frame fallback or robot commands; real <=1 cm accuracy
+  is not established.
+- [Purged-block model comparison](ROBUSTNESS_RESULTS.md): the earlier 100% photo
+  LOO score drops under a stronger split. `ViewClassifier(view="full")` is an
+  explicit experimental full-frame candidate, not a changed classifier default.
+
+Full-suite validation for this update: 158 passed, 4 skipped, one pre-existing
+Pillow deprecation warning (`PYTHONDONTWRITEBYTECODE=1 cv/.venv/bin/python -m pytest tests -q`).

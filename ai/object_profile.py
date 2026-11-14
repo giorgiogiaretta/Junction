@@ -4,7 +4,8 @@ ml/grasp_assist.py (cup, egg, can, none). UNKNOWN objects get the CONSERVATIVE p
 Published on UDP 127.0.0.1:14070 as {"object", "profile", "max_closure", "max_speed"} (backward compatible with {"profile"})."""
 OBJECTS = {
     "egg":         {"profile": "egg", "max_closure": 0.50, "max_speed": 0.5},   # very fragile
-    "stress_ball": {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # soft: firm hold is safe
+    "stress_ball": {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # soft: firm hold is safe. INTENDED: 'profile' is the ml/grasp_assist
+                                                                                 # motion style (cup/egg/can/none, no 'ball'); the cap is per object
     "can":         {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # light empty can: do not crush
 }
 UNKNOWN = {"profile": "cup", "max_closure": 0.68, "max_speed": 0.5}   # 0.68: still holds the egg (hold 0.65 + margin) and stays 0.07 below its break (0.75)
@@ -23,7 +24,7 @@ def load_overrides(path=None):
     for key, cur in OBJECTS.items():
         e = d.get(FILE_KEY.get(key, key))
         if not isinstance(e, dict) or not isinstance(e.get("max_closure"), (int, float)): continue
-        for f in ("max_closure", "max_speed", "min_hold_closure", "supported", "why"):
+        for f in ("max_closure", "max_speed", "min_hold_closure", "break_closure", "supported", "why"):
             if f in e: cur[f] = e[f]
         done.append(key)
     return done
@@ -40,7 +41,7 @@ MARGIN = 0.05                             # stay this far below the break closur
 
 def _band(key):
     """(min closure that holds, closure that breaks or None) for an object, from the loaded numbers."""
-    o = OBJECTS[key]; return (o.get("min_hold_closure"), BREAK_CLOSURE.get(key))
+    o = OBJECTS[key]; return (o.get("min_hold_closure"), o["break_closure"] if "break_closure" in o else BREAK_CLOSURE.get(key))
 
 
 def robust_cap(group):
@@ -62,6 +63,22 @@ def apply_robust_caps():
 
 
 apply_robust_caps()
+
+# --- Ball at FULL force (1.0), only when we are sure it is a ball -----------------------------------------------------------
+FULL_FORCE = {"stress_ball": 1.0}      # closure allowed for a CONFIRMED ball (nothing breaks in the sim; the glove operator squeezes as hard as they want)
+FULL_FORCE_MIN_CONF = 0.9
+FULL_FORCE_MIN_AGREE = 2               # independent recognisers (e.g. Gemini + Gemma/Nemotron/CLIP probe/orange-colour check) that must say stress_ball
+
+
+def cap_for_votes(label, confidence=None, agree=1, manual=False):
+    """Closure cap to use now. A 'stress_ball' gets FULL force only if confidence >= 0.9 AND >= 2 recognisers agree (or the operator set it by hand
+    with manual=True, e.g. `--set stress_ball`); otherwise the shared egg/ball cap (0.70). Egg and unknown objects NEVER get full force: an egg called a
+    ball with full force breaks (109 N peak in the sim), so a single confident-but-wrong model must not unlock 1.0."""
+    key = normalize(label); b = behaviour(label)
+    if key in FULL_FORCE and b.get("supported", True):
+        sure = isinstance(confidence, (int, float)) and confidence >= FULL_FORCE_MIN_CONF and agree >= FULL_FORCE_MIN_AGREE
+        if manual or sure: return FULL_FORCE[key]
+    return b["max_closure"]
 SYNONYMS = {
     "egg": ("egg", "hen egg", "raw egg", "eggshell", "ovo"),
     "stress_ball": ("stress ball", "stress_ball", "squeeze ball", "foam ball", "ball", "sphere", "pallina"),
@@ -87,27 +104,19 @@ def behaviour(label):
     return b
 
 
-# --- Full force only when we are sure (G1 live policy, Giorgio's request 2026-11-14) ------------------------------------------------
-FULL_CAP = {"stress_ball": 1.0, "can": 1.0}   # objects nothing bad happens to at full closure (empty can may dent: accepted by Giorgio)
-CONFIDENT = 0.9
-# The model's confidence on its WRONG answers is not measured yet (Verda died before the confidence run). Until the 2 eggs called
-# 'stress ball' in imgs/ are shown to get confidence < CONFIDENT, a model answer alone never unlocks full force: set True after that check.
-CONFIDENCE_VALIDATED = False
-
-
+# --- Dict front-end for picker results (G1 live policy). ONE policy: it delegates to cap_for_votes above. -------------------------
 def cap_for(pick):
-    """Closure cap for a picker result (ai.profile_picker / ai.pick_profile dict). Returns {'object','max_closure','why'}.
-    Full force (FULL_CAP) only when: source='manual' (operator --set, label = the object key or profile name), OR the model answered with
-    confidence >= CONFIDENT, no safety rule softened it, and CONFIDENCE_VALIDATED. Everything else: behaviour(label) caps (egg/ball share the
-    robust cap); fallback -> UNKNOWN."""
+    """Closure cap for a picker result dict (ai.profile_picker / ai.pick_profile). Returns {'object','max_closure','why'}.
+    Same rule as cap_for_votes: ball full force only if manual (source='manual', object_key) or confidence >= FULL_FORCE_MIN_CONF with
+    pick['agree'] >= FULL_FORCE_MIN_AGREE independent recognisers (default 1 = not enough). A model answer softened by a safety rule never
+    unlocks it. Fallback -> UNKNOWN. Egg/unknown/can never get full force (can: vision only until the G1 posture re-run)."""
     src = pick.get("source")
     if src == "fallback": return {"object": "other", "max_closure": UNKNOWN["max_closure"], "why": "fallback: conservative"}
-    key = normalize(pick.get("object") if src != "manual" else (pick.get("object_key") or pick.get("profile")))
-    if key in FULL_CAP:
-        if src == "manual":
-            return {"object": key, "max_closure": FULL_CAP[key], "why": "operator set the object"}
-        c = pick.get("confidence")
-        if src == "model" and not pick.get("safety") and isinstance(c, (int, float)) and c >= CONFIDENT and CONFIDENCE_VALIDATED:
-            return {"object": key, "max_closure": FULL_CAP[key], "why": f"model confident ({c})"}
-    b = behaviour(key)
-    return {"object": key, "max_closure": b["max_closure"], "why": "robust cap" if key in OBJECTS else "unknown: conservative"}
+    manual = src == "manual"
+    label = (pick.get("object_key") or pick.get("profile")) if manual else pick.get("object")
+    key = normalize(label)
+    conf = None if pick.get("safety") else pick.get("confidence")
+    c = cap_for_votes(key, confidence=conf, agree=int(pick.get("agree") or 1), manual=manual)
+    why = ("full force: " + ("operator set the object" if manual else f"confidence {conf}, {pick.get('agree')} recognisers agree")) \
+        if c == FULL_FORCE.get(key) and key in FULL_FORCE else ("robust cap" if key in OBJECTS else "unknown: conservative")
+    return {"object": key, "max_closure": c, "why": why}

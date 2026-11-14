@@ -1,0 +1,452 @@
+{
+ "47": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1369,
+    "dur_s": 16.4,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.51,
+    "grasp_s": 8.3,
+    "pos_range_m": [
+     0.31,
+     0.3,
+     0.2
+    ],
+    "pos_while_grasp_mean_m": [
+     0.95,
+     -0.43,
+     0.47
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.24,
+     0.24,
+     0.16
+    ]
+   },
+   "left": {
+    "frames": 1369,
+    "dur_s": 16.4,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.08,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.24,
+     0.07,
+     0.08
+    ]
+   }
+  }
+ },
+ "48": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1242,
+    "dur_s": 14.9,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.33,
+    "grasp_s": 6.0,
+    "pos_range_m": [
+     0.3,
+     0.31,
+     0.17
+    ],
+    "pos_while_grasp_mean_m": [
+     0.97,
+     -0.43,
+     0.49
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.26,
+     0.27,
+     0.16
+    ]
+   },
+   "left": {
+    "frames": 1242,
+    "dur_s": 14.9,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.1,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.23,
+     0.09,
+     0.08
+    ]
+   }
+  }
+ },
+ "49": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1138,
+    "dur_s": 13.6,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.39,
+    "grasp_s": 5.8,
+    "pos_range_m": [
+     0.32,
+     0.31,
+     0.17
+    ],
+    "pos_while_grasp_mean_m": [
+     0.97,
+     -0.42,
+     0.49
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.28,
+     0.28,
+     0.16
+    ]
+   },
+   "left": {
+    "frames": 1138,
+    "dur_s": 13.6,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.16,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.29,
+     0.07,
+     0.08
+    ]
+   }
+  }
+ },
+ "50": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1158,
+    "dur_s": 13.9,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.31,
+    "grasp_s": 5.2,
+    "pos_range_m": [
+     0.32,
+     0.31,
+     0.18
+    ],
+    "pos_while_grasp_mean_m": [
+     0.96,
+     -0.43,
+     0.49
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.28,
+     0.28,
+     0.16
+    ]
+   },
+   "left": {
+    "frames": 1158,
+    "dur_s": 13.9,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.19,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.28,
+     0.1,
+     0.08
+    ]
+   }
+  }
+ },
+ "51": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1123,
+    "dur_s": 13.4,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.34,
+    "grasp_s": 5.2,
+    "pos_range_m": [
+     0.31,
+     0.32,
+     0.18
+    ],
+    "pos_while_grasp_mean_m": [
+     0.96,
+     -0.44,
+     0.48
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.29,
+     0.29,
+     0.17
+    ]
+   },
+   "left": {
+    "frames": 1123,
+    "dur_s": 13.4,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.09,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.27,
+     0.06,
+     0.09
+    ]
+   }
+  }
+ },
+ "52": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1066,
+    "dur_s": 12.8,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.02,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.01,
+     0.01,
+     0.02
+    ]
+   },
+   "left": {
+    "frames": 1066,
+    "dur_s": 12.8,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.35,
+    "grasp_s": 3.9,
+    "pos_range_m": [
+     0.59,
+     0.3,
+     0.14
+    ],
+    "pos_while_grasp_mean_m": [
+     0.67,
+     -0.48,
+     0.4
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.32,
+     0.28,
+     0.07
+    ]
+   }
+  }
+ },
+ "53": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1165,
+    "dur_s": 14.0,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.02,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.01,
+     0.01,
+     0.02
+    ]
+   },
+   "left": {
+    "frames": 1165,
+    "dur_s": 14.0,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.36,
+    "grasp_s": 4.8,
+    "pos_range_m": [
+     0.59,
+     0.3,
+     0.13
+    ],
+    "pos_while_grasp_mean_m": [
+     0.62,
+     -0.44,
+     0.4
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.34,
+     0.27,
+     0.07
+    ]
+   }
+  }
+ },
+ "54": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1074,
+    "dur_s": 12.9,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.02,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.01,
+     0.01,
+     0.02
+    ]
+   },
+   "left": {
+    "frames": 1074,
+    "dur_s": 12.9,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.35,
+    "grasp_s": 4.4,
+    "pos_range_m": [
+     0.59,
+     0.31,
+     0.13
+    ],
+    "pos_while_grasp_mean_m": [
+     0.64,
+     -0.46,
+     0.4
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.32,
+     0.26,
+     0.07
+    ]
+   }
+  }
+ },
+ "55": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1136,
+    "dur_s": 13.6,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.01,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.01,
+     0.01,
+     0.02
+    ]
+   },
+   "left": {
+    "frames": 1136,
+    "dur_s": 13.6,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.33,
+    "grasp_s": 5.4,
+    "pos_range_m": [
+     0.61,
+     0.29,
+     0.14
+    ],
+    "pos_while_grasp_mean_m": [
+     0.64,
+     -0.46,
+     0.39
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.31,
+     0.27,
+     0.07
+    ]
+   }
+  }
+ },
+ "56": {
+  "series": "H",
+  "hands": {
+   "right": {
+    "frames": 1117,
+    "dur_s": 13.4,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.03,
+    "grasp_s": 0.0,
+    "pos_range_m": [
+     0.02,
+     0.05,
+     0.02
+    ]
+   },
+   "left": {
+    "frames": 1117,
+    "dur_s": 13.4,
+    "rate_hz": 83.5,
+    "coil_present": 1.0,
+    "flip_decided": 1.0,
+    "emf_saturated": 0.0,
+    "flex_span_rad": 0.32,
+    "grasp_s": 5.4,
+    "pos_range_m": [
+     0.6,
+     0.34,
+     0.12
+    ],
+    "pos_while_grasp_mean_m": [
+     0.62,
+     -0.48,
+     0.38
+    ],
+    "rise_from_rest_while_grasp_m": [
+     0.31,
+     0.3,
+     0.07
+    ]
+   }
+  }
+ }
+}

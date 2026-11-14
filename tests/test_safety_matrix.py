@@ -32,13 +32,18 @@ def test_robust_cap_is_below_break_with_margin_and_above_hold():
 def test_cap_for_full_force_only_when_sure(monkeypatch):
     shared = op.behaviour("stress_ball")["max_closure"]
     sure = {"source": "model", "object": "stress ball", "profile": "can", "confidence": 0.95}
-    assert op.cap_for(sure)["max_closure"] == shared                      # confidence not validated yet -> shared cap
+    assert op.cap_for(sure)["max_closure"] == shared                      # one recogniser, however confident -> shared cap
     assert op.cap_for({"source": "manual", "object_key": "stress_ball"})["max_closure"] == 1.0
-    monkeypatch.setattr(op, "CONFIDENCE_VALIDATED", True)
+    sure = dict(sure, agree=2)
     assert op.cap_for(sure)["max_closure"] == 1.0
     assert op.cap_for(dict(sure, confidence=0.85))["max_closure"] == shared
     assert op.cap_for(dict(sure, safety=["ball below 0.9"]))["max_closure"] == shared
     assert op.cap_for(dict(sure, confidence=None))["max_closure"] == shared
+    assert op.cap_for({"source": "manual", "object_key": "can"})["max_closure"] < 1.0   # can: vision only
+    for args in [("stress_ball", 0.95, 2, False), ("stress_ball", 0.95, 1, False), ("egg", 0.99, 3, True), ("mystery", 1.0, 5, True)]:
+        lab, c, ag, man = args   # dict and positional front-ends give the same cap
+        d = {"source": "manual", "object_key": lab} if man else {"source": "model", "object": lab, "confidence": c, "agree": ag}
+        assert op.cap_for(d)["max_closure"] == op.cap_for_votes(lab, c, ag, man)
     assert op.cap_for({"source": "model", "object": "egg", "confidence": 0.99})["max_closure"] < op.BREAK_CLOSURE["egg"]
     assert op.cap_for({"source": "fallback", "object": "?"})["max_closure"] == op.UNKNOWN["max_closure"]
     assert op.cap_for({"source": "model", "object": "teapot", "confidence": 0.99})["max_closure"] == op.UNKNOWN["max_closure"]

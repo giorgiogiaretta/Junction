@@ -1,5 +1,5 @@
 """G1 Dex3 grasp physics in MuJoCo: how hard does the RIGHT hand squeeze each object at each commanded closure, and does it hold it?
-  py -3.11 g1/sim/grasp_physics.py [--objects egg,ball,can] [--kp 1.5] [--render]  -> data/g1sim/grasp/{report.json,REPORT.md,*.png}
+  py -3.11 g1/sim/grasp_physics.py [--objects egg,ball,can] [--kp 1.5] [--render] [--spec objs.json --objects banana]  -> data/g1sim/grasp/{report.json,REPORT.md,*.png}
 Setup: official G1 29-DoF + Dex3 MJCF (fetched by g1_sim.py), base fixed, body held by stiff position servos + gravity compensation,
 only the right-hand subtree collides. Hand joints = position servos (kp, kv) with the URDF torque limits (1.4 / 2.45 Nm), commands from
 robot.g1_dex3.G1Dex3Retargeter (unchanged, same mapping as the real robot path) with closure c in 0..1 on index+middle (thumb coupled).
@@ -171,11 +171,32 @@ def summarize(obj, rows):
     return dict(contact_closure=contact, min_hold_closure=hold, break_closure=broke, recommended_max_closure=cap, break_threshold_N=brk)
 
 
+SPEC_KEYS = {"type", "size", "mass", "brk", "soft"}
+SIZE_LEN = {"ellipsoid": 3, "sphere": 1, "cylinder": 2}
+
+
+def load_object_specs(path):
+    """Extra objects from JSON {name: {type: ellipsoid|sphere|cylinder, size: [half-sizes m], mass: kg, brk: N or null, soft: bool}},
+    e.g. a 'banana-like' ellipsoid described by the grasp advisor. Shapes are MuJoCo primitives (size = half-extents / radius,
+    half-height), so a banana is only an ellipsoid approximation. Validated here; merged into OBJECTS."""
+    d = json.load(open(path)); out = {}
+    for name, o in d.items():
+        if set(o) != SPEC_KEYS: raise ValueError(f"{name}: keys must be {sorted(SPEC_KEYS)}")
+        if o["type"] not in SIZE_LEN or len(o["size"]) != SIZE_LEN[o["type"]] or not all(0.005 <= float(x) <= 0.15 for x in o["size"]):
+            raise ValueError(f"{name}: type/size invalid (half-sizes 5 mm..15 cm)")
+        if not 0.001 <= float(o["mass"]) <= 2.0 or (o["brk"] is not None and float(o["brk"]) <= 0) or not isinstance(o["soft"], bool):
+            raise ValueError(f"{name}: mass 1 g..2 kg, brk > 0 or null, soft bool")
+        out[name] = dict(type=o["type"], size=[float(x) for x in o["size"]], mass=float(o["mass"]), brk=None if o["brk"] is None else float(o["brk"]), soft=o["soft"])
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--objects", default="egg,ball,can"); ap.add_argument("--kp", type=float, default=1.5); ap.add_argument("--kv", type=float, default=0.1)
     ap.add_argument("--levels", default="0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0"); ap.add_argument("--render", action="store_true")
+    ap.add_argument("--spec", help="JSON of extra objects (see load_object_specs); use their names in --objects")
     a = ap.parse_args(); os.makedirs(OUT, exist_ok=True)
+    if a.spec: OBJECTS.update(load_object_specs(a.spec))
     if not os.path.exists(ASSETS): sys.exit("run g1/sim/g1_sim.py once to fetch the G1 model")
     levels = [float(x) for x in a.levels.split(",")]
     report = {"kp": a.kp, "kv": a.kv, "objects": {}}

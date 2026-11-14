@@ -5,6 +5,22 @@ Flow: glove/Rokoko Studio -> UDP 14043 -> `fanout.py` -> dashboard (14044) + rob
 Needs `pip install -r demo/requirements.txt -r robot/requirements.txt`. Backends: `dry`, `sim`, `serial`, `pca9685`.
 Note: `--backend sim` opens no viewer through run_udp; use `mjpython -m robot.sim` separately for visuals.
 
+## Projector mode
+
+Open `demo/results.html` in a browser for the offline G1 egg comparison and
+recognizer results. The comparison embeds the repository JPEG and labels its
+contact forces as simulation outputs.
+
+Run `demo/run_demo.sh --present --assist egg` to show the mock stream and live
+simulation telemetry fullscreen. Press F11 to toggle fullscreen or Esc to leave it.
+The live bar shows current and peak simulated contact force. The profile and closure
+cap come from the same UDP telemetry and disappear when telemetry goes stale.
+
+Click **Stato rete/endpoint** to check whether the configured endpoint responds
+to an unauthenticated `GET /models`. Green means HTTP 2xx or an authentication
+response (401/403). Red means the check failed. The check does not run inference
+or send a frame or a key. It uses `LLM_BASE_URL` when set and Verda otherwise.
+
 To pick a Force Cushion profile once at startup, set `FRAME` to a head-camera image.
 If `HX`, `HY` and `HZ` are all set, the picker uses the hand position in the head
 frame (metres) to crop the image. If any coordinate is missing, it uses the full frame.
@@ -29,7 +45,7 @@ profile and closure cap. The picker uses its built-in fallback offline.
 ## Offline QC pitch page
 
 Open `demo/results.html` directly. It has no external assets or network calls and
-uses the system light/dark preference. The committed snapshot contains no QC data.
+uses a dark theme for projection. The committed snapshot contains no QC data.
 
 To embed existing `data/qc/*.json` reports in the single HTML file:
 

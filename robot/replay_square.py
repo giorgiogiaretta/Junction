@@ -102,7 +102,47 @@ def replay_square(path, obj="cube", fingers="real", calib=None, hz=60, hand="act
             "peak_force_N": round(sc.peak_force, 2)}
 
 
+def load_rollout(path):
+    """Policy rollout (Giorgio's ml/square_policy, #15) -> (xyz Nx3, grip N, hz, side). Contract (docs/contracts.md, 'square rollout'):
+    JSON {"hz": float, "side_m": float (default 0.297), "xyz": [[x,y,z], ...], "grip": [g, ...]} or .npz with the same keys.
+    xyz: wrist per tick in the SQUARE TABLE FRAME, metres: origin = square centre, x = BL->BR, y = BL->TL, z = height above the
+    wrist height at grasp/release (0 = grasp height, + = up). grip: 0 open .. 1 closed, applied to all five fingers."""
+    if str(path).endswith(".npz"):
+        z = np.load(path, allow_pickle=False); d = {k: z[k] for k in z.files}
+    else:
+        d = json.load(open(path))
+    xyz = np.asarray(d["xyz"], float); grip = np.clip(np.asarray(d["grip"], float).reshape(-1), 0, 1)
+    if xyz.ndim != 2 or xyz.shape[1] != 3 or len(grip) != len(xyz) or not np.isfinite(xyz).all():
+        raise ValueError("rollout needs xyz Nx3 and grip N, finite")
+    return xyz, grip, float(d.get("hz", 60)), float(d.get("side_m", 0.297))
+
+
+def replay_rollout(path, obj="cube"):
+    """Drive the sim hand with a policy rollout (no recorded take, no frame fitting). Same scene and score as replay_square:
+    pads on the 4 nominal corners, object starts on BL, after each release (grip falls below 0.5) distance to the next target corner."""
+    xyz, grip, hz, side = load_rollout(path)
+    half = side / 2; cq = {"BL": np.array([-half, -half]), "TL": np.array([-half, half]), "TR": np.array([half, half]), "BR": np.array([half, -half])}
+    wrist = np.stack([xyz[:, 0], xyz[:, 1], GRASP_Z_FOR[obj] + xyz[:, 2]], 1)
+    sc = Scene(obj, obj_xy=tuple(cq["BL"]), pedestals=tuple(tuple(v) for v in cq.values()), ped_half=(0.03, 0.03))
+    sc.place_hand(*wrist[0])
+    closed = grip >= 0.5; rel = [i for i in range(1, len(grip)) if closed[i - 1] and not closed[i]]
+    checks = {min(i + int(0.5 * hz), len(grip) - 1): n for n, i in enumerate(rel[:4])}
+    legs = []
+    for i in range(len(grip)):
+        sc.step([float(grip[i])] * 5, tuple(wrist[i]), 1.0 / hz)
+        if i in checks:
+            tgt = TARGETS[checks[i]]; err = float(np.linalg.norm(sc.obj_pos()[:2] - cq[tgt]))
+            legs.append({"target": tgt, "err_m": round(err, 3), "ok": err < TOL_M})
+    o = sc.obj_pos()
+    clipped = float(np.mean((np.abs(wrist[:, 0]) > 0.4) | (np.abs(wrist[:, 1]) > 0.4) | (wrist[:, 2] < 0.05) | (wrist[:, 2] > 0.4)))
+    return {"rollout": os.path.basename(str(path)), "obj": obj, "ticks": len(grip), "hz": hz, "releases": len(rel), "wrist_clipped_frac": round(clipped, 3),
+            "legs": legs, "legs_ok": sum(l["ok"] for l in legs), "final_obj_xy": np.round(o[:2], 3).tolist(), "peak_force_N": round(sc.peak_force, 2)}
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--rollout":   # python -m robot.replay_square --rollout r.json [r2.json ...]
+        for e in sys.argv[2:]: print(json.dumps(replay_rollout(e)))
+        sys.exit(0)
     ap = argparse.ArgumentParser(); ap.add_argument("episode", nargs="+")
     ap.add_argument("--obj", default="cube", choices=["cube", "egg"]); ap.add_argument("--fingers", default="real", choices=["real", "gain", "synthetic"])
     ap.add_argument("--calib", default=os.path.join(ROOT, "data", "square_calib.json")); ap.add_argument("--hand", default="active", choices=["active", "left", "right"])

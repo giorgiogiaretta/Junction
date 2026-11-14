@@ -30,15 +30,26 @@ def classify(path, P):
     if wb: cands.append(("egg", wb[0]["area"] * 0.8))
     return max(cands, key=lambda c: c[1])[0] if cands else "other"
 
-ROOT = sys.argv[1] if len(sys.argv) > 1 else "imgs"
-P = {"os": 150, "omin": 120, "ws": 45, "wv": 215, "wmin": 150, "wmax": 9000, "gmin": 250}
-FOLDER = {"ball": "stress_ball", "egg": "egg", "can": "can"}
-rows = []
-for d, lab in FOLDER.items():
-    for f in sorted(glob.glob(os.path.join(ROOT, d, "*.jpg"))):
-        rows.append((f, lab, classify(f, P)))
-for name, sel in (("even", lambda i: i % 2 == 0), ("odd", lambda i: i % 2 == 1), ("all", lambda i: True)):
-    sub = [r for i, r in enumerate(rows) if sel(i)]
-    acc = sum(r[1] == r[2] for r in sub) / len(sub)
-    c = collections.Counter((r[1], r[2]) for r in sub)
-    print(name, len(sub), "acc %.0f%%" % (acc * 100), {k: v for k, v in sorted(c.items())})
+def classify_bytes(data, P=None):
+    """Colour-rule label for image bytes: 'stress_ball' | 'egg' | 'can' | 'other' (76% on imgs/, untuned)."""
+    import io
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".jpg") as f:
+        f.write(data); f.flush(); return classify(f.name, P or DEFAULT_P)
+
+
+DEFAULT_P = {"os": 150, "omin": 120, "ws": 45, "wv": 215, "wmin": 150, "wmax": 9000, "gmin": 250}
+
+if __name__ == "__main__":
+    ROOT = sys.argv[1] if len(sys.argv) > 1 else "imgs"
+    P = {"os": 150, "omin": 120, "ws": 45, "wv": 215, "wmin": 150, "wmax": 9000, "gmin": 250}
+    FOLDER = {"ball": "stress_ball", "egg": "egg", "can": "can"}
+    rows = []
+    for d, lab in FOLDER.items():
+        for f in sorted(glob.glob(os.path.join(ROOT, d, "*.jpg"))):
+            rows.append((f, lab, classify(f, P)))
+    for name, sel in (("even", lambda i: i % 2 == 0), ("odd", lambda i: i % 2 == 1), ("all", lambda i: True)):
+        sub = [r for i, r in enumerate(rows) if sel(i)]
+        acc = sum(r[1] == r[2] for r in sub) / len(sub)
+        c = collections.Counter((r[1], r[2]) for r in sub)
+        print(name, len(sub), "acc %.0f%%" % (acc * 100), {k: v for k, v in sorted(c.items())})

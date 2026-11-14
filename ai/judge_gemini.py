@@ -15,7 +15,7 @@ measured precision. 'HandOff riuscito' is the model's reading of finger closure 
 JSON the result is 'unclear' (source=fallback): it is printed as False with the reason 'NON VALUTATO', and marked unclear in the report."""
 import argparse, glob, json, math, os, sys, time
 
-DEFAULT_MODEL = "gemini-2.5-flash"  # UNVERIFIED id: confirm at the Google DeepMind booth / AI Studio
+DEFAULT_MODEL = "gemini-3.1-flash-lite"  # id listed by ai.list_gemini_models for our key; GEMINI_MODEL overrides, MODEL_CHAIN is the fallback order
 MAX_HZ = 15.0
 
 SYSTEM = ("You judge one recorded robot-teleoperation episode made with Rokoko smartgloves and a Coil Pro wrist tracker. "
@@ -117,20 +117,49 @@ def _parse(resp):
     return {"handoff_success": r["handoff_success"], "reason": str(r.get("reason", "")).strip(), "phases": r.get("phases") or [], "source": "model"}
 
 
-def judge_episode(client, ep, model=None, retries=3, sleep=time.sleep, config=None):
-    """-> {handoff_success: True|False|None, reason, phases, source: 'model'|'fallback', error?}. None = unclear (API error / invalid JSON after retries)."""
-    model = model or os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL
+# Free tier (verified 14/11 on our key): 20 requests PER DAY per model (RESOURCE_EXHAUSTED ... PerDay, retryDelay ~18 h) and a per-minute cap. A daily 429 is NOT retried:
+# the model is marked exhausted for this process and the next one of the chain is tried. Per-minute 429 / 503 / network errors: exponential backoff + jitter.
+MODEL_CHAIN = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash"]   # ids listed by `python -m ai.list_gemini_models` for our key
+_EXHAUSTED = set()
+
+
+def _kind(e):
+    """Classify an SDK/API exception WITHOUT echoing its text (it could contain the key): 'daily' | 'rate' | 'transient' | 'other'."""
+    t = (str(e) + " " + type(e).__name__).lower()
+    if "429" in t or "resource_exhausted" in t or "quota" in t:
+        return "daily" if ("perday" in t or "per day" in t or "daily" in t) else "rate"
+    if "503" in t or "unavailable" in t or "overloaded" in t or "timeout" in t or "ssl" in t or "connection" in t: return "transient"
+    return "other"
+
+
+def judge_episode(client, ep, model=None, retries=3, sleep=time.sleep, config=None, chain=None, jitter=lambda: __import__("random").random() * 0.5):
+    """-> {handoff_success: True|False|None, reason, phases, source: 'model'|'fallback', model?, error?}. None = unclear (all models failed / quota / invalid JSON)."""
+    models = [model] if model else ([os.environ["GEMINI_MODEL"]] if os.environ.get("GEMINI_MODEL") else (chain or MODEL_CHAIN))
     contents = payload_json(ep); last = "unknown error"
-    for attempt in range(retries):
-        try:
-            resp = client.models.generate_content(model=model, contents=contents, config=config if config is not None else _config())
-            return _parse(resp)
-        except (ValueError, KeyError, TypeError, AttributeError) as e:  # invalid / malformed JSON
-            last = f"invalid response: {e}"
-        except Exception as e:  # API / network error: do not echo anything that could contain the key
-            last = f"api error: {type(e).__name__}"
-        if attempt < retries - 1: sleep(min(20, 2 ** attempt))
+    for m in models:
+        if m in _EXHAUSTED: last = "daily quota exhausted for " + m; continue
+        for attempt in range(retries):
+            try:
+                resp = client.models.generate_content(model=m, contents=contents, config=config if config is not None else _config())
+                r = _parse(resp); r["model"] = m; return r
+            except (ValueError, KeyError, TypeError, AttributeError) as e:  # invalid / malformed JSON
+                last = f"invalid response: {e}"; kind = "other"
+            except Exception as e:  # API / network error: do not echo anything that could contain the key
+                kind = _kind(e); last = f"api error ({kind})"
+            if kind == "daily": _EXHAUSTED.add(m); break          # no point retrying: go to the next model
+            if attempt < retries - 1: sleep(min(30, 2 ** attempt * (4 if kind == "rate" else 1)) + jitter())
+        else:
+            if kind == "other": break                           # invalid JSON / unknown error is not a quota problem: do not burn the other models' quota
     return {"handoff_success": None, "reason": "", "phases": [], "source": "fallback", "error": last}
+
+
+def judge_async(client, ep, on_done, **kw):
+    """Non-blocking judge for the end of a recording: runs in a daemon thread (never stalls the simulator) and calls on_done(result)."""
+    import threading
+    def run():
+        try: on_done(judge_episode(client, ep, **kw))
+        except Exception as e: on_done({"handoff_success": None, "reason": "", "phases": [], "source": "fallback", "error": type(e).__name__})
+    t = threading.Thread(target=run, daemon=True); t.start(); return t
 
 
 def format_line(res):

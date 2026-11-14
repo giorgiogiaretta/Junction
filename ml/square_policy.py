@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """Series H square pick-and-place: table frame, leg segmentation, small MLP behaviour cloning, leave-one-take-out eval.
 Draft by a delegate model (deepseek), reviewed and fixed by Claude (leg off-by-one, rollout start). Honest scope: 10 takes, one operator.
-  python ml/square_policy.py
+  python ml/square_policy.py [--model mlp|knn] [--nested-k] [--export DIR]   mlp needs torch; knn is numpy only; --nested-k
+  picks k per outer fold by leave-one-take-out on the 9 training takes only (honest; rollout success is very sensitive to k);
+  --export writes each held-out rollout as robot/ JSON (then: python -m robot.replay_square --rollout DIR/*.json);
+  --grip-schedule exports the learned xy path with a scripted pick-place grip/height (descend open, close at z=0, lift, carry);
+  --home CM (with --grip-schedule) adds SCRIPTED fine homing: a leg ending within CM of its pad is carried onto the pad
+Fixes (#15): targets are HORIZON-step displacements, so the rollout now applies a/HORIZON per step (it applied the whole
+HORIZON-step move every step and flew off by metres); legs advance only on a slow visit to the EXPECTED next corner
+(any-corner visits mislabelled legs 1-2); time-in-leg input so the corner dwell is not a fixed point.
 """
 import json
 import sys
 from pathlib import Path
 
 import numpy as np
-import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from device import pick_device
 
 ROOT = Path(__file__).resolve().parent.parent
 EP_DIR = ROOT / "data" / "episodes"
@@ -24,8 +29,13 @@ HORIZON = 5
 VEL_LAG = 3
 EPOCHS = 300
 CORNER_ORDER = ["BL", "TL", "TR", "BR"]  # clockwise cycle used by series H
-IN_DIM = 14  # pos3 + vel3 + grip1 + (goal-pos)3 + onehot4
+IN_DIM = 15  # pos3 + vel3 + grip1 + (goal-pos)3 + onehot4 + tleg1
 OUT_DIM = 4  # dpos3 + grip1
+TLEG_CAP = 3.0  # s: time-in-leg input saturates here
+KNN_COLS = [3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14]  # vel, goal-pos, leg, tleg: no absolute position (10 takes), no grip
+KNN_K = 10
+KNN_KS = (5, 10, 15, 20, 30, 40)  # candidates for --nested-k
+REACH_TOL = 0.08  # m: the demos themselves get only 5.7-7.5 cm from the fitted BR corner, so 5 cm is unreachable there
 
 
 def _unit(v):
@@ -60,58 +70,76 @@ def grip_channel(fingers01):
     return thumb if exc(thumb) >= exc(others) else others
 
 
-def segment_legs(pos, corners, dist_thr=0.06, speed_thr=0.15, fps=FPS):
-    """leg in 0..3: (distinct slow visits to corners so far) - 1, clamped; goal = destination corner of that leg (BL>TL, TL>TR, TR>BR, BR>BL)."""
+def segment_legs(pos, corners, dist_thr=0.09, speed_thr=0.15, fps=FPS):
+    """Ordered state machine: leg 0 starts at the first slow visit to BL, then leg k -> k+1 only on a slow visit to the
+    EXPECTED next corner (BL>TL>TR>BR>BL), so passing back near the previous corner no longer advances it. Frames before
+    the start are leg 0. dist_thr 9 cm: the wrist stops 6-7.5 cm from the fitted BR corner. goal = leg's destination corner."""
     pos = np.asarray(pos, float)
     n = len(pos)
     vel = np.zeros_like(pos)
     if n > 1:
         vel[1:] = np.diff(pos, axis=0) * fps
-    speed = np.linalg.norm(vel, axis=1)
-    C = np.stack([corners[k] for k in CORNER_ORDER])
-    d = np.linalg.norm(pos[:, None, :] - C[None, :, :], axis=2)
-    cand = np.where((d.min(1) < dist_thr) & (speed < speed_thr), d.argmin(1), -1)
-    starts, last = [], -1
-    for i, ci in enumerate(cand):
-        if ci == -1 or ci == last:
-            continue
-        starts.append(i)
-        last = ci
+    slow = np.linalg.norm(vel, axis=1) < speed_thr
+    near = lambda i, k: np.linalg.norm(pos[i] - corners[k]) < dist_thr
     legs = np.zeros(n, int)
-    if starts:
-        st = np.asarray(starts, int)
-        legs = np.clip((st[None, :] <= np.arange(n)[:, None]).sum(1) - 1, 0, 3)
+    leg, started = 0, False
+    for i in range(n):
+        if not started:
+            started = slow[i] and near(i, "BL")
+        elif leg < 3 and slow[i] and near(i, CORNER_ORDER[leg + 1]):
+            leg += 1
+        legs[i] = leg
     goals = np.stack([corners[CORNER_ORDER[(int(l) + 1) % 4]] for l in legs])
     return legs, goals
 
 
-def make_state(pos, vel, grip, goal, leg):
+def time_in_leg(legs, fps=FPS, cap=TLEG_CAP):
+    """Seconds since the current leg started, capped: lets the policy leave the corner dwell instead of copying zero velocity."""
+    t = np.zeros(len(legs))
+    s = 0
+    for i in range(len(legs)):
+        if i and legs[i] != legs[i - 1]:
+            s = i
+        t[i] = min((i - s) / fps, cap)
+    return t
+
+
+def make_state(pos, vel, grip, goal, leg, tleg=0.0):
     oh = np.zeros(4)
     oh[int(leg)] = 1.0
-    return np.concatenate([np.asarray(pos, float), np.asarray(vel, float), [float(grip)], np.asarray(goal, float) - np.asarray(pos, float), oh])
+    return np.concatenate([np.asarray(pos, float), np.asarray(vel, float), [float(grip)], np.asarray(goal, float) - np.asarray(pos, float), oh, [float(tleg)]])
 
 
 def make_dataset(takes, horizon=HORIZON, vel_lag=VEL_LAG):
     Xs, Ys = [], []
     for td in takes:
         pos, grip, legs, goals = td["pos"], td["grip"], td["legs"], td["goals"]
+        tl = time_in_leg(legs)
         for t in range(vel_lag, len(pos) - horizon):
             vel = pos[t] - pos[t - vel_lag]  # displacement (m) over vel_lag steps
-            Xs.append(make_state(pos[t], vel, grip[t], goals[t], legs[t]))
+            Xs.append(make_state(pos[t], vel, grip[t], goals[t], legs[t], tl[t]))
             Ys.append(np.concatenate([pos[t + horizon] - pos[t], [grip[t + horizon]]]))
     return np.asarray(Xs, np.float32).reshape(-1, IN_DIM), np.asarray(Ys, np.float32).reshape(-1, OUT_DIM)
 
 
-class MLP(torch.nn.Module):
-    def __init__(self, in_dim=IN_DIM, out_dim=OUT_DIM, h=64):
-        super().__init__()
-        self.net = torch.nn.Sequential(torch.nn.Linear(in_dim, h), torch.nn.ReLU(), torch.nn.Linear(h, h), torch.nn.ReLU(), torch.nn.Linear(h, out_dim))
-
-    def forward(self, x):
-        return self.net(x)
+def train_knn(X, Y, k=KNN_K, cols=KNN_COLS):
+    """Numpy k-nearest-neighbour policy on standardised KNN_COLS: mean of the k neighbours' targets."""
+    F = X[:, cols].astype(np.float64)
+    mu, sd = F.mean(0), F.std(0) + 1e-6
+    return {"kind": "knn", "F": (F - mu) / sd, "Y": np.asarray(Y, np.float64), "mu": mu, "sd": sd, "k": k, "cols": cols}
 
 
 def train_mlp(X, Y, dev, epochs=EPOCHS, batch=256, lr=1e-3, seed=0):
+    import torch
+
+    class MLP(torch.nn.Module):
+        def __init__(self, in_dim=IN_DIM, out_dim=OUT_DIM, h=64):
+            super().__init__()
+            self.net = torch.nn.Sequential(torch.nn.Linear(in_dim, h), torch.nn.ReLU(), torch.nn.Linear(h, h), torch.nn.ReLU(), torch.nn.Linear(h, out_dim))
+
+        def forward(self, x):
+            return self.net(x)
+
     torch.manual_seed(seed)
     mu, sd = X.mean(0), X.std(0) + 1e-6
     ym, ys = Y.mean(0), Y.std(0) + 1e-6
@@ -131,33 +159,116 @@ def train_mlp(X, Y, dev, epochs=EPOCHS, batch=256, lr=1e-3, seed=0):
 
 
 def predict(model, X):
+    if model.get("kind") == "knn":
+        q = (np.asarray(X, np.float64)[:, model["cols"]] - model["mu"]) / model["sd"]
+        d = ((model["F"][None] - q[:, None]) ** 2).sum(-1)
+        return model["Y"][np.argsort(d, 1)[:, :model["k"]]].mean(1)
+    import torch
     x = torch.as_tensor((np.asarray(X, np.float32) - model["mu"]) / model["sd"], dtype=torch.float32, device=model["dev"])
     with torch.no_grad():
         y = model["net"](x).cpu().numpy()
     return y * model["ys"] + model["ym"]
 
 
-def rollout(model, take, max_steps=150, goal_tol=0.04, reach_tol=0.05, clip_dp=0.10):
-    """Closed loop from the first slow visit to BL: 4 legs, goal switches at <goal_tol or after max_steps."""
+def rollout(model, take, max_steps=150, goal_tol=0.04, reach_tol=REACH_TOL, clip_dp=0.02, horizon=HORIZON):
+    """Closed loop from the first slow visit to BL, 4 legs. The goal switches when the wrist is within goal_tol, when it
+    has stalled (<5 mm in 0.5 s, after the TLEG_CAP dwell), or after max_steps (5 s); a leg counts as reached if its
+    closest approach was < reach_tol. The model predicts a horizon-step move, so each 1/30 s step applies a/horizon.
+    clip_dp 2 cm/step = 0.6 m/s, above any demo speed."""
     C = take["corners"]
     near = np.where(np.linalg.norm(take["pos"] - C["BL"], axis=1) < 0.06)[0]
     i0 = int(near[0]) if len(near) else 0
     pos = take["pos"][i0].astype(float).copy()
     grip = float(take["grip"][i0])
-    hist = [pos.copy()]
-    reached = []
+    hist, grips, legs_t = [pos.copy()], [grip], [0]
+    reached, closest = [], []
     for leg in range(4):
         goal = C[CORNER_ORDER[(leg + 1) % 4]]
-        for _ in range(max_steps):
+        best = np.inf
+        for s in range(max_steps):
             vel = (hist[-1] - hist[-VEL_LAG - 1]) if len(hist) >= VEL_LAG + 1 else np.zeros(3)
-            a = predict(model, make_state(pos, vel, grip, goal, leg)[None])[0]
-            pos = pos + np.clip(a[:3], -clip_dp, clip_dp)
+            a = predict(model, make_state(pos, vel, grip, goal, leg, min(s / FPS, TLEG_CAP))[None])[0]
+            pos = pos + np.clip(a[:3] / horizon, -clip_dp, clip_dp)
             grip = float(np.clip(a[3], 0.0, 1.0))
             hist.append(pos.copy())
-            if np.linalg.norm(pos - goal) < goal_tol:
+            grips.append(grip)
+            legs_t.append(leg)
+            best = min(best, float(np.linalg.norm(pos - goal)))
+            stalled = s > TLEG_CAP * FPS and np.linalg.norm(hist[-1] - hist[-16]) < 0.005
+            if best < goal_tol or stalled:
                 break
-        reached.append(bool(np.linalg.norm(pos - goal) < reach_tol))
-    return {"legs_reached": reached, "corners_reached": int(sum(reached)), "final_err_cm": 100.0 * float(np.linalg.norm(pos - C["BL"]))}
+        reached.append(bool(best < reach_tol))
+        closest.append(round(100.0 * best, 1))
+    return {"legs_reached": reached, "corners_reached": int(sum(reached)), "closest_cm": closest, "final_err_cm": 100.0 * float(np.linalg.norm(pos - C["BL"])),
+            "traj": np.asarray(hist), "grip": np.asarray(grips), "leg": np.asarray(legs_t)}
+
+
+def export_rollout(ro, train_takes, path, side_m=0.297, schedule=False, home_m=0.0):
+    """Rollout -> robot/ contract (docs/contracts.md 'Square policy rollout'): {"hz","side_m","xyz","grip"}. Our table frame
+    already has x = BL->BR, y = BL->TL, z up, origin = corner centroid; corners are wrist poses at grasp/release, so z = 0 is
+    the grasp height. Rescaled from SIDE_TARGET to side_m. Grip channel mapped 0..1 by the TRAINING takes' p5..p95 (thumb
+    0.25..0.9 in H), so the robot's 0.5 threshold sits mid-way."""
+    g = np.concatenate([t["grip"] for t in train_takes])
+    lo, hi = np.percentile(g, 5), np.percentile(g, 95)
+    xyz = np.asarray(ro["traj"], float) * (side_m / SIDE_TARGET)
+    grip = np.clip((np.asarray(ro["grip"], float) - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+    d = {"hz": FPS, "side_m": side_m, "leg": np.asarray(ro["leg"]).astype(int).tolist()}
+    if schedule:
+        goals = None if ro.get("goals") is None else np.asarray(ro["goals"], float) * (side_m / SIDE_TARGET)
+        xyz, grip = pick_place_schedule(xyz, ro["leg"], goals, home_m=home_m * (side_m / SIDE_TARGET))
+        d = {"hz": FPS, "side_m": side_m, "grip_mode": "scripted pick-place around the learned xy path, legs cut at closest approach",
+             "home_m": home_m}
+    Path(path).write_text(json.dumps({**d, "xyz": np.round(xyz, 4).tolist(), "grip": np.round(grip, 3).tolist()}))
+
+
+def pick_place_schedule(xyz, leg, goals=None, hz=FPS, hov=0.12, t_move=1.0, t_grip=1.2, v_carry=0.3, home_m=0.0):
+    """Learned path, scripted grasp (#15, board 14:29): the policy's per-leg xy path is kept, the grip and height are scripted
+    around it: descend OPEN to z=0 -> close -> lift to hov -> carry along the policy xy -> lower to z=0 -> open -> up. Raw glove
+    grip crosses 0.5 mid-square and the toy hand needs to close at grasp height, so the learned grip is not used here.
+    goals (4x2, the leg targets) cut each leg at its closest approach: the closed loop passes the corner (that is what
+    'corners reached' scores) then overshoots 20-30 cm before the leg switches, and releasing there drops the cube off the pad.
+    home_m > 0 (needs goals): SCRIPTED fine homing, not learned: if the cut leg ends within home_m of its pad, carry straight
+    to the pad before lowering (stand-in for a camera-located pad); farther misses are left as they are. The first pick is homed
+    the same way onto goals[-1] (the square closes, so the start pad is the last leg's target)."""
+    xyz, leg = np.asarray(xyz, float), np.asarray(leg, int)
+    out_p, out_g = [np.r_[xyz[0, :2], hov]], [0.0]
+
+    def seg(a, b, za, zb, g, secs):
+        n = max(1, int(secs * hz))
+        for s in np.arange(1, n + 1) / n:
+            out_p.append(np.r_[a + (b - a) * s, za + (zb - za) * s]); out_g.append(g)
+    start = xyz[0, :2]
+    if home_m > 0 and goals is not None and np.linalg.norm(np.asarray(goals)[-1, :2] - start) < home_m:
+        start = np.asarray(goals, float)[-1, :2]   # first pick homed too: the loop starts on the last leg's pad
+        seg(xyz[0, :2], start, hov, hov, 0.0, np.linalg.norm(start - xyz[0, :2]) / v_carry)
+    for k in range(int(leg.max()) + 1):
+        path = xyz[leg == k, :2]
+        if not len(path):
+            continue
+        if goals is not None:
+            path = path[:int(np.argmin(np.linalg.norm(path - np.asarray(goals)[k, :2], axis=1))) + 1]
+        seg(start, start, hov, 0.0, 0.0, t_move); seg(start, start, 0.0, 0.0, 1.0, t_grip); seg(start, start, 0.0, hov, 1.0, t_move)
+        seg(start, path[0], hov, hov, 1.0, np.linalg.norm(path[0] - start) / v_carry)
+        for p in path[1:]:
+            out_p.append(np.r_[p, hov]); out_g.append(1.0)
+        end = path[-1]
+        if home_m > 0 and goals is not None and np.linalg.norm(np.asarray(goals)[k, :2] - end) < home_m:
+            g = np.asarray(goals, float)[k, :2]
+            seg(end, g, hov, hov, 1.0, np.linalg.norm(g - end) / v_carry)
+            end = g
+        seg(end, end, hov, 0.0, 1.0, t_move); seg(end, end, 0.0, 0.0, 0.0, t_grip); seg(end, end, 0.0, hov, 0.0, t_move)
+        start = end
+    return np.asarray(out_p), np.asarray(out_g)
+
+
+def demo_closest_cm(take):
+    """Ceiling: how close the human demo itself got to each leg's corner (cm)."""
+    out = []
+    for leg in range(4):
+        m = take["legs"] == leg
+        g = take["corners"][CORNER_ORDER[(leg + 1) % 4]]
+        out.append(round(100.0 * float(np.linalg.norm(take["pos"][m] - g, axis=1).min()), 1) if m.any() else None)
+    return out
 
 
 def load_takes():
@@ -182,35 +293,65 @@ def load_takes():
     return takes, skipped
 
 
-def train_eval(takes, dev, epochs=EPOCHS):
+def select_k(train_takes, ks=KNN_KS):
+    """Nested choice of k using ONLY the training takes (leave-one-take-out inside them): rollout success swings from
+    0/10 to 8/10 all-four across k, so picking k on the test folds would be cherry-picking."""
+    inner = [(j, make_dataset([t for i, t in enumerate(train_takes) if i != j])) for j in range(len(train_takes))]
+    scores = {}
+    for k in ks:
+        rs = [rollout(train_knn(X, Y, k=k), train_takes[j]) for j, (X, Y) in inner]
+        scores[k] = (sum(r["corners_reached"] for r in rs), -sum(sum(r["closest_cm"]) for r in rs))
+    return max(ks, key=lambda k: scores[k]), {int(k): int(v[0]) for k, v in scores.items()}
+
+
+def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False, export_dir=None, schedule=False, home_m=0.0):
     folds = []
     for k, test in enumerate(takes):
-        Xtr, Ytr = make_dataset([t for i, t in enumerate(takes) if i != k])
+        train = [t for i, t in enumerate(takes) if i != k]
+        Xtr, Ytr = make_dataset(train)
         Xte, Yte = make_dataset([test])
-        model = train_mlp(Xtr, Ytr, dev, epochs=epochs)
+        kk, inner = (select_k(train) if nested_k else (KNN_K, None))
+        model = train_knn(Xtr, Ytr, k=kk) if kind == "knn" else train_mlp(Xtr, Ytr, dev, epochs=epochs)
         P = predict(model, Xte)
         pos_mae = float(100.0 * np.abs(P[:, :3] - Yte[:, :3]).mean())
         grip_mae = float(np.abs(P[:, 3] - Yte[:, 3]).mean())
         bvel = float(100.0 * np.abs(Xte[:, 3:6] * (HORIZON / VEL_LAG) - Yte[:, :3]).mean())
         bgrip = float(np.abs(Xte[:, 6] - Yte[:, 3]).mean())
         ro = rollout(model, test)
-        folds.append({"test_take": test["name"], "hand": test["hand"], "n_train": int(len(Xtr)), "n_test": int(len(Xte)), "pos_mae_cm": pos_mae, "grip_mae": grip_mae,
-                      "base_vel_pos_mae_cm": bvel, "base_grip_mae": bgrip, "rollout": ro})
-        print(f"[fold] test={test['name']:>3} pos={pos_mae:5.2f}cm (vel-base {bvel:5.2f}) grip={grip_mae:5.3f} (hold-base {bgrip:5.3f}) corners={ro['corners_reached']}/4 final={ro['final_err_cm']:.1f}cm")
+        traj = {"traj": ro.pop("traj"), "grip": ro.pop("grip"), "leg": ro.pop("leg"), "goals": [test["corners"][CORNER_ORDER[(k + 1) % 4]] for k in range(4)]}
+        if export_dir:
+            export_rollout(traj, train, Path(export_dir) / f"rollout_{kind}_take{int(test['name']):02d}.json", schedule=schedule, home_m=home_m)
+        folds.append({"test_take": test["name"], "hand": test["hand"], "knn_k": kk if kind == "knn" else None, "inner_corners_by_k": inner, "n_train": int(len(Xtr)), "n_test": int(len(Xte)), "pos_mae_cm": pos_mae, "grip_mae": grip_mae,
+                      "base_vel_pos_mae_cm": bvel, "base_grip_mae": bgrip, "rollout": ro, "demo_closest_cm": demo_closest_cm(test)})
+        print(f"[fold] test={test['name']:>3} pos={pos_mae:5.2f}cm (vel-base {bvel:5.2f}) grip={grip_mae:5.3f} (hold-base {bgrip:5.3f}) corners={ro['corners_reached']}/4 "
+              f"closest={ro['closest_cm']} demo={demo_closest_cm(test)} final={ro['final_err_cm']:.1f}cm")
     return folds
 
 
 def main():
-    dev = pick_device()
+    kind = sys.argv[sys.argv.index("--model") + 1] if "--model" in sys.argv else "mlp"
+    if kind == "knn":
+        dev = "cpu"
+    else:
+        from device import pick_device
+        dev = pick_device()
     takes, skipped = load_takes()
     if len(takes) < 3:
         raise SystemExit(f"need >=3 usable H takes, got {len(takes)}")
-    print(f"device={dev} takes={len(takes)} scales={[round(t['scale'], 2) for t in takes]}")
-    folds = train_eval(takes, dev)
+    print(f"model={kind} device={dev} takes={len(takes)} scales={[round(t['scale'], 2) for t in takes]} reach_tol={REACH_TOL * 100:.0f}cm")
+    nested_k = kind == "knn" and "--nested-k" in sys.argv
+    export_dir = sys.argv[sys.argv.index("--export") + 1] if "--export" in sys.argv else None
+    if export_dir:
+        Path(export_dir).mkdir(parents=True, exist_ok=True)
+    home_m = float(sys.argv[sys.argv.index("--home") + 1]) / 100.0 if "--home" in sys.argv else 0.0
+    folds = train_eval(takes, dev, kind=kind, nested_k=nested_k, export_dir=export_dir, schedule="--grip-schedule" in sys.argv, home_m=home_m)
     m = lambda f: float(np.mean([f(x) for x in folds]))
     means = {"n_folds": len(folds), "pos_mae_cm": m(lambda f: f["pos_mae_cm"]), "base_vel_pos_mae_cm": m(lambda f: f["base_vel_pos_mae_cm"]), "grip_mae": m(lambda f: f["grip_mae"]),
-             "base_grip_mae": m(lambda f: f["base_grip_mae"]), "rollout_corners_reached": m(lambda f: f["rollout"]["corners_reached"]), "rollout_final_err_cm": m(lambda f: f["rollout"]["final_err_cm"])}
-    REPORT.write_text(json.dumps({"device": str(dev), "skipped": skipped, "folds": folds, "means": means}, indent=2))
+             "base_grip_mae": m(lambda f: f["base_grip_mae"]), "rollout_corners_reached": m(lambda f: f["rollout"]["corners_reached"]),
+             "rollout_all4_folds": int(sum(f["rollout"]["corners_reached"] == 4 for f in folds)), "rollout_final_err_cm": m(lambda f: f["rollout"]["final_err_cm"]),
+             "demo_legs_within_tol": m(lambda f: sum(d is not None and d < 100 * REACH_TOL for d in f["demo_closest_cm"]))}
+    out = REPORT if kind == "mlp" else REPORT.with_name(f"square_policy_report_{kind}{'_nested' if nested_k else ''}.json")
+    out.write_text(json.dumps({"model": kind, "device": str(dev), "reach_tol_m": REACH_TOL, "nested_k": nested_k, "knn_ks": list(KNN_KS) if nested_k else None, "skipped": skipped, "folds": folds, "means": means}, indent=2))
     print("MEAN:", {k: round(v, 3) for k, v in means.items()})
 
 

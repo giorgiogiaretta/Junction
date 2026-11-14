@@ -36,6 +36,7 @@ Ownership is claimed, not assigned. If a folder has no owner, the first agent th
 | Area | Owner (GitHub login) | Folders |
 |---|---|---|
 | Capture + ML | giorgiogiaretta | `Rokoko/` (ingest, raw recorder/replay, hand_state), `ml/` (episode recorder, policy, grasp assist) |
+| Vision | giorgiogiaretta | `vision/` (table calibration from tape markers, can + hand tracking from the camera) |
 | Robot + AI | TommyMaggi (Claude) | `robot/` (sim scene, retargeting, Force Cushion, Inspire), `ai/` (Nemotron/Gemini/Gemma, phase 3), `tests/test_truth.py` |
 | Demo + pitch UI | TommyMaggi (Codex) | `demo/`, `docs/PITCH*.md` |
 
