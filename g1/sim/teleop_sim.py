@@ -27,6 +27,7 @@ from teleop_filters import OneEuro, QuatFilter, Deadband
 RATE = 30
 CLEAR = 0.10
 WRIST_MAX_DEG = 70.0
+SNAP_XY, SNAP_Z, SNAP_DEG = 0.02, 0.03, 35.0   # soft mode: the reliable grasp takes over only this close to the grasp pose (and your hand ~aligned)
 VMAX = 0.35              # m/s, robot hand target speed limit (calm, continuous)
 WRIST_ON_TABLE = 0.06    # robot wrist height above the counter when your wrist sensor rests on your table (hand flat)
 MIRROR = {"shoulder_roll", "shoulder_yaw", "wrist_roll", "wrist_yaw"}
@@ -246,7 +247,13 @@ def main():
             last_t[h] = p_tel.copy()
             tgt_p, tgt_R, mode, arrived = p_tel, R_tel, "teleop", False; ghost[h] = p_tel
             wr = kin.a.d.xpos[kin.a.ee[h]]; hold_fingers = False
-            if G[h] is not None and a.assist == "soft":
+            snap = False
+            if G[h] is not None and a.assist == "soft" and stage[h] is None:      # REALLY close (2 cm, your hand ~aligned) + closing -> reliable grasp
+                gp, gR, pin_t = G[h]; dv0 = pinch(kin, h) - pin_t
+                r_e = np.degrees(np.linalg.norm(arm_ik.rot_err(gR, kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3))))
+                if np.hypot(dv0[0], dv0[1]) < SNAP_XY and abs(dv0[2]) < SNAP_Z and r_e < SNAP_DEG and g > 0.3 * pr["g_ref"]:
+                    stage[h], t_st[h], snap = "close", time.time(), True; print(f"[{h}] snap grasp: {100 * np.linalg.norm(dv0):.1f} cm, {r_e:.0f} deg from the grasp pose", flush=True)
+            if G[h] is not None and a.assist == "soft" and stage[h] is None:
                 gp, gR, pin_t = G[h]; dv = pinch(kin, h) - pin_t; dxy = float(np.hypot(dv[0], dv[1]))
                 if dxy < 0.06 and -0.02 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]:
                     w = float(np.clip((0.06 - dxy) / 0.04, 0, 1))             # 0 at 6 cm, 1 within 2 cm
@@ -259,7 +266,7 @@ def main():
                 gp, gR, pin_t = G[h]; appr = APPR[h]; pre_p = gp + CLEAR * appr; dv = pinch(kin, h) - seen
                 dist = float(np.hypot(dv[0], dv[1])) if -0.03 < dv[2] < 0.20 else 9.9
                 st = stage[h]
-                if st is None and g > 0.3 * pr["g_ref"] and dist < 0.10: st, t_st[h] = "pre", time.time()       # you close near the object: assist starts
+                if a.assist == "strong" and st is None and g > 0.3 * pr["g_ref"] and dist < 0.10: st, t_st[h] = "pre", time.time()   # strong mode: auto approach
                 if st in ("pre", "down") and g < 0.15 * pr["g_ref"]: st = None                               # you opened before the grasp: assist off
                 if st == "pre":                       # 1) grasp orientation + pre-grasp pose, AWAY from the object (above, or beside for the can)
                     tgt_p, tgt_R, hold_fingers, mode = pre_p, gR, True, "assist: pre-grasp"
