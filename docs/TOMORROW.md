@@ -3,6 +3,8 @@
 Principle: **one vertical slice first** (real glove -> retarget -> real hand holds a fragile object, with video), everything else only after it works. Human time with hardware is the bottleneck: agents prepare scripts and tests beforehand, humans spend hardware minutes only on checks that are already scripted.
 
 ## 0. First 30 min (humans, in parallel)
+Run `demo/morning_check.sh` first (tests, keys present, Nemotron ping, Inspire reachable with `INSPIRE_HOST=<ip>`, cameras). Then start the agent structure: orchestrator + Codex/Sonnet workers per `docs/ORCHESTRATOR_BRIEF.md`, each in its own worktree; Tommaso's loop needs `brew install coreutils` + gnubin on PATH. Status: Nemotron verified (chat, tool call, image); judge v2 recall 22/32 on positives (docs/JUDGE_RESULTS.md), precision unknown until failure takes are labelled.
+
 | Who | Task | Done when |
 |---|---|---|
 | Tommaso | NVIDIA key on build.nvidia.com + exact Nemotron 3.5 Super VL model id (booth / catalogue); `export NVIDIA_API_KEY=... LLM_MODEL=...` | `python -c "from ai.llm import ChatClient; print(ChatClient().chat([{'role':'user','content':'ping'}]))"` answers |

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tactile-less HandOff · results</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--mute:#6b6a63;--line:#e3e1d8;--ok:#1f7a4d;--warn:#b26a00;--no:#b3261e;--acc:#2a5bd7}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#f1efe8;--mute:#a09e94;--line:#34332f;--ok:#58c08a;--warn:#e0a040;--no:#f0766e;--acc:#7da2ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:clamp(26px,4vw,38px);margin:0 0 6px;letter-spacing:-.02em}h2{font-size:20px;margin:36px 0 12px}
+.sub{color:var(--mute);margin:0 0 24px;max-width:62ch}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card img{width:100%;border-radius:8px;display:block}.card h3{margin:10px 0 2px;font-size:16px}.card p{margin:0;color:var(--mute);font-size:14px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid currentColor;margin-right:6px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.no{color:var(--no)}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}th{color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}tr:last-child td{border-bottom:0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}.flow span{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}.flow i{color:var(--mute);font-style:normal}
+.note{border-left:3px solid var(--warn);padding:8px 12px;background:var(--card);border-radius:0 8px 8px 0;font-size:14px;color:var(--mute)}
+</style></head><body><main>
+<h1>Tactile-less HandOff</h1>
+<p class="sub">Rokoko gloves can't feel. We add a vision-chosen force cushion and record every session as data. Everything below is labelled: <b class="ok">proven in simulation</b>, <b class="warn">partly proven</b>, or <b class="no">not proven</b>. Nothing here ran on a real robot hand yet.</p>
+
+<div class="flow"><span>Rokoko gloves + Coil Pro</span><i>→</i><span>retarget (Inspire / G1 Dex3)</span><i>→</i><span>Force Cushion <small>(profile from Nemotron)</small></span><i>→</i><span>hand (MuJoCo today)</span><i>→</i><span>episodes → judge</span></div>
+
+<h2>Egg: with and without the cushion <span class="tag warn">simulation, scripted grip</span></h2>
+<div class="grid">
+ <div class="card"><img src="../docs/media/egg_no_cushion.gif" alt="egg without cushion"><h3>Full fist, no cushion</h3><p>Red bar = broken. Toy threshold 3 N.</p></div>
+ <div class="card"><img src="../docs/media/egg_with_cushion.gif" alt="egg with cushion"><h3>Same fist, egg profile</h3><p>Green bar = gripped intact, closure capped at 0.5.</p></div>
+ <div class="card"><img src="../docs/media/cube_lift.gif" alt="cube"><h3>Rigid cube</h3><p>Control: the same hand lifts a cube.</p></div>
+</div>
+<p class="note" style="margin-top:14px">On 11 real wrist paths (series B), scripted grip: egg broken <b>10/11 without</b> the cushion, <b>1/11 with</b>. Break threshold and gains are hand-tuned toy values, not measurements.</p>
+
+<h2>Real glove data in the simulator</h2>
+<table><thead><tr><th>Cube, real recordings</th><th>Series A</th><th>Series B</th><th>Series C</th><th>Verdict</th></tr></thead><tbody>
+<tr><td>real Coil Pro wrist + <b>real</b> fingers</td><td>0/11</td><td>0/11</td><td>0/10</td><td class="no">not proven</td></tr>
+<tr><td>real Coil Pro wrist + scripted grip</td><td>8/11</td><td>9/11</td><td>9/10</td><td class="warn">wrist path is usable</td></tr>
+</tbody></table>
+<p class="sub" style="margin-top:10px">Lifted and held. The object position was not recorded, so it is placed under the hand at the pick moment: the approach is not tested.</p>
+
+<h2>Episode judge (NVIDIA Nemotron 3.5 Super VL) <span class="tag warn">recall only</span></h2>
+<table><thead><tr><th>Prompt</th><th>Human-positive episodes judged good</th><th>Unclear</th></tr></thead><tbody>
+<tr><td>v1: aggregate statistics</td><td>5 / 32</td><td>16</td></tr>
+<tr><td>v2: task definition + 0.5 s timeline</td><td><b>22 / 32</b></td><td>0</td></tr></tbody></table>
+<p class="note" style="margin-top:14px">All human labels are "not dropped": no failure examples, so precision is unknown. v2 also calls non-grasp series (calibration, noise) "good". Needs 5-10 labelled failures and camera frames.</p>
+
+<h2>What exists / what is next</h2>
+<div class="grid">
+ <div class="card"><span class="tag ok">built</span><p>Sim scene, retargeting (Inspire, G1 Dex3), dashboard with latency + force bar, 61 real episodes, Nemotron picker (text and image) and judge, 42 tests in CI.</p></div>
+ <div class="card"><span class="tag warn">next</span><p>Real Inspire hand (registers from Aalto), camera → picker, judge with video frames, Gemini as second judge.</p></div>
+ <div class="card"><span class="tag no">not claimed</span><p>A trained HandOff policy, real-hand grasp, real latency, real egg forces.</p></div>
+</div>
+</main></body></html>
