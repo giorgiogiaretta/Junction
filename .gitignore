@@ -4,3 +4,5 @@ ml/model.npz
 graphify-out/
 data/overnight/
 data/g1sim/
+data/video_debug/
+data/vision/
