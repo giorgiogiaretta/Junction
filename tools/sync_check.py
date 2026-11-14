@@ -65,7 +65,7 @@ def main():
         while True:
             ok, f = cap.read()
             if not ok: break
-            g = cv2.cvtColor(cv2.resize(f, (320, 180)), cv2.COLOR_BGR2GRAY).astype(np.float32)
+            g = cv2.cvtColor(cv2.resize(f, (320, 180)), cv2.COLOR_BGR2GRAY).astype(np.float32)[110:180, 100:260]   # lower-centre band = the hand (people in the background excluded)
             me.append(0.0 if prev is None else float(np.abs(g - prev).mean())); prev = g
         me = np.array(me[:len(vtimes)]); vt = vtimes[:len(me)]
         grid = np.arange(max(gpc[0], vt[0]) + 1.0, min(gpc[-1], vt[-1], t0 + 11.5), 1 / 100)
@@ -74,6 +74,8 @@ def main():
             best = max(((lag, float(np.mean(G * ((lambda V: (V - V.mean()) / (V.std() + 1e-9))(np.interp(grid + lag, vt, me)))))) for lag in np.arange(-0.2, 0.6, 0.01)), key=lambda x: x[1])
             rep["camera_delay_s"] = {"delay": round(best[0], 2), "corr": round(best[1], 2),
                                      "note": "video event appears this many seconds AFTER the glove event; corr < 0.3 = unreliable (fists not visible / head moved)"}
+    rep["t0_wall"] = t0; rep["first_frame_after_t0_s"] = round(float(vtimes[0] - t0), 3)
+    rep["note_dist"] = "dist_from_coil_m is the norm in the Coil frame: its origin is not the Coil body, do not read it as a physical distance"
     json.dump(rep, open(os.path.join(OUT, "report.json"), "w"), indent=1)
     print(json.dumps(rep, indent=1))
     ok = [h for h in ("right", "left") if h in rep and rep[h]["coil_present"] > 0.9 and rep[h]["saturation"] < 0.05]
