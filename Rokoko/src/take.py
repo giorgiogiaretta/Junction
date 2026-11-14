@@ -28,7 +28,7 @@ S = {
    "Poi correggi la traiettoria, afferra bene e solleva.",
    "Riposa e torna a riposo. Poi Invio per STOP. (Nessun marker: l'inizio della correzione si ricava dai dati.)"]),
  "E": ("Calibrazione: mano aperta / pugno", 3, [
-   "Entrambe le mani con i guanti, davanti a te.",
+   "Con un guanto in testa: solo la mano col guanto (R/L chiesto una volta). Altrimenti entrambe le mani, davanti a te.",
    "5 secondi: mano APERTA, piatta, dita tese e ferme.",
    "Poi 5 secondi: PUGNO stretto, tutte le dita chiuse e ferme. Poi Invio = STOP (nessun marker)."]),
  "F": ("Mani a riposo (rumore dei sensori)", 2, [
@@ -139,10 +139,10 @@ while True:
     pos_id = input("Posizione oggetto (P1-P5 segnata sul tavolo, Invio = salta): ").strip().upper() or None if last in ("A", "B", "C") else None
     hand_used = (input("Mano che muove la lattina (R/L): ").strip().upper() or None) if last in ("H", "I", "J", "K") else None
     obj = None; operator = None
-    if last in ("O", "P", "K", "S") and HAND is None:
+    if last in ("O", "P", "K", "S", "E") and HAND is None:
         while HAND not in ("R", "L"): HAND = (input("Guanto sulla MANO: R = destro (il SINISTRO va in testa), L = sinistro (il DESTRO va in testa): ").strip().upper() or "")
         print(f"  -> mano {'destra' if HAND == 'R' else 'sinistra'}, guanto {'SINISTRO' if HAND == 'R' else 'DESTRO'} in testa sulla GoPro. Per scambiare: menu X.")
-    if last in ("O", "P", "K", "S"): hand_used = HAND
+    if last in ("O", "P", "K", "S", "E"): hand_used = HAND
     if last in ("O", "P"):
         while obj is None: obj = OBJ.get(input("Oggetto: U = uovo, P = pallina, L = lattina: ").strip().upper())
         hand_used = HAND
@@ -174,7 +174,7 @@ while True:
         if outcome == "discard":
             os.remove(path); [os.remove(f) for f in (f"data/video/take_{n:02d}.mp4", f"data/video/take_{n:02d}_frames.json") if os.path.exists(f)]
             print("  take annullata"); continue
-    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "video": (vinfo or {}).get("video"), "pos_id": pos_id, "hand_used": hand_used, "object": ("coke_can_empty_standard_low" if last == "H" else obj), "outcome": outcome, "success": (None if outcome is None else outcome == "ok"), "operator": operator, "head_glove": ({"R": "left", "L": "right"}[hand_used] if last in ("O", "P", "K", "S") and hand_used in ("R", "L") else None), "cam_pos": CAMPOS if cam else ("gopro_head" if GOPRO else None), "gopro_sync": GOPRO, "chunks": cnt[0], "bytes": os.path.getsize(path)}
+    rec_ = {"take": n, "series": last, "file": path, "t_start": t0, "t_stop": t1, "t_mark": tm, "lead_s": LEAD, "tail_trim_s": TAIL, "video": (vinfo or {}).get("video"), "pos_id": pos_id, "hand_used": hand_used, "object": ("coke_can_empty_standard_low" if last == "H" else obj), "outcome": outcome, "success": (None if outcome is None else outcome == "ok"), "operator": operator, "head_glove": ({"R": "left", "L": "right"}[hand_used] if last in ("O", "P", "K", "S", "E") and hand_used in ("R", "L") else None), "cam_pos": CAMPOS if cam else ("gopro_head" if GOPRO else None), "gopro_sync": GOPRO, "chunks": cnt[0], "bytes": os.path.getsize(path)}
     open(LOG, "a").write(json.dumps(rec_) + "\n")
     print(f"  salvata take {n:02d}: {t1-t0:.1f}s, {rec_['bytes']//1024} KB")
     check(path, rec_["head_glove"])
