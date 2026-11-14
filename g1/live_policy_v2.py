@@ -1,4 +1,4 @@
-"""V2 live, WITH the Coil: the arms follow the operator's wrists (same chain as g1/sim/teleop_multi.py, g1/coil_chain.py), the gloves
+﻿"""V2 live, WITH the Coil: the arms follow the operator's wrists (same chain as g1/sim/teleop_multi.py, g1/coil_chain.py), the gloves
 drive the fingers, camera (or CLI xy) gives the objects for assist/snap. Seated beside the robot: start with both gloves FLAT and STILL on
 the table = robot rest pose; a hand resting still on the table for 1 s re-anchors (no Coil drift).
 
@@ -24,7 +24,7 @@ if os.path.isdir(REPO): sys.path.insert(0, REPO)
 import arm_ik, demo_e2e as D, teleop_sim as T, coil_chain as CC
 from robot.g1_dex3 import G1Dex3Retargeter
 
-CHUNK = 3          # targets per call (one call per tick cannot keep 30 Hz, see live_policy_v1.py)
+CHUNK = int(os.environ.get("G1_CHUNK", "2"))   # targets per call. 3 = one glove reading per 100 ms (the 14/11 night delay); 1 = fresh every tick
 RATE = 30.0
 JOINT_SPEED = 0.9  # rad/s, 90 % of the runner's 1 rad/s (14/11 evening: was 0.7, operator wanted less delay)
 START_SPEED = 0.9  # rad/s (was 0.6), startup move from the robot's real rest pose to the palm-down front pose
@@ -249,7 +249,7 @@ class LivePolicyV2(Policy):
             if reasons:
                 self.kin.a.q.update(prev); self.kin.a.apply(); self.blocked += 1; self.consec += 1
                 fingers = {"left": None, "right": None}
-                if self.consec >= 3: self.abort = True; self._write({"event": "ABORT_HOLD", "reasons": reasons, "consecutive_blocks": self.consec})
+                if self.consec == 3: self._write({"event": "HOLD", "reasons": reasons, "consecutive_blocks": self.consec})   # hold the last command, NOT latched: tracking resumes as soon as a step is safe (was ABORT_HOLD for the whole episode)
             else: self.consec = 0
         ok = self.initialized and not self.abort and not reasons
         arm_t = np.asarray(self.kin.a.arm_q()) if ok else self.last_cmd.copy()

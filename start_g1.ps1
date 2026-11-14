@@ -10,7 +10,8 @@
 #                                                              Seated calibration FIRST (beeps), then the robot goes to "hands open,
 #                                                              palm down, in front"; right hand only, -Both for both hands;
 #                                                              -NoCalib to reuse the last calibration)
-param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$Both, [switch]$NoCalib, [int]$Seconds = 300, [string]$Closure = "0.6",
+#   -NoConsole: no operator console (less CPU = less delay)
+param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
@@ -37,7 +38,8 @@ Write-Host "driver ok"
 
 Write-Host "== 3/5 libero la porta 8000 e avvio la console" -ForegroundColor Cyan
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'arms_glove|arms_simple|live_policy|rgmp_client|teleop_multi' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-if (-not (Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'tools[\\/]console[\\/]app.py' })) {
+if ($NoConsole) { Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'tools[\\/]console[\\/]app.py' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue } }
+elseif (-not (Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'tools[\\/]console[\\/]app.py' })) {
     Start-Process py -ArgumentList "-3.11", "$J\tools\console\app.py" -WorkingDirectory $J
 }
 
