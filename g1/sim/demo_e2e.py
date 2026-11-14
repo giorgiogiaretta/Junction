@@ -32,7 +32,7 @@ KEEP = dict(x=(0.14, 1.20), y=(-0.55, 0.55), z=0.03)
 BOX = dict(x=(0.0, 0.80), y=(-0.70, 0.70), z=(-0.25, 0.60))
 HOME = {"left": dict(shoulder_roll=0.35, elbow=-0.5), "right": dict(shoulder_roll=-0.35, elbow=-0.5)}
 OBJECTS = {   # estimated sizes: measure ours. brk = break / dent threshold (assumed)
-    "egg":         dict(type="ellipsoid", size=[0.021, 0.021, 0.028], mass=0.060, brk=20.0, soft=False, rgba=[0.96, 0.92, 0.85, 1], quat=[0.7071068, 0.7071068, 0, 0]),   # lying, long axis along y
+    "egg":         dict(type="ellipsoid", size=[0.021, 0.021, 0.028], mass=0.060, brk=20.0, soft=False, rgba=[0.96, 0.92, 0.85, 1], quat=[0.7071068, 0.7071068, 0, 0], roll_friction=0.004),   # lying, long axis along y
     "stress_ball": dict(type="sphere",    size=[0.033],               mass=0.030, brk=None, soft=True,  rgba=[1.0, 0.45, 0.05, 1]),
     "can_empty":   dict(type="cylinder",  size=[0.029, 0.073],        mass=0.015, brk=15.0, soft=False, rgba=[0.85, 0.7, 0.3, 1]),
 }
@@ -106,7 +106,7 @@ def build(obj, stand=None):
     # counter: top at pelvis z COUNTER_Z, near edge x 0.14, 1.06 m deep, 1.10 m wide; printed mat 0.90 x 0.50 from the near edge
     top = PELVIS_Z + COUNTER_Z
     spec.worldbody.add_geom(name="counter", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.53, 0.55, 0.02], pos=[0.14 + 0.53, 0, top - 0.02],
-                            rgba=[0.55, 0.42, 0.3, 1], contype=3, conaffinity=3, friction=[1.0, 0.005, 0.0001])
+                            rgba=[0.55, 0.42, 0.3, 1], contype=3, conaffinity=3, friction=[1.0, 0.01, 0.004], condim=6)
     spec.worldbody.add_geom(type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.25, 0.45, 0.0005], pos=[0.14 + 0.25, 0, top + 0.0005], rgba=[0.85, 0.85, 0.8, 1], contype=0, conaffinity=0)
     o = OBJECTS[obj]
     body = spec.worldbody.add_body(name="obj", pos=[0, 0, 0]); body.add_freejoint()
@@ -114,6 +114,7 @@ def build(obj, stand=None):
     g = body.add_geom(name="obj_g", type=gt, size=o["size"] + [0] * (3 - len(o["size"])), mass=o["mass"], rgba=o["rgba"], contype=3, conaffinity=3,
                       friction=[1.0, 0.005, 0.0001], condim=4)
     if o["soft"]: g.solref = [0.03, 1.0]; g.solimp = [0.5, 0.95, 0.015, 0.5, 2]
+    if o.get("roll_friction"): g.condim = 6; g.friction = [1.0, 0.01, o["roll_friction"]]   # rolling + torsional friction: a real egg does not roll forever
     if stand is not None:                                           # small stand on the counter (collides with the object only, not the hand)
         x, y, ztop = stand; hgt = max(ztop - top, 0.002)
         spec.worldbody.add_geom(name="stand", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[0.015, hgt / 2, 0], pos=[x, y, top + hgt / 2],
