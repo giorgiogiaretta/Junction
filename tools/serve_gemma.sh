@@ -5,7 +5,13 @@
 # Secrets come from YOUR environment and are never written to a file: HF_TOKEN (licence accepted on that Hugging Face account) and LOCAL_KEY (any string you choose).
 # Mac side:  ssh -N -L 8000:127.0.0.1:8000 <user>@<verda-ip>   then   export GEMMA_BASE_URL=http://127.0.0.1:8000/v1 GEMMA_API_KEY=<LOCAL_KEY> GEMMA_MODEL=<MODEL>
 set -euo pipefail
-SERVER="${SERVER:-paligemma}"; PORT="${PORT:-8000}"      # two servers can share one 80 GB GPU: e.g. paligemma on 8000 and SERVER=vllm PORT=8001 GPU_UTIL=0.75
+SERVER="${SERVER:-paligemma}"; PORT="${PORT:-8000}"
+# Recent Ubuntu refuses system-wide pip installs (PEP 668): use a virtualenv (installs python3-venv if missing).
+VENV="${VENV:-$HOME/gemma-venv}"
+if [ ! -f "$VENV/bin/activate" ]; then
+  python3 -m venv "$VENV" 2>/dev/null || { apt-get update -qq && apt-get install -y -qq python3-venv python3-pip && python3 -m venv "$VENV"; }
+fi
+. "$VENV/bin/activate"      # two servers can share one 80 GB GPU: e.g. paligemma on 8000 and SERVER=vllm PORT=8001 GPU_UTIL=0.75
 : "${LOCAL_KEY:?export LOCAL_KEY=<any secret string> first}"
 if [ "$SERVER" = "paligemma" ]; then
   MODEL="${MODEL:-google/paligemma2-3b-mix-224}"
