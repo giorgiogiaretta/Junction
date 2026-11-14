@@ -3,7 +3,8 @@
 Draft by a delegate model (deepseek), reviewed and fixed by Claude (leg off-by-one, rollout start). Honest scope: 10 takes, one operator.
   python ml/square_policy.py [--model mlp|knn] [--nested-k] [--export DIR]   mlp needs torch; knn is numpy only; --nested-k
   picks k per outer fold by leave-one-take-out on the 9 training takes only (honest; rollout success is very sensitive to k);
-  --export writes each held-out rollout as robot/ JSON (then: python -m robot.replay_square --rollout DIR/*.json)
+  --export writes each held-out rollout as robot/ JSON (then: python -m robot.replay_square --rollout DIR/*.json);
+  --grip-schedule exports the learned xy path with a scripted pick-place grip/height (descend open, close at z=0, lift, carry)
 Fixes (#15): targets are HORIZON-step displacements, so the rollout now applies a/HORIZON per step (it applied the whole
 HORIZON-step move every step and flew off by metres); legs advance only on a slow visit to the EXPECTED next corner
 (any-corner visits mislabelled legs 1-2); time-in-leg input so the corner dwell is not a fixed point.
@@ -201,7 +202,7 @@ def rollout(model, take, max_steps=150, goal_tol=0.04, reach_tol=REACH_TOL, clip
             "traj": np.asarray(hist), "grip": np.asarray(grips), "leg": np.asarray(legs_t)}
 
 
-def export_rollout(ro, train_takes, path, side_m=0.297):
+def export_rollout(ro, train_takes, path, side_m=0.297, schedule=False):
     """Rollout -> robot/ contract (docs/contracts.md 'Square policy rollout'): {"hz","side_m","xyz","grip"}. Our table frame
     already has x = BL->BR, y = BL->TL, z up, origin = corner centroid; corners are wrist poses at grasp/release, so z = 0 is
     the grasp height. Rescaled from SIDE_TARGET to side_m. Grip channel mapped 0..1 by the TRAINING takes' p5..p95 (thumb
@@ -210,8 +211,42 @@ def export_rollout(ro, train_takes, path, side_m=0.297):
     lo, hi = np.percentile(g, 5), np.percentile(g, 95)
     xyz = np.asarray(ro["traj"], float) * (side_m / SIDE_TARGET)
     grip = np.clip((np.asarray(ro["grip"], float) - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
-    Path(path).write_text(json.dumps({"hz": FPS, "side_m": side_m, "xyz": np.round(xyz, 4).tolist(), "grip": np.round(grip, 3).tolist(),
-                                      "leg": np.asarray(ro["leg"]).astype(int).tolist()}))
+    d = {"hz": FPS, "side_m": side_m, "leg": np.asarray(ro["leg"]).astype(int).tolist()}
+    if schedule:
+        goals = None if ro.get("goals") is None else np.asarray(ro["goals"], float) * (side_m / SIDE_TARGET)
+        xyz, grip = pick_place_schedule(xyz, ro["leg"], goals)
+        d = {"hz": FPS, "side_m": side_m, "grip_mode": "scripted pick-place around the learned xy path, legs cut at closest approach"}
+    Path(path).write_text(json.dumps({**d, "xyz": np.round(xyz, 4).tolist(), "grip": np.round(grip, 3).tolist()}))
+
+
+def pick_place_schedule(xyz, leg, goals=None, hz=FPS, hov=0.12, t_move=1.0, t_grip=1.2, v_carry=0.3):
+    """Learned path, scripted grasp (#15, board 14:29): the policy's per-leg xy path is kept, the grip and height are scripted
+    around it: descend OPEN to z=0 -> close -> lift to hov -> carry along the policy xy -> lower to z=0 -> open -> up. Raw glove
+    grip crosses 0.5 mid-square and the toy hand needs to close at grasp height, so the learned grip is not used here.
+    goals (4x2, the leg targets) cut each leg at its closest approach: the closed loop passes the corner (that is what
+    'corners reached' scores) then overshoots 20-30 cm before the leg switches, and releasing there drops the cube off the pad."""
+    xyz, leg = np.asarray(xyz, float), np.asarray(leg, int)
+    out_p, out_g = [np.r_[xyz[0, :2], hov]], [0.0]
+
+    def seg(a, b, za, zb, g, secs):
+        n = max(1, int(secs * hz))
+        for s in np.arange(1, n + 1) / n:
+            out_p.append(np.r_[a + (b - a) * s, za + (zb - za) * s]); out_g.append(g)
+    start = xyz[0, :2]
+    for k in range(int(leg.max()) + 1):
+        path = xyz[leg == k, :2]
+        if not len(path):
+            continue
+        if goals is not None:
+            path = path[:int(np.argmin(np.linalg.norm(path - np.asarray(goals)[k, :2], axis=1))) + 1]
+        seg(start, start, hov, 0.0, 0.0, t_move); seg(start, start, 0.0, 0.0, 1.0, t_grip); seg(start, start, 0.0, hov, 1.0, t_move)
+        seg(start, path[0], hov, hov, 1.0, np.linalg.norm(path[0] - start) / v_carry)
+        for p in path[1:]:
+            out_p.append(np.r_[p, hov]); out_g.append(1.0)
+        end = path[-1]
+        seg(end, end, hov, 0.0, 1.0, t_move); seg(end, end, 0.0, 0.0, 0.0, t_grip); seg(end, end, 0.0, hov, 0.0, t_move)
+        start = end
+    return np.asarray(out_p), np.asarray(out_g)
 
 
 def demo_closest_cm(take):
@@ -257,7 +292,7 @@ def select_k(train_takes, ks=KNN_KS):
     return max(ks, key=lambda k: scores[k]), {int(k): int(v[0]) for k, v in scores.items()}
 
 
-def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False, export_dir=None):
+def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False, export_dir=None, schedule=False):
     folds = []
     for k, test in enumerate(takes):
         train = [t for i, t in enumerate(takes) if i != k]
@@ -271,9 +306,9 @@ def train_eval(takes, dev, epochs=EPOCHS, kind="mlp", nested_k=False, export_dir
         bvel = float(100.0 * np.abs(Xte[:, 3:6] * (HORIZON / VEL_LAG) - Yte[:, :3]).mean())
         bgrip = float(np.abs(Xte[:, 6] - Yte[:, 3]).mean())
         ro = rollout(model, test)
-        traj = {"traj": ro.pop("traj"), "grip": ro.pop("grip"), "leg": ro.pop("leg")}
+        traj = {"traj": ro.pop("traj"), "grip": ro.pop("grip"), "leg": ro.pop("leg"), "goals": [test["corners"][CORNER_ORDER[(k + 1) % 4]] for k in range(4)]}
         if export_dir:
-            export_rollout(traj, train, Path(export_dir) / f"rollout_{kind}_take{int(test['name']):02d}.json")
+            export_rollout(traj, train, Path(export_dir) / f"rollout_{kind}_take{int(test['name']):02d}.json", schedule=schedule)
         folds.append({"test_take": test["name"], "hand": test["hand"], "knn_k": kk if kind == "knn" else None, "inner_corners_by_k": inner, "n_train": int(len(Xtr)), "n_test": int(len(Xte)), "pos_mae_cm": pos_mae, "grip_mae": grip_mae,
                       "base_vel_pos_mae_cm": bvel, "base_grip_mae": bgrip, "rollout": ro, "demo_closest_cm": demo_closest_cm(test)})
         print(f"[fold] test={test['name']:>3} pos={pos_mae:5.2f}cm (vel-base {bvel:5.2f}) grip={grip_mae:5.3f} (hold-base {bgrip:5.3f}) corners={ro['corners_reached']}/4 "
@@ -296,7 +331,7 @@ def main():
     export_dir = sys.argv[sys.argv.index("--export") + 1] if "--export" in sys.argv else None
     if export_dir:
         Path(export_dir).mkdir(parents=True, exist_ok=True)
-    folds = train_eval(takes, dev, kind=kind, nested_k=nested_k, export_dir=export_dir)
+    folds = train_eval(takes, dev, kind=kind, nested_k=nested_k, export_dir=export_dir, schedule="--grip-schedule" in sys.argv)
     m = lambda f: float(np.mean([f(x) for x in folds]))
     means = {"n_folds": len(folds), "pos_mae_cm": m(lambda f: f["pos_mae_cm"]), "base_vel_pos_mae_cm": m(lambda f: f["base_vel_pos_mae_cm"]), "grip_mae": m(lambda f: f["grip_mae"]),
              "base_grip_mae": m(lambda f: f["base_grip_mae"]), "rollout_corners_reached": m(lambda f: f["rollout"]["corners_reached"]),
