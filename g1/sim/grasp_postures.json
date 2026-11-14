@@ -3,58 +3,75 @@
   "object": "egg",
   "candidates": 24,
   "trials": 648,
-  "held": 12,
+  "held": 10,
   "best": {
    "posture": [
     -0.3,
     1.2,
     -1.57,
-    0.0,
+    -0.5,
     -0.5
    ],
    "aim": [
-    0.0,
+    -0.015,
     -0.015,
     -0.02
    ],
-   "lift_cm": 13.1,
-   "peak_N": 15.3,
+   "lift_cm": 13.6,
+   "peak_N": 16.0,
    "reason": "",
-   "robust": 0.33,
+   "robust": 0.5,
    "neighbours": [
     {
-     "lift_cm": 12.9,
-     "peak_N": 14.8,
+     "lift_cm": -0.0,
+     "peak_N": 15.0,
+     "reason": ""
+    },
+    {
+     "lift_cm": 13.6,
+     "peak_N": 19.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": 13.6,
+     "peak_N": 19.6,
+     "reason": ""
+    },
+    {
+     "lift_cm": -0.0,
+     "peak_N": 13.1,
+     "reason": ""
+    },
+    {
+     "lift_cm": -0.0,
+     "peak_N": 16.8,
      "reason": ""
     },
     {
      "lift_cm": 12.5,
-     "peak_N": 18.1,
-     "reason": ""
-    },
-    {
-     "lift_cm": 13.1,
-     "peak_N": 27.0,
-     "reason": ""
-    },
-    {
-     "lift_cm": -346.7,
-     "peak_N": 14.3,
-     "reason": ""
-    },
-    {
-     "lift_cm": 0.1,
-     "peak_N": 14.3,
-     "reason": ""
-    },
-    {
-     "lift_cm": -229.7,
-     "peak_N": 7.7,
+     "peak_N": 19.8,
      "reason": ""
     }
    ]
   },
   "postures": [
+   {
+    "posture": [
+     -0.3,
+     1.2,
+     -1.57,
+     -0.5,
+     -0.5
+    ],
+    "aim": [
+     -0.015,
+     -0.015,
+     -0.02
+    ],
+    "robust": 0.5,
+    "peak_N": 16.0,
+    "lift_cm": 13.6
+   },
    {
     "posture": [
      -0.3,
@@ -69,7 +86,7 @@
      -0.02
     ],
     "robust": 0.33,
-    "peak_N": 15.3,
+    "peak_N": 16.4,
     "lift_cm": 13.1
    },
    {
@@ -85,9 +102,9 @@
      -0.015,
      -0.02
     ],
-    "robust": 0.17,
-    "peak_N": 18.4,
-    "lift_cm": 13.0
+    "robust": 0.33,
+    "peak_N": 16.6,
+    "lift_cm": 12.5
    },
    {
     "posture": [
@@ -102,9 +119,9 @@
      -0.015,
      -0.02
     ],
-    "robust": 0.17,
-    "peak_N": 18.9,
-    "lift_cm": 13.1
+    "robust": 0.0,
+    "peak_N": 17.5,
+    "lift_cm": 12.6
    },
    {
     "posture": [
@@ -115,39 +132,22 @@
      0.5
     ],
     "aim": [
-     0.0,
-     -0.015,
-     -0.02
-    ],
-    "robust": 0.0,
-    "peak_N": 17.5,
-    "lift_cm": 13.0
-   },
-   {
-    "posture": [
-     -0.3,
-     1.2,
-     -1.57,
-     -0.5,
-     -0.5
-    ],
-    "aim": [
      0.015,
      0.0,
      -0.02
     ],
     "robust": 0.0,
-    "peak_N": 17.7,
-    "lift_cm": 13.7
+    "peak_N": 18.7,
+    "lift_cm": 13.2
    }
   ],
-  "runtime_s": 109.4
+  "runtime_s": 92.7
  },
  "stress_ball": {
   "object": "stress_ball",
   "candidates": 24,
   "trials": 864,
-  "held": 6,
+  "held": 5,
   "best": {
    "posture": [
     -0.9,
@@ -162,38 +162,38 @@
     -0.02
    ],
    "lift_cm": 12.8,
-   "peak_N": 56.2,
+   "peak_N": 56.1,
    "reason": "",
-   "robust": 0.5,
+   "robust": 0.33,
    "neighbours": [
     {
-     "lift_cm": -3929.7,
-     "peak_N": 42.3,
+     "lift_cm": -3314.9,
+     "peak_N": 48.5,
      "reason": ""
     },
     {
      "lift_cm": 12.8,
-     "peak_N": 56.2,
+     "peak_N": 56.3,
      "reason": ""
     },
     {
-     "lift_cm": 12.8,
-     "peak_N": 64.9,
+     "lift_cm": -1861.6,
+     "peak_N": 63.3,
      "reason": ""
     },
     {
-     "lift_cm": -4883.3,
-     "peak_N": 13.6,
+     "lift_cm": -4547.5,
+     "peak_N": 14.4,
      "reason": ""
     },
     {
-     "lift_cm": -1635.0,
-     "peak_N": 30.1,
+     "lift_cm": -0.1,
+     "peak_N": 30.9,
      "reason": ""
     },
     {
      "lift_cm": 11.8,
-     "peak_N": 56.2,
+     "peak_N": 56.1,
      "reason": ""
     }
    ]
@@ -212,8 +212,8 @@
      -0.015,
      -0.02
     ],
-    "robust": 0.5,
-    "peak_N": 56.2,
+    "robust": 0.33,
+    "peak_N": 56.1,
     "lift_cm": 12.8
    },
    {
@@ -229,9 +229,26 @@
      -0.015,
      -0.02
     ],
-    "robust": 0.5,
-    "peak_N": 56.9,
+    "robust": 0.33,
+    "peak_N": 56.8,
     "lift_cm": 12.8
+   },
+   {
+    "posture": [
+     -0.3,
+     0.8,
+     -0.8,
+     0.0,
+     0.0
+    ],
+    "aim": [
+     0.0,
+     0.0,
+     -0.02
+    ],
+    "robust": 0.17,
+    "peak_N": 58.5,
+    "lift_cm": 13.4
    },
    {
     "posture": [
@@ -247,45 +264,11 @@
      -0.02
     ],
     "robust": 0.17,
-    "peak_N": 60.8,
+    "peak_N": 61.8,
     "lift_cm": 12.8
-   },
-   {
-    "posture": [
-     -0.3,
-     0.8,
-     -0.8,
-     0.0,
-     0.0
-    ],
-    "aim": [
-     0.015,
-     0.0,
-     -0.02
-    ],
-    "robust": 0.0,
-    "peak_N": 58.4,
-    "lift_cm": 13.4
-   },
-   {
-    "posture": [
-     -0.6,
-     1.2,
-     -1.57,
-     0.5,
-     0.0
-    ],
-    "aim": [
-     0.015,
-     -0.015,
-     -0.02
-    ],
-    "robust": 0.0,
-    "peak_N": 58.9,
-    "lift_cm": 13.3
    }
   ],
-  "runtime_s": 107.5
+  "runtime_s": 88.3
  },
  "can_empty": {
   "object": "can_empty",
