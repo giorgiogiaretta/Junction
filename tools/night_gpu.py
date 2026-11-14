@@ -170,9 +170,7 @@ def main():
         except Exception: log(task, {}, {"error": traceback.format_exc()[-300:]})
         if time.time() - last > 1200: report(); last = time.time(); print(f"[{(time.time() - T0) / 3600:.2f} h] trials={i}", flush=True)
     report()
-    msg = f"[Giorgio's Claude] night job finished: {i} trials, see data/night/report.md (local file on Giorgio's MSI)."
-    try: subprocess.run(["C:/Program Files/Git/bin/bash.exe", "-c", "export PATH=$PATH:/c/Program\\ Files/GitHub\\ CLI; cd '" + ROOT.as_posix() + "' && tools/board post \"$0\"", msg], timeout=120)
-    except Exception: pass
+    print(f"night job finished: {i} trials, see data/night/report.md (local only: nothing is pushed or posted)", flush=True)
 
 
 if __name__ == "__main__":
