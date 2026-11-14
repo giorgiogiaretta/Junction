@@ -45,11 +45,11 @@ def log(task, cfg, res):
 def make_ds(takes, h, sigma, reps, seed=0):
     g = np.random.default_rng(seed); X, Y = [], []
     for td in takes:
-        pos, grip, legs, goals = td["pos"], td["grip"], td["legs"], td["goals"]
+        pos, grip, legs, goals = td["pos"], td["grip"], td["legs"], td["goals"]; tl = SP.time_in_leg(legs)
         for r in range(reps if sigma > 0 else 1):
             for t in range(SP.VEL_LAG, len(pos) - h):
                 eps = g.normal(0, sigma, 3) if sigma > 0 else np.zeros(3); p = pos[t] + eps; vel = pos[t] - pos[t - SP.VEL_LAG]
-                X.append(SP.make_state(p, vel, grip[t], goals[t], legs[t])); Y.append(np.concatenate([pos[t + h] - p, [grip[t + h]]]))
+                X.append(SP.make_state(p, vel, grip[t], goals[t], legs[t], tl[t])); Y.append(np.concatenate([pos[t + h] - p, [grip[t + h]]]))
     return np.asarray(X, np.float32), np.asarray(Y, np.float32)
 
 
@@ -81,7 +81,7 @@ def trial_P(takes):
         X, Y = make_ds([t for i, t in enumerate(takes) if i != k], c["h"], c["sigma"], c["reps"], seed); Xt, Yt = make_ds([test], c["h"], 0, 1)
         m = fit(X, Y, c, seed); P = SP.predict(m, Xt)
         mae.append(100 * np.abs(P[:, :3] - Yt[:, :3]).mean()); base.append(100 * np.abs(Xt[:, 3:6] * (c["h"] / SP.VEL_LAG) - Yt[:, :3]).mean())
-        ro = SP.rollout(m, test); corners.append(ro["corners_reached"]); fin.append(min(ro["final_err_cm"], 1000))
+        ro = SP.rollout(m, test, horizon=c["h"]); corners.append(ro["corners_reached"]); fin.append(min(ro["final_err_cm"], 1000))
     log("P", c, {"pos_mae_cm": float(np.mean(mae)), "vel_base_cm": float(np.mean(base)), "corners_reached": float(np.mean(corners)), "final_err_cm": float(np.mean(fin))})
 
 
