@@ -21,11 +21,13 @@ log = logging.getLogger("team_aalto")
 # OpenCV HSV (H 0-180). Real values measured 2026-11-15 on drop 2 cam_high frames (13x13 px patches, p10-p90):
 #   purple cube H 109-112 S ~150 V ~250 | yellow H 44-47 S 70-82 (washed out) | orange H 12-14 S 133-224 V 146-255
 #   bins (NOT objects) H 4-6 S 175-198 V 100-107 | wooden table S < 35.
-# Sim colours (scene.yaml) are covered too: yellow H ~26, blue H ~113, red H 0-8.
+# Sim (our recoloured scene, rendered): purple H 124-132 S 24-74 (washed out), yellow H 28 S 58-77, orange H 20
+#   S 143, bin walls H 11 S 167, bin floor H 16 S 114, mat S < 5. Ranges cover sim + real; flat table / mat blobs
+#   that slip through are rejected by the planner's depth height check (height_range), bins by their 3D hulls.
 HSV = {
-    "yellow": [[[18, 50, 110], [55, 255, 255]]],
-    "purple": [[[100, 80, 70], [140, 255, 255]]],
-    "orange": [[[9, 120, 125], [20, 255, 255]]],
+    "yellow": [[[18, 45, 110], [55, 255, 255]]],
+    "purple": [[[100, 30, 70], [140, 255, 255]]],
+    "orange": [[[8, 110, 100], [24, 255, 255]]],
     "red":    [[[0, 70, 70], [8, 255, 255]], [[170, 70, 70], [180, 255, 255]]],
     "blue":   [[[100, 70, 50], [130, 255, 255]]],
 }
