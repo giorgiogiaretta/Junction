@@ -2,7 +2,7 @@
 
   locate(head_rgb, head_depth, pixel_to_pelvis, label=None, conf=None, bbox=None)
   -> {"object", "conf", "p_pelvis": [x,y,z] m (object CENTRE), "axis_pelvis": [x,y,z] unit long axis or None, "bbox": [u0,v0,u1,v1],
-      "depth_ok": bool, "p_surface": [x,y,z], "n_depth": int, "why": str}
+      "depth_ok": bool (False = do not grasp: mixed depth, off-table surface or truncated), "truncated": bool, "p_surface": [x,y,z], "n_depth": int, "why": str}
 
 Inputs: head_rgb HxWx3 uint8 RGB, head_depth HxW uint16 mm (0 = invalid), both 480x640 on the G1 (fx=fy=615, cx=320, cy=240).
 pixel_to_pelvis(u, v, depth_mm) -> [x,y,z] metres in the pelvis frame: pass Erkka's cal.pixel_to_pelvis bound to "head"
@@ -18,6 +18,7 @@ FX = FY = 615.0; CX, CY = 320.0, 240.0
 # radius used to go from the visible surface to the centre (m), half height above the table (m)
 SIZE = {"egg": (0.0215, 0.0215), "stress_ball": (0.0325, 0.0325), "can": (0.029, 0.073), "can_empty": (0.029, 0.073), "unknown": (0.025, None)}
 MIN_DEPTH_PX = 20
+EDGE_PX = 2          # object pixels/bbox within this many px of the frame edge = truncated -> refused
 
 
 def camera_point(u, v, d_mm, fx=FX, fy=FY, cx=CX, cy=CY):
@@ -137,9 +138,13 @@ def locate(head_rgb, head_depth, pixel_to_pelvis=None, label=None, conf=None, bb
     why = f"median depth {d:.0f} mm over {n} px, IQR {spread:.0f} mm"
     ok = spread < max(30.0, 2.0 * r * 1000.0)   # depth spread wider than the object diameter = mixed with background
     if not ok: why += f" > object diameter {2000 * r:.0f} mm: mixed with background"
+    # Object cut off by the frame edge (Giorgio, board 13:13): 5 of 6 bench errors > 1 cm, centroid pulled to the visible part.
+    hh, ww = depth.shape; e = EDGE_PX
+    truncated = bool(u0 < e or v0 < e or u1 >= ww - e or v1 >= hh - e or m[:e].any() or m[-e:].any() or m[:, :e].any() or m[:, -e:].any())
+    if truncated: ok = False; why += "; object touches the image edge (truncated): move the head or the object"
     if ok and table_z is not None and half_h is not None and pixel_to_pelvis is not None:
         hgt = 2.0 * half_h; zs = float(surf[2]) - table_z   # visible surface height above the table
         if not (0.25 * hgt <= zs <= hgt + 0.03):            # on the table/mat (or floating): not the object's surface
             ok = False; why += f"; surface {1000 * zs:.0f} mm above table, object is {1000 * hgt:.0f} mm tall: not on the object"
     return dict(out, p_pelvis=centre.round(4).tolist(), p_surface=surf.round(4).tolist(), axis_pelvis=axis, depth_ok=bool(ok),
-                frame="pelvis" if pixel_to_pelvis else "camera", z_snapped=snapped, why=why)
+                frame="pelvis" if pixel_to_pelvis else "camera", z_snapped=snapped, truncated=truncated, why=why)
