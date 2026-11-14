@@ -28,7 +28,7 @@ def data_check(z, hand):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--since", type=int); ap.add_argument("--video", action="store_true"); ap.add_argument("--no-episodes", action="store_true")
+    ap = argparse.ArgumentParser(); ap.add_argument("--since", type=int); ap.add_argument("--video", action="store_true"); ap.add_argument("--no-episodes", action="store_true"); ap.add_argument("--recalib", action="store_true")
     ap.add_argument("--scale", type=float, default=0.8); ap.add_argument("--series", default="O,P", help="grasp series to replay (test on old data: --series H)")
     a = ap.parse_args()
     if not a.no_episodes: subprocess.run([sys.executable, os.path.join(ROOT, "Rokoko", "src", "episodes.py")], cwd=ROOT, check=True)
@@ -45,7 +45,9 @@ def main():
     for t in sess:
         if t["series"] == "K" and t["take"] in index: K[hand_of(t)].append(t["take"])
     calib = {"used": "existing data/arm_calib.json or series H table"}
-    if K:
+    cur = json.load(open(arm_ik.CALIB)) if os.path.exists(arm_ik.CALIB) else {}
+    if K and cur.get("manual") and not a.recalib: calib = {"used": cur.get("source"), "note": "manual calibration kept (use --recalib to recompute from series K)"}
+    elif K:
         R, lens = arm_ik.calib_from_axes(dict(K)); calib = {"used": f"series K {dict(K)}", "check": lens, "hands": list(R)}
 
     rows, warn = [], []
