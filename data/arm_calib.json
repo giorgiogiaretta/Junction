@@ -2,42 +2,25 @@
  "R_coil_to_body": {
   "right": [
    [
-    -0.91584,
-    0.03643,
-    -0.39988
+    0.91964,
+    -0.08849,
+    0.38266
    ],
    [
-    0.02373,
-    0.99905,
-    0.03666
+    -0.06991,
+    -0.99561,
+    -0.06222
    ],
    [
-    0.40083,
-    0.02409,
-    -0.91583
-   ]
-  ],
-  "left": [
-   [
-    0.08427,
-    -0.99624,
-    -0.02026
-   ],
-   [
-    -0.97707,
-    -0.07862,
-    -0.19789
-   ],
-   [
-    0.19555,
-    0.03647,
-    -0.98001
+    0.38648,
+    0.03047,
+    -0.92179
    ]
   ]
  },
- "source": "series H table corners (square_fit.json), per hand, approximate",
- "n_takes": {
-  "right": 5,
-  "left": 5
+ "source": "take 64 (forward + left dwells, 73 deg apart, split evenly), set by hand",
+ "manual": true,
+ "check": {
+  "forward_left_angle_deg": 73.3
  }
 }
