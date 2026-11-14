@@ -56,3 +56,11 @@ def test_decision_log_is_written_and_can_be_disabled(tmp_path, monkeypatch):
     d = R.recognise(b"x", ("a",), {"a": lambda i: {"object": "egg", "confidence": 0.9, "ok": True}}); assert d["object"] == "egg"
     import json; row = json.loads((tmp_path / "log.jsonl").read_text().splitlines()[0]); assert row["object"] == "egg" and row["votes"][0]["name"] == "a"
     monkeypatch.setenv("RECOGNISE_LOG", "off"); R.recognise(b"x", ("a",), {"a": lambda i: {"object": "egg", "confidence": 0.9, "ok": True}}); assert len((tmp_path / "log.jsonl").read_text().splitlines()) == 1
+
+
+def test_two_gemma_family_votes_count_as_one_key():
+    from ai.recognize import decide
+    v = lambda n, o, c=None: {"name": n, "object": o, "confidence": c, "ok": True}
+    d = decide([v("gemma", "stress_ball", 0.95), v("paligemma", "stress_ball")]); assert d["agree"] == 1 and d["n_votes"] == 2   # same family: ONE key
+    d = decide([v("nemotron", "stress_ball", 0.95), v("gemma", "stress_ball", 0.95)]); assert d["agree"] == 2
+    d = decide([v("nemotron", "stress_ball", 0.95), v("gemma", "stress_ball", 0.95), v("paligemma", "stress_ball")]); assert d["agree"] == 2   # still 2 families
