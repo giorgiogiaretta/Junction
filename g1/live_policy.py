@@ -7,9 +7,10 @@ Env: AALTO_REPO (default C:/Users/giorg/Desktop/aaltonomous-humanoid), G1_MAX_CL
 Object recognition: on the first non-black obs["head_rgb"] the frame is saved to data/live/head_<t>.jpg and `python -m ai.pick_profile
 --image <jpg>` (Tommaso's picker: Nemotron, Gemini backup, safety rules that only soften) runs ONCE in a background thread. Until it
 answers, on failure, or on an unclear answer the CONSERVATIVE cap (unknown, 0.68) is used. --object = operator sets the object
-(source=manual), which is the ONLY way a model-free run unlocks full force for ball/can.
-CAP: single source of truth is ai.object_profile.cap_for() (owner: ai/, reads g1/object_profiles.json): ball/can 1.0 only when
-operator-set or confidently validated; egg / ball-unconfirmed share the robust cap (0.70); unknown 0.68. No local cap table here.
+(source=manual), which is the ONLY way a model-free run unlocks full force for the ball.
+CAP: single source of truth is ai.object_profile.cap_for() (owner: ai/, reads g1/object_profiles.json): ball 1.0 only when
+operator-set or >=2 recognisers agree (pick['agree']; ai.pick_profile is ONE model, so never here); can never full force while
+vision-only; egg / ball-unconfirmed share the robust cap (0.70); unknown 0.68. No local cap table here.
 GRIP: g = mean(index, middle) fingers01 of the operating hand; robot closure c = cap * clip(g / g_ref, 0, 1); [thumb=c, index=c,
 middle=c] -> G1Dex3Retargeter. g_ref = the operator's typical grip on that object (data of 14/11, takes 75-89), so their usual grip
 becomes the object's cap. Every tick is logged to data/live/live_log.jsonl.
