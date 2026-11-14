@@ -17,3 +17,6 @@ Data: `imgs/` (not in git, 55 MB): `ball/` 22, `can/` 8, `egg/` 20, `mix/` 27 ph
 - Safety rule for the error direction: unknown/low-confidence -> conservative profile (`cup`), never a firm one; calibrate the threshold on the confidences of the wrong photos once the endpoint answers again.
 - Cross-check the same photos with Gemini (`--backend gemini`, needs GEMINI_API_KEY and the model id) and review disagreements by hand.
 - Crop around the hand (`ai/crop.py`) should help with the small eggs held in the fingers: measure crop vs full image on the same photos once the head-to-hand pose exists.
+
+## Colour rule baseline (orange = ball, white = egg): 38/50 (76%), untuned
+`python -m ai.color_baseline imgs` (HSV masks + blob shape on the same 50 photos): ball 19/22, egg 12/20, can 7/8; two eggs called stress ball, 5 eggs "other". Colour is a useful hint but **not a guarantee**: white sleeves/lights, orange items in the scene, small objects in the fingers and the gold can next to orange break it. After the B3 shared cap (egg and ball both 0.70) an egg/ball confusion no longer drops or crushes the egg, so colour is only a cheap offline cross-check, not the safety mechanism.
