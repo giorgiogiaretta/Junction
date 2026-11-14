@@ -155,7 +155,7 @@ def live_calib(read, hand):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--obj", default="egg", choices=list(D.OBJECTS)); ap.add_argument("--replay", type=int)
     ap.add_argument("--hands", default="both", choices=["both", "right", "left"]); ap.add_argument("--spot", default="0.35,-0.15")
-    ap.add_argument("--gain", type=float, default=1.0, help="table mapping gain (1.0 = your 10 cm are the robot's 10 cm)"); ap.add_argument("--scale", type=float, default=0.6, help="your motion x scale (0.6 = calmer and more precise)"); ap.add_argument("--smooth", type=float, default=0.7, help="One Euro min cutoff Hz: lower = smoother/slower"); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--assist", default="soft", choices=["soft", "strong"], help="soft: max 3 cm correction near the object; strong: staged auto-approach"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
+    ap.add_argument("--zoff", type=float, default=0.06, help="m: your wrist height above the table at the moment you grasp (sensor above the hand)"); ap.add_argument("--gain", type=float, default=1.0, help="table mapping gain (1.0 = your 10 cm are the robot's 10 cm)"); ap.add_argument("--scale", type=float, default=0.6, help="your motion x scale (0.6 = calmer and more precise)"); ap.add_argument("--smooth", type=float, default=0.7, help="One Euro min cutoff Hz: lower = smoother/slower"); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--assist", default="soft", choices=["soft", "strong"], help="soft: max 3 cm correction near the object; strong: staged auto-approach"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
     ap.add_argument("--headless", action="store_true"); ap.add_argument("--calib", action="store_true", help="10 s axis calibration at start (do it whenever the Coil moved)"); ap.add_argument("--seconds", type=float, default=900)
     a = ap.parse_args(); obj = a.obj; pr = D.PROFILE[obj]; spot = [float(x) for x in a.spot.split(",")]
     hands = ["left", "right"] if a.hands == "both" else [a.hands]
@@ -227,6 +227,7 @@ def main():
             P = DB[h](PF[h](P, t_tick)); Q = QF[h](Q, t_tick)                      # One Euro on position + rotation, 3 mm deadband: no tremor, no jumps
             if h in TC and not a.replay:                      # ABSOLUTE: your table centre = robot hand on its object spot, 1:1, table = counter
                 T = TC[h]; Rh_ = np.array(T["R"]); rel = Rh_ @ (P - np.array(T["origin"])) + shift[h]
+                rel[2] -= a.zoff                                  # your wrist sensor sits ~6 cm above the table when you pinch the egg (takes 75-79)
                 p_tel = anchor[h] + a.gain * rel
                 R_rel = Rh_ @ arm_ik.quat_wxyz_to_mat(Q) @ arm_ik.quat_wxyz_to_mat(np.array(T["q_origin"])).T @ Rh_.T
             else:
