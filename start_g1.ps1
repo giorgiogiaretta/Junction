@@ -11,11 +11,13 @@
 #                                                              palm down, in front"; right hand only, -Both for both hands;
 #                                                              -NoCalib to reuse the last calibration)
 #   -NoConsole: no operator console (less CPU = less delay)
+#   -Fast: staff-approved (15/11) faster limits: runner arm speed 2.0 rad/s, no counter keep-out (robot-vs-robot collision kept)
 #   -NoCamera: the runner does not read the camera streams (less load on this PC = the robot follows with less delay)
-param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [int]$Seconds = 300, [string]$Closure = "0.6",
+param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
+if ($Fast) { $env:G1_FAST = "1"; Write-Host "MODALITA' VELOCE (approvata dallo staff): braccia 2 rad/s, niente zona tavolo; collisioni robot-robot ATTIVE" -ForegroundColor Yellow } else { Remove-Item Env:G1_FAST -ErrorAction SilentlyContinue }
 $ErrorActionPreference = "Continue"
 
 Write-Host "== 1/5 rete del robot" -ForegroundColor Cyan

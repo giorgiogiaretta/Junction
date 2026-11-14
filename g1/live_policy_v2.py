@@ -26,15 +26,17 @@ from robot.g1_dex3 import G1Dex3Retargeter
 
 CHUNK = int(os.environ.get("G1_CHUNK", "2"))   # targets per call. 3 = one glove reading per 100 ms (the 14/11 night delay); 1 = fresh every tick
 RATE = 30.0
-JOINT_SPEED = 0.9  # rad/s, 90 % of the runner's 1 rad/s (14/11 evening: was 0.7, operator wanted less delay)
-START_SPEED = 0.9  # rad/s (was 0.6), startup move from the robot's real rest pose to the palm-down front pose
+FAST = os.environ.get("G1_FAST") == "1"
+JOINT_SPEED = 1.8 if FAST else 0.9  # rad/s (runner: 2.0 with G1_FAST, else 1.0) (14/11 evening: was 0.7, operator wanted less delay)
+START_SPEED = 1.0 if FAST else 0.9  # rad/s, startup move from the robot's real rest pose to the palm-down front pose
 # The organisers' OWN workspace check (same code as the runner filter): the real rest pose has the wrists INSIDE the counter keep-out,
 # the runner rejects any step that increases the penetration -> lift out first, then never send a step it would clip.
 try:
     for _p in (os.path.join(REPO, "winshim"), REPO):
         if _p not in sys.path: sys.path.insert(0, _p)
     from aaltonomous.interface import safety as _AS
-    WS = _AS.WorkspaceChecker(_AS.JointSpec(), _AS.SafetyConfig())
+    FAST = os.environ.get("G1_FAST") == "1"     # staff-approved 15/11: no counter keep-out, faster arms (self-collision kept)
+    WS = _AS.WorkspaceChecker(_AS.JointSpec(), _AS.SafetyConfig(counter_keepout_min=None, counter_keepout_max=None) if FAST else _AS.SafetyConfig())
 except Exception as _e:
     print("[v2] organisers' workspace check NOT loaded:", _e); WS = None
 FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3
@@ -105,7 +107,8 @@ class LivePolicyV2(Policy):
         self.kin = D.Kin(); self.rest = CC.palm_down_rest(self.kin, D.COUNTER_Z)      # rest = hands open, palm down, in front (as the sim)
         self.rest_q = np.array([self.rest[n] for n in arm_ik.ARM_NAMES])
         self.rest_pose = {h: (self.kin.a.d.xpos[self.kin.a.ee[h]].copy(), self.kin.a.d.xmat[self.kin.a.ee[h]].reshape(3, 3).copy()) for h in ("left", "right")}
-        self.floor = self.kin.base[2] + D.KEEP["z"] + 0.01; self.cfg = CC.Cfg(joint_speed=JOINT_SPEED)
+        self.floor = self.kin.base[2] + (D.KEEP["z"] - 0.25 if FAST else D.KEEP["z"] + 0.01)
+        self.cfg = CC.Cfg(joint_speed=JOINT_SPEED, **(dict(vmax=1.3, vfinal=1.2, wfinal=np.radians(400)) if FAST else {}))
         replay = source.startswith("replay:")
         self.Rh = {h: (CC.TAKE64_R if replay else CC.load_axes(arm_ik.CALIB, h)) for h in objs}
         miss = [h for h in objs if self.Rh[h] is None]
@@ -205,6 +208,7 @@ class LivePolicyV2(Policy):
 
     def _unsafe(self, k):
         r = T.unsafe(k)
+        if FAST: r = [x for x in r if x.startswith("self")]          # G1_FAST: only robot-vs-robot collisions block
         if len(self.obj) == 2 and np.linalg.norm(T.palm(k, "left") - T.palm(k, "right")) < 0.10: r.append("palms_too_close")
         return r
 
