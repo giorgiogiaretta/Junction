@@ -41,8 +41,8 @@ th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}th{co
 <h2>Episode judge (NVIDIA Nemotron 3.5 Super VL) <span class="tag warn">recall only</span></h2>
 <table><thead><tr><th>Prompt</th><th>Human-positive episodes judged good</th><th>Unclear</th></tr></thead><tbody>
 <tr><td>v1: aggregate statistics</td><td>5 / 32</td><td>16</td></tr>
-<tr><td>v2: task definition + 0.5 s timeline</td><td><b>22 / 32</b></td><td>0</td></tr></tbody></table>
-<p class="note" style="margin-top:14px">All human labels are "not dropped": no failure examples, so precision is unknown. v2 also calls non-grasp series (calibration, noise) "good". Needs 5-10 labelled failures and camera frames.</p>
+<tr><td>v2: task definition (no timeline yet; two runs)</td><td><b>22 / 32</b> and <b>25 / 32</b> (run-to-run noise ~±3)</td><td>0</td></tr></tbody></table>
+<p class="note" style="margin-top:14px">All human labels are "not dropped": no failure examples, so precision is unknown. v2 also calls non-grasp series (calibration, noise) "good". The timeline version is being re-measured. Needs 5-10 labelled failures and camera frames.</p>
 
 <h2>What exists / what is next</h2>
 <div class="grid">
