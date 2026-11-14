@@ -5,6 +5,19 @@ Flow: glove/Rokoko Studio -> UDP 14043 -> `fanout.py` -> dashboard (14044) + rob
 Needs `pip install -r demo/requirements.txt -r robot/requirements.txt`. Backends: `dry`, `sim`, `serial`, `pca9685`.
 Note: `--backend sim` opens no viewer through run_udp; use `mjpython -m robot.sim` separately for visuals.
 
+To pick a Force Cushion profile once at startup, set `FRAME` to a head-camera image.
+If `HX`, `HY` and `HZ` are all set, the picker uses the hand position in the head
+frame (metres) to crop the image. If any coordinate is missing, it uses the full frame.
+
+```sh
+FRAME="head camera.jpg" HX=0.05 HY=0.10 HZ=0.45 demo/run_demo.sh --auto-profile
+FRAME="head camera.jpg" demo/run_demo.sh --auto-profile
+```
+
+The picker publishes on local UDP 14070. The demo forwards the update to both the
+simulator and the hand process. The dashboard displays the simulator's active
+profile and closure cap. The picker uses its built-in fallback offline.
+
 ## Pitch flow (3 min)
 1. Problem: robots learn from human demonstrations, but gathering them is slow and expensive.
 2. Live: put on the glove, open/close the hand; dashboard shows fingers, recognised gesture, latency (ms) and fps; the robot hand mirrors it.
