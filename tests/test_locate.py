@@ -62,13 +62,40 @@ def test_lying_egg_centre_and_axis():
     assert abs(a_xy @ ax[:2]) > np.cos(np.deg2rad(15)), (a, ax)   # long axis within 15 deg in the table plane
 
 
-def test_given_bbox_and_label_without_colour_support():
-    r = 0.029; c = np.array([0.38, -0.05, TABLE_Z + r])
-    rgb, depth = render(c, (r, r, r), (40, 90, 200))   # blue: no colour mask
-    vs, us = np.nonzero((rgb == (40, 90, 200)).all(-1))
-    out = locate(rgb, depth, p2p, label="can", conf=0.8, bbox=[us.min(), vs.min(), us.max(), vs.max()])
-    assert out["object"] == "can" and out["conf"] == 0.8
-    err = np.abs(np.array(out["p_pelvis"]) - c); assert err[0] <= 0.01 and err[1] <= 0.01, (out, c)
+def render_can(cx, cy, r, h, colour):
+    """Ray-trace an UPRIGHT cylinder (axis at x=cx, y=cy, from TABLE_Z to TABLE_Z+h, pelvis frame) on the table."""
+    us, vs = np.meshgrid(np.arange(W), np.arange(H))
+    dirs = np.stack([(us - CX) / FX, (vs - CY) / FY, np.ones_like(us, float)], -1) @ R.T
+    o = CAM_T; dx, dy, dz = dirs[..., 0], dirs[..., 1], dirs[..., 2]
+    t_tab = np.where(dz < -1e-6, (TABLE_Z - o[2]) / np.minimum(dz, -1e-6), np.inf)
+    ox, oy = o[0] - cx, o[1] - cy                                               # side: |(o + t d)_xy - c_xy| = r
+    a = dx ** 2 + dy ** 2; b = 2 * (ox * dx + oy * dy); c = ox ** 2 + oy ** 2 - r ** 2
+    disc = b ** 2 - 4 * a * c
+    t_side = np.where(disc > 0, (-b - np.sqrt(np.maximum(disc, 0))) / (2 * np.maximum(a, 1e-12)), np.inf)
+    zs = o[2] + t_side * dz
+    t_side = np.where((zs >= TABLE_Z) & (zs <= TABLE_Z + h) & (t_side > 0), t_side, np.inf)
+    t_top = np.where(dz < -1e-6, (TABLE_Z + h - o[2]) / np.minimum(dz, -1e-6), np.inf)   # top cap disc
+    on_cap = (ox + t_top * dx) ** 2 + (oy + t_top * dy) ** 2 <= r ** 2
+    t_top = np.where(on_cap & (t_top > 0), t_top, np.inf)
+    t_obj = np.minimum(t_side, t_top); hit = t_obj < t_tab
+    t = np.where(hit, t_obj, t_tab)
+    depth = np.where(np.isfinite(t), np.round(t * 1000), 0).astype(np.uint16)
+    rgb = np.full((H, W, 3), (90, 70, 50), np.uint8); rgb[hit] = colour
+    return rgb, depth
+
+
+@pytest.mark.parametrize("x,y", [(0.38, -0.05), (0.32, 0.08), (0.45, -0.15)])
+def test_upright_can_bbox_and_mask_within_1cm(x, y):
+    """Standing can seen from ~48 deg above: the centre is r away horizontally (Giorgio's bias fix), not r along the 3D ray."""
+    r, h = 0.029, 0.146; c = np.array([x, y, TABLE_Z + h / 2])
+    rgb, depth = render_can(x, y, r, h, (40, 90, 200))                          # blue: no colour mask
+    can = (rgb == (40, 90, 200)).all(-1); vs, us = np.nonzero(can)
+    out = locate(rgb, depth, p2p, label="can", conf=0.8, bbox=[us.min(), vs.min(), us.max(), vs.max()], table_z=TABLE_Z)
+    assert out["object"] == "can" and out["conf"] == 0.8 and out["depth_ok"], out
+    assert np.linalg.norm(np.array(out["p_pelvis"][:2]) - c[:2]) <= 0.01, (out, c)
+    assert abs(out["p_pelvis"][2] - c[2]) < 1e-6                                # snapped to table + half height
+    out = locate(rgb, depth, p2p, label="can_empty", mask=can, table_z=TABLE_Z)
+    assert out["depth_ok"] and np.linalg.norm(np.array(out["p_pelvis"][:2]) - c[:2]) <= 0.006, (out, c)
 
 
 def test_big_white_mat_is_not_an_egg_and_mask_param():

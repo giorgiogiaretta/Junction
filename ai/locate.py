@@ -9,7 +9,7 @@ pixel_to_pelvis(u, v, depth_mm) -> [x,y,z] metres in the pelvis frame: pass Erkk
 (aaltonomous/interface/calibration, PROVISIONAL extrinsic). Without it the camera-frame point is returned (frame='camera').
 Method: bbox from the caller (VLM / cv detector) or from a colour mask (white egg, orange ball, else 'unknown'); median of the valid depth
 inside the object mask restricted to the central 50 % of the bbox; that pixel+depth -> pelvis = visible SURFACE point; centre = surface +
-object radius further along the optical ray; optional z snap to the table plane (table_z + half height). Long axis: PCA of the mask,
+object radius further along the optical ray (upright cans: r along the HORIZONTAL part of the ray from the side points); optional z snap to the table plane (table_z + half height). Long axis: PCA of the mask,
 mapped to the pelvis frame at the object depth. Sizes are nominal (egg 43x57 mm lying, ball ~65 mm, NOCCO can 58x146 mm standing).
 UNTESTED on real G1 frames; accuracy measured only on synthetic renders (tests/test_locate.py)."""
 import numpy as np
@@ -54,6 +54,27 @@ def _axis_px(mask):
     return V[:, 1], float(np.sqrt(w[1] / max(w[0], 1e-9)))   # main direction (du, dv), elongation ratio
 
 
+UPRIGHT = {"can", "can_empty"}   # standing cylinders: the axis is r away HORIZONTALLY from a side point (not along the 3D ray)
+
+
+def _upright_centre(sel, depth, to3d, r, table_z=None, n_max=400):
+    """Giorgio's fix (board 13:06): the camera looks ~48 deg down, so r along the full ray moves only ~0.67 r horizontally (~1 cm short
+    for a can). Back-project the object pixels, keep SIDE points (below the top cap by > 5 mm, above the table), step r along the
+    horizontal part of each pixel's ray, take the median. The top cap is ignored: its points are < r from the axis."""
+    vs, us = np.nonzero(sel)
+    if len(us) > n_max:
+        k = np.linspace(0, len(us) - 1, n_max).astype(int); vs, us = vs[k], us[k]
+    dd = depth[vs, us].astype(float)
+    P = np.array([to3d(float(u), float(v), d) for u, v, d in zip(us, vs, dd)], float)
+    Q = np.array([to3d(float(u), float(v), d + 1000.0) for u, v, d in zip(us, vs, dd)], float)
+    side = P[:, 2] < np.percentile(P[:, 2], 95) - 0.005
+    if table_z is not None: side &= P[:, 2] > table_z + 0.005   # background table/mat pixels inside a loose bbox
+    H = (Q - P)[side]; H[:, 2] = 0.0; nrm = np.linalg.norm(H, axis=1)
+    good = nrm > 1e-9
+    if good.sum() < MIN_DEPTH_PX: return None
+    return np.median(P[side][good] + r * H[good] / nrm[good, None], axis=0)
+
+
 def locate(head_rgb, head_depth, pixel_to_pelvis=None, label=None, conf=None, bbox=None, table_z=None, elongated_min=1.1, mask=None):
     """mask: optional HxW bool object mask from a detector/segmenter (best); else bbox; else colour blobs (fallback, lighting-sensitive)."""
     rgb = np.asarray(head_rgb); depth = np.asarray(head_depth)
@@ -96,6 +117,11 @@ def locate(head_rgb, head_depth, pixel_to_pelvis=None, label=None, conf=None, bb
     surf = np.asarray(to3d(u, v, d), float)
     ray = np.asarray(to3d(u, v, d + 1000.0), float) - surf   # depth is z-depth: points of one pixel are collinear, so this is the ray
     centre = surf + r * ray / np.linalg.norm(ray)
+    if obj in UPRIGHT and pixel_to_pelvis is not None:   # needs a z-up frame for "horizontal"
+        c_side = _upright_centre(sel, depth, to3d, r, table_z)
+        if c_side is None:   # no usable side points: horizontal step from the median point
+            h = ray * np.array([1.0, 1.0, 0.0]); c_side = surf + r * h / max(np.linalg.norm(h), 1e-9)
+        centre = c_side
     snapped = False
     if table_z is not None and half_h is not None and pixel_to_pelvis is not None:
         centre[2] = table_z + half_h; snapped = True
