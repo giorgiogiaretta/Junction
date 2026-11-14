@@ -35,3 +35,24 @@ def test_dead_and_slow_backends_do_not_block_or_count():
 
 def test_no_answer_is_conservative():
     d = recognise(b"x", ("a",), reg(a="boom")); assert d["object"] == "other" and d["cap"] == 0.68
+
+
+def test_circuit_breaker_skips_a_backend_after_three_failures_and_recovers():
+    from ai import recognize as R
+    R.reset_breakers(); calls = []
+    def dead(img): calls.append(1); raise RuntimeError("down")
+    reg = {"dead": dead, "ok": lambda img: {"object": "egg", "confidence": 0.9, "ok": True}}
+    for _ in range(3): R.collect(b"x", ["dead", "ok"], reg, timeout=2.0)
+    assert len(calls) == 3 and R._breaker_open("dead")
+    v = {x["name"]: x for x in R.collect(b"x", ["dead", "ok"], reg, timeout=2.0)}
+    assert len(calls) == 3 and v["dead"]["error"] == "breaker_open" and v["ok"]["ok"]      # not called again
+    assert not R._breaker_open("dead", now=__import__("time").time() + 31)                  # re-tried after the cool-down
+    R.reset_breakers()
+
+
+def test_decision_log_is_written_and_can_be_disabled(tmp_path, monkeypatch):
+    from ai import recognize as R
+    monkeypatch.setenv("RECOGNISE_LOG", str(tmp_path / "log.jsonl")); R.reset_breakers()
+    d = R.recognise(b"x", ("a",), {"a": lambda i: {"object": "egg", "confidence": 0.9, "ok": True}}); assert d["object"] == "egg"
+    import json; row = json.loads((tmp_path / "log.jsonl").read_text().splitlines()[0]); assert row["object"] == "egg" and row["votes"][0]["name"] == "a"
+    monkeypatch.setenv("RECOGNISE_LOG", "off"); R.recognise(b"x", ("a",), {"a": lambda i: {"object": "egg", "confidence": 0.9, "ok": True}}); assert len((tmp_path / "log.jsonl").read_text().splitlines()) == 1

@@ -47,17 +47,40 @@ def _paligemma(img):
 BACKENDS = {"gemini": _vlm("gemini"), "gemma": _gemma_run, "nemotron": _vlm("nemotron"), "color": _color, "paligemma": _paligemma}
 
 
+# Circuit breaker: a backend that failed BREAK_AFTER times in a row is skipped for BREAK_FOR_S seconds (a dead endpoint must cost one 15 s timeout, not one per grasp).
+BREAK_AFTER, BREAK_FOR_S = 3, 30.0
+_STATE = {}     # name -> {"fails": int, "until": float}
+
+
+def _breaker_open(name, now=None):
+    st = _STATE.get(name); now = time.time() if now is None else now
+    return bool(st and st["until"] > now)
+
+
+def _record(name, ok, now=None):
+    now = time.time() if now is None else now; st = _STATE.setdefault(name, {"fails": 0, "until": 0.0})
+    if ok: st["fails"] = 0; st["until"] = 0.0
+    else:
+        st["fails"] += 1
+        if st["fails"] >= BREAK_AFTER: st["until"] = now + BREAK_FOR_S
+
+
+def reset_breakers(): _STATE.clear()
+
+
 def collect(img, backends, registry=None, timeout=TIMEOUT_S):
     """Run the chosen backends in parallel; returns a list of votes {name, object, confidence, ok, latency_s, error?}. A backend that times out or raises is an ok=False vote."""
     reg = registry or BACKENDS; votes = []
     ex = cf.ThreadPoolExecutor(max_workers=max(1, len(backends)))
-    futs = {ex.submit(_timed, reg[n], img): n for n in backends if n in reg}
+    skipped = [n for n in backends if n in reg and _breaker_open(n)]
+    futs = {ex.submit(_timed, reg[n], img): n for n in backends if n in reg and n not in skipped}
     done, pending = cf.wait(futs, timeout=timeout)
     for f in done:
         try: v = f.result()
         except Exception as e: v = {"object": "other", "confidence": None, "ok": False, "error": type(e).__name__, "latency_s": None}
-        v["name"] = futs[f]; votes.append(v)
-    for f in pending: votes.append({"name": futs[f], "object": "other", "confidence": None, "ok": False, "error": "timeout", "latency_s": None})
+        v["name"] = futs[f]; votes.append(v); _record(futs[f], bool(v.get("ok")))
+    for f in pending: votes.append({"name": futs[f], "object": "other", "confidence": None, "ok": False, "error": "timeout", "latency_s": None}); _record(futs[f], False)
+    for n in skipped: votes.append({"name": n, "object": "other", "confidence": None, "ok": False, "error": "breaker_open", "latency_s": 0.0})
     ex.shutdown(wait=False, cancel_futures=True)
     return sorted(votes, key=lambda v: v["name"])
 
@@ -86,7 +109,19 @@ def decide(votes):
 def recognise(img, backends=("gemini", "gemma", "nemotron", "color"), registry=None, timeout=TIMEOUT_S):
     votes = collect(img, list(backends), registry, timeout); d = decide(votes)
     d["cap"] = cap_for_votes(d["object"], d["confidence"], d["agree"]); d["profile"] = behaviour(d["object"])["profile"]; d["votes"] = votes
+    _log(d)
     return d
+
+
+def _log(d, path=None):
+    """Append one JSON line per decision to data/logs/recognise.jsonl (git-ignored; set RECOGNISE_LOG=off to disable): latency + votes = evidence for 'quality of output'."""
+    path = path or os.environ.get("RECOGNISE_LOG", "data/logs/recognise.jsonl")
+    if path == "off": return
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "a") as f: f.write(json.dumps({"t": round(time.time(), 2), "object": d["object"], "agree": d["agree"], "n_ok": d["n_ok"], "cap": d["cap"], "reason": d["reason"],
+                                                         "votes": [{k: v.get(k) for k in ("name", "object", "confidence", "ok", "latency_s", "error")} for v in d["votes"]]}) + "\n")
+    except OSError: pass
 
 
 if __name__ == "__main__":
