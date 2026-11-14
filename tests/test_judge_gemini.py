@@ -94,3 +94,46 @@ def test_main_end_to_end_with_fake_client_writes_report(tmp_path, capsys):
     out = tmp_path / "r.md"; ep = episode(tmp_path)
     rc = jg.main([ep, "--out", str(out)], client=FakeClient([GOOD])); o = capsys.readouterr().out
     assert rc == 0 and "HandOff riuscito: True, Motivo: grip held" in o and "no precision" in out.read_text()
+
+
+class QuotaErr(Exception):
+    pass
+
+
+def test_daily_quota_skips_to_next_model_without_retrying_and_remembers():
+    jg._EXHAUSTED.clear()
+    class C:
+        def __init__(self): self.calls = []; self.models = self
+        def generate_content(self, model, contents, config):
+            self.calls.append(model)
+            if model == "m1": raise QuotaErr("429 RESOURCE_EXHAUSTED Quota exceeded ... PerDay ...")
+            return Resp(parsed={"handoff_success": True, "reason": "ok"})
+    c = C(); ep = jg.load_episode(episode(__import__("pathlib").Path(__import__("tempfile").mkdtemp())))
+    r = jg.judge_episode(c, ep, retries=3, sleep=lambda s: None, config="c", chain=["m1", "m2"])
+    assert r["handoff_success"] is True and r["model"] == "m2" and c.calls == ["m1", "m2"]
+    c.calls.clear(); jg.judge_episode(c, ep, retries=3, sleep=lambda s: None, config="c", chain=["m1", "m2"]); assert c.calls == ["m2"]   # m1 remembered as exhausted
+    jg._EXHAUSTED.clear()
+
+
+def test_per_minute_429_backs_off_exponentially_then_succeeds():
+    jg._EXHAUSTED.clear(); waits = []
+    class C:
+        def __init__(self): self.n = 0; self.models = self
+        def generate_content(self, model, contents, config):
+            self.n += 1
+            if self.n < 3: raise QuotaErr("429 Too Many Requests rate limit per minute")
+            return Resp(parsed={"handoff_success": False, "reason": "no grip"})
+    c = C(); ep = jg.load_episode(episode(__import__("pathlib").Path(__import__("tempfile").mkdtemp())))
+    r = jg.judge_episode(c, ep, retries=3, sleep=waits.append, config="c", chain=["m1"], jitter=lambda: 0.0)
+    assert r["handoff_success"] is False and waits == [4, 8]
+
+
+def test_judge_async_does_not_block_and_calls_back():
+    import threading, time
+    done = threading.Event(); out = {}
+    class C:
+        def __init__(self): self.models = self
+        def generate_content(self, model, contents, config): time.sleep(0.3); return Resp(parsed={"handoff_success": True, "reason": "x"})
+    ep = jg.load_episode(episode(__import__("pathlib").Path(__import__("tempfile").mkdtemp())))
+    t0 = time.time(); jg.judge_async(C(), ep, lambda r: (out.update(r), done.set()), config="c", chain=["m"]); assert time.time() - t0 < 0.2
+    assert done.wait(3) and out["handoff_success"] is True
