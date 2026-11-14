@@ -37,7 +37,7 @@ def _extract(txt):
 
 def make_client():
     from ai.eval_objects import make_client
-    c = make_client("gemini"); c.model = os.environ.get("GEMMA_MODEL", "gemma-4-26b-a4b-it"); c.timeout = 15; c.retries = 1
+    c = make_client("gemma"); c.timeout = 15; c.retries = 1      # own GPU when GEMMA_BASE_URL is set, else Google API
     if os.environ.get("ROUTER_BASE_URL"): c.url = os.environ["ROUTER_BASE_URL"].rstrip("/")
     return c
 

@@ -28,7 +28,7 @@ def _vlm(backend):
 
 def _gemma_run(img):
     from ai.eval_objects import make_client, recognize
-    c = make_client("gemini"); c.model = os.environ.get("GEMMA_MODEL", "gemma-4-26b-a4b-it"); c.timeout = 12; c.retries = 1
+    c = make_client("gemma"); c.timeout = 12; c.retries = 1      # own GPU when GEMMA_BASE_URL is set, else Google API
     r = recognize(c, img, fast=False)
     return {"object": r["object"], "confidence": r["confidence"], "ok": r["ok"], "error": r.get("error")}
 
