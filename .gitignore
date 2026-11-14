@@ -7,3 +7,4 @@ data/g1sim/
 data/session/
 __pycache__/
 *.pyc
+data/sync_check/
