@@ -8,6 +8,28 @@ OBJECTS = {
     "can":         {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # light empty can: do not crush
 }
 UNKNOWN = {"profile": "cup", "max_closure": 0.65, "max_speed": 0.5}
+FILE_KEY = {"stress_ball": "ball"}   # our key -> key used in g1/object_profiles.json (owner: Giorgio, g1/)
+
+
+def load_overrides(path=None):
+    """Overlay per-object numbers from g1/object_profiles.json (PROVISIONAL sim numbers) when the file exists: max_closure, max_speed,
+    min_hold_closure, supported (+ why). The 'profile' field and any key missing from the file keep the defaults above. Returns the keys updated."""
+    import json, os
+    path = path or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "g1", "object_profiles.json")
+    if not os.path.exists(path): return []
+    try: d = json.load(open(path))
+    except (OSError, ValueError): return []
+    done = []
+    for key, cur in OBJECTS.items():
+        e = d.get(FILE_KEY.get(key, key))
+        if not isinstance(e, dict) or not isinstance(e.get("max_closure"), (int, float)): continue
+        for f in ("max_closure", "max_speed", "min_hold_closure", "supported", "why"):
+            if f in e: cur[f] = e[f]
+        done.append(key)
+    return done
+
+
+load_overrides()
 SYNONYMS = {
     "egg": ("egg", "hen egg", "raw egg", "eggshell", "ovo"),
     "stress_ball": ("stress ball", "stress_ball", "squeeze ball", "foam ball", "ball", "sphere", "pallina"),
