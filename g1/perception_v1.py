@@ -6,12 +6,16 @@ Composes Tommaso's ai/ modules without editing them (no single perceive() on mai
   position  ai.locate.locate(..., mask=component, table_z=plane) -> object centre in the pelvis frame
   perceive(head_rgb, head_depth_mm, pixel_to_pelvis, vlm=()) -> {"table_z", "objects": [...], "t_s"}
   assign(objects, overrides) -> {"right": obj|None, "left": obj|None}: each hand takes the nearest object on its side (pelvis y<0 = right)
-Caps: egg 0.70, can_empty 1.0 ONLY with geometric support (standing, > 9 cm tall), stress_ball via ai.object_profile.cap_for_votes,
-anything else / disagreement -> unknown 0.68. Sizes and thresholds are nominal; tested on MuJoCo renders only (g1/sim/bench_vision_v1.py)."""
+Caps: egg 0.70, can_empty = g1/object_profiles.json can.max_closure (0.45: an empty can crushes, irreversible; board 17:50),
+stress_ball via ai.object_profile.cap_for_votes, anything else / disagreement -> unknown 0.68. Sizes and thresholds are nominal; tested on MuJoCo renders only (g1/sim/bench_vision_v1.py)."""
 import io, os, time
 import numpy as np
 
-CAP = {"egg": 0.70, "can_empty": 1.0, "stress_ball": 0.70, "unknown": 0.68}
+def _can_cap(default=0.45):
+    try:
+        import json; return float(json.load(open(os.path.join(os.path.dirname(__file__), "object_profiles.json")))["can"]["max_closure"])
+    except Exception: return default
+CAP = {"egg": 0.70, "can_empty": _can_cap(), "stress_ball": 0.70, "unknown": 0.68}
 WORK = dict(x=(0.12, 0.80), y=(-0.55, 0.55), z=(-0.40, 0.45))   # pelvis-frame box where objects can be
 MIN_ABOVE, MAX_ABOVE = 0.012, 0.30                                 # object pixels: this far above the table plane (m)
 MIN_AREA, MAX_FOOT, MERGE = 150, 0.20, 0.06                                     # px, m (bigger footprint = arm, box, person)
@@ -167,7 +171,7 @@ def decide(votes, geo):
 
 
 def cap_for(label, conf, agree, geo):
-    if label == "can_empty": return CAP["can_empty"] if geo["object"] == "can_empty" else CAP["unknown"]
+    if label == "can_empty": return min(CAP["can_empty"], CAP["unknown"])   # never above the crush-safe can cap, geometry or not
     if label == "stress_ball":
         try:
             from ai.object_profile import cap_for_votes
@@ -256,7 +260,7 @@ def perceive_with_ai(head_rgb, head_depth, pixel_to_pelvis, vlm=(), vlm_timeout=
                         depth_ok=bool(ok), why=why, votes=votes, ai_cap=None if a is None else a.get("cap"), ai_label=None if a is None else a["label"]))
     for i, a in enumerate(ai_objs):          # seen only by ai.perceive (e.g. a flat object under 12 mm in this module's mask)
         if i in used: continue
-        lab = a["label"]; out.append({"label": lab, "conf": a.get("conf"), "agree": a.get("agree", 0), "cap": CAP.get(lab, CAP["unknown"]) if lab != "can_empty" else CAP["unknown"],
+        lab = a["label"]; out.append({"label": lab, "conf": a.get("conf"), "agree": a.get("agree", 0), "cap": CAP.get(lab, CAP["unknown"]),
                                       "p_pelvis": a["p_pelvis"], "depth_ok": bool(a.get("usable")), "height": None, "bbox": a.get("bbox"), "why": "ai.perceive only: " + a.get("why", "")[:200],
                                       "votes": [{"name": "ai.perceive", "object": lab, "confidence": a.get("conf"), "ok": lab != "unknown"}], "ai_cap": a.get("cap"), "ai_label": lab})
     return {"table_z": mine["table_z"], "objects": out, "t_s": round(time.time() - t0, 2), "engine": "ai.perceive+geometry", "ai_info": {k: info.get(k) for k in ("n_blobs", "proj_residual_m")}}

@@ -1,6 +1,6 @@
 """V1 live senza Coil: la camera della testa trova gli oggetti, i guanti comandano la presa (logica = g1/sim/live_sim.py).
 Per ogni mano: HOVER 10 cm sopra l'oggetto piu' vicino dal suo lato -> l'operatore chiude il guanto -> DESCEND -> GRASP (cap per oggetto:
-uovo 0.70, lattina vuota 1.0, sconosciuto 0.68) -> LIFT 12 cm -> l'operatore apre -> RELEASE.
+uovo 0.70, lattina vuota 0.45, sconosciuto 0.68) -> LIFT 12 cm -> l'operatore apre -> RELEASE.
 Percezione (g1/perception_v1.py: ai.perceive di Tommaso + voto geometrico, una volta al primo frame valido, in un thread; il robot resta fermo):
   oggetti = profondita' sopra il piano del tavolo (meno il robot stesso), etichetta = voto geometria+colore (+ VLM ai.recognize se --vlm),
   posizione = ai.locate. Le etichette CLI (--right/--left) sono OVERRIDE opzionali; --right-xy/--left-xy sono fallback e controllo:
@@ -31,7 +31,7 @@ from g1 import perception_v1 as PV
 arm_ik.ARM_STEP = 0.7 / RATE          # IK steps within 70 % of the 1 rad/s arm cap (the same margin the safety check enforces)
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))
 # cap = max hand closure; g_ref = typical glove closure for that object; shape = grasp posture / size used (unknown -> egg posture, gentle)
-PROFILE = {"egg": {"cap": .70, "g_ref": .29, "shape": "egg"}, "can_empty": {"cap": 1., "g_ref": .52, "shape": "can_empty"},
+PROFILE = {"egg": {"cap": .70, "g_ref": .29, "shape": "egg"}, "can_empty": {"cap": PV.CAP["can_empty"], "g_ref": .52, "shape": "can_empty"},
            "stress_ball": {"cap": .70, "g_ref": .36, "shape": "stress_ball"}, "unknown": {"cap": .68, "g_ref": .29, "shape": "egg"}}
 PERCEPTION_TIMEOUT = 25.0   # s; the runner holds the robot while we wait
 SIDES = ("right", "left")

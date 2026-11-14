@@ -17,12 +17,12 @@ def test_disagreement_is_unknown_and_conservative():
     assert lab == "unknown" and cap_for(lab, None, 0, GEO_CAN) == 0.68
 
 
-def test_can_full_force_needs_geometry():
+def test_can_never_above_crush_safe_cap():
     vlm_can = {"name": "gemma", "object": "can", "confidence": 0.95, "ok": True}
     lab, conf, agree, _ = decide([GEO_UNK, vlm_can], GEO_UNK)
-    assert lab == "can_empty" and cap_for(lab, conf, agree, GEO_UNK) == 0.68     # VLM alone: no 1.0
+    assert lab == "can_empty" and cap_for(lab, conf, agree, GEO_UNK) == 0.45     # empty can crushes: object_profiles.json can 0.45
     lab, conf, agree, _ = decide([GEO_CAN, vlm_can], GEO_CAN)
-    assert cap_for(lab, conf, agree, GEO_CAN) == 1.0
+    assert cap_for(lab, conf, agree, GEO_CAN) == 0.45                            # geometry too: still 0.45, never 1.0
 
 
 def test_dead_backend_falls_back_to_geometry():
