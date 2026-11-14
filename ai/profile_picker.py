@@ -11,11 +11,17 @@ TOOL = {"type": "function", "function": {"name": "set_grasp_profile",
                        "reason": {"type": "string"}}, "required": ["object", "profile"]}}}
 
 
-def pick_profile(client, image_bytes=None, hint="", fallback="none"):
-    """Returns {'object','profile','reason','source'} where source is 'model' or 'fallback' (with 'error')."""
-    content = [{"type": "text", "text": "A robot hand is about to grasp the object on the table. Identify it and call set_grasp_profile. " + hint}]
+CROP_PROMPT = "Look at this image of the hand approaching the object. Answer with the grasp force profile."
+
+
+def pick_profile(client, image_bytes=None, hint="", fallback="none", prompt=None, mime="image/jpeg"):
+    """Returns {'object','profile','reason','source'} where source is 'model' or 'fallback' (with 'error').
+    prompt=None keeps the original wording; pass CROP_PROMPT when image_bytes is a pre-grasp crop around the hand (ai/crop.py).
+    The answer is always a set_grasp_profile tool call."""
+    text = (prompt + " Call set_grasp_profile. " if prompt else "A robot hand is about to grasp the object on the table. Identify it and call set_grasp_profile. ") + hint
+    content = [{"type": "text", "text": text}]
     if image_bytes:
-        content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + base64.b64encode(image_bytes).decode()}})
+        content.append({"type": "image_url", "image_url": {"url": f"data:{mime};base64," + base64.b64encode(image_bytes).decode()}})
     try:
         msg = client.chat([{"role": "user", "content": content}], tools=[TOOL])
         for tc in msg.get("tool_calls") or []:
