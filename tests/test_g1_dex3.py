@@ -54,3 +54,14 @@ def test_dry_backend():
     from robot.hand import make_hand
     h = make_hand("g1dex3", hand="left"); h.set_fingers([0, 1, 1, 0, 0])
     assert len(h.last_q) == 14 and h.rt.bounds_ok(h.last_q)
+
+
+def test_thumb0_pinned_open_and_mirrored_if_ever_closed():
+    """#65: thumb_0 never leaves open; if it were ever closed, left and right go opposite ways (symmetric-bounds tie-break)."""
+    rt = G1Dex3Retargeter(); names = [j["joint"] for j in rt.joints]
+    i0 = {s: names.index(s + "_hand_thumb_0_joint") for s in ("left", "right")}
+    open0 = {s: rt.q[i] for s, i in i0.items()}
+    for f in ([1] * 5, [0] * 5, [0.5] * 5, None):
+        for _ in range(40): q = rt.step(left=f, right=f)
+        assert all(q[i] == open0[s] for s, i in i0.items())
+    assert rt._closed(rt.idx["left_hand_thumb_0_joint"]) < 0 < rt._closed(rt.idx["right_hand_thumb_0_joint"])
