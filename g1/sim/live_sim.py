@@ -7,6 +7,7 @@ How it behaves (state machine, printed in the window):
   DESCEND you start closing the glove (grip > 30 % of your usual grip on that object) -> the hand goes down in 1 s, fingers kept open
   GRASP   robot closure = object cap x (your grip / your usual grip), e.g. egg cap 0.70, ball and empty can 1.0
   LIFT    you lift your wrist -> the robot lifts by the same height x 0.8 (0..25 cm)
+  (without the Coil there is no wrist position: the robot lifts 12 cm by itself 1.5 s after you close)
   RELEASE you open the glove -> the robot opens and goes back up to HOVER
 Finger calibration = data/calib.json (series E), exactly as the recorded episodes, so 'your usual grip' g_ref matches the 14/11 data.
 Every command passes the same checks as the organisers' filter (counter keep-out, box, joint bounds, 1 rad/s arm, 3 rad/s hand)."""
@@ -118,9 +119,11 @@ def main():
         elif state == "DESCEND" and time.time() - t_desc > 1.0: state, grip0_up = "GRASP", up
         elif state in ("GRASP", "LIFT") and g < 0.25 * pr["g_ref"]: state = "RELEASE"; t_desc = time.time()
         elif state == "GRASP" and up is not None and grip0_up is not None and up - grip0_up > 0.03: state = "LIFT"
+        elif state == "GRASP" and up is None and time.time() - t_desc > 2.5: state = "LIFT"            # no Coil: auto-lift 1.5 s after the grip
         elif state == "RELEASE" and time.time() - t_desc > 1.0: state = "HOVER"
         if state == "GRASP" and grip0_up is None and up is not None: grip0_up = up             # wrist pose was missing at the transition
         if state == "LIFT" and up is not None and grip0_up is not None: h_lift = float(np.clip(0.8 * (up - grip0_up), 0, 0.25))
+        elif state == "LIFT" and up is None: h_lift = min(0.12, h_lift + 0.12 / RATE)                  # no Coil: lift 12 cm in 1 s
         elif state in ("HOVER", "DESCEND", "GRASP"): h_lift = 0.0
         elif state == "RELEASE": h_lift = max(0.0, h_lift - 0.25 / RATE)                        # come down slowly, no jump
         clear = {"HOVER": 0.10, "DESCEND": 0.10 * max(0.0, 1 - (time.time() - t_desc)), "GRASP": 0.0, "LIFT": 0.0,
