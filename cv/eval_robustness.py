@@ -64,11 +64,11 @@ def run(folder, device):
             result = encoder.zero_shot(feature)
             elapsed = time.perf_counter() - start
             features.append(feature)
-            rows.append(dict(result, expected=label, file=str(path.relative_to(folder)), latency_s=elapsed))
+            rows.append(dict(result, expected=label, file=path.relative_to(folder).as_posix(), latency_s=elapsed))
         oof = cross_validate(features, labels, splits)
         raw, rejected = [], []
         for row in oof:
-            common = {"file": str(files[row['index']].relative_to(folder)),
+            common = {"file": files[row['index']].relative_to(folder).as_posix(),
                       "expected": labels[row['index']], "fold": row['fold']}
             raw.append(dict(row['raw'], **common))
             rejected.append(dict(row['reject_05'], **common))
@@ -82,7 +82,7 @@ def run(folder, device):
                                    "hand": "bottom 60% RGB padded to 224 square; dataset-specific hypothesis"},
                          "model": "same frozen ViT-B/32, fixed prompts and C=1 balanced logistic probe as #99",
                          "independent_test": False, "other_samples": 0},
-            "photos": [{"file": str(p.relative_to(folder)), "label": y, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
+            "photos": [{"file": p.relative_to(folder).as_posix(), "label": y, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}
                        for p, y in zip(files, labels)],
             "folds": [{"train": a.tolist(), "test": b.tolist()} for a,b in splits],
             "results": results}

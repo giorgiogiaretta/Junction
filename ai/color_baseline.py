@@ -15,7 +15,7 @@ def blobs(mask, min_area):
         h, w = m.shape; out.append({"area": a, "aspect": max(h, w) / max(1, min(h, w)), "fill": a / (h * w), "cy": (sl[0].start + sl[0].stop) / 2, "cx": (sl[1].start + sl[1].stop) / 2})
     return sorted(out, key=lambda b: -b["area"])
 
-def classify(path, P):
+def classify(path, P):   # path or file-like object
     im = Image.open(path).convert("RGB"); im.thumbnail((400, 400)); h = np.array(im.convert("HSV")).astype(int)
     H, S, V = h[..., 0], h[..., 1], h[..., 2]
     orange = blobs((H >= 6) & (H <= 22) & (S > P["os"]) & (V > 130), P["omin"])
@@ -32,10 +32,8 @@ def classify(path, P):
 
 def classify_bytes(data, P=None):
     """Colour-rule label for image bytes: 'stress_ball' | 'egg' | 'can' | 'other' (76% on imgs/, untuned)."""
-    import io
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".jpg") as f:
-        f.write(data); f.flush(); return classify(f.name, P or DEFAULT_P)
+    import io   # decoded in memory: a temp file opened by name cannot be reopened on Windows (Giorgio, board 17:46 -> ok=False)
+    return classify(io.BytesIO(data), P or DEFAULT_P)
 
 
 DEFAULT_P = {"os": 150, "omin": 120, "ws": 45, "wv": 215, "wmin": 150, "wmax": 9000, "gmin": 250}

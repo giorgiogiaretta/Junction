@@ -36,3 +36,15 @@ Same 50 labelled photos in `imgs/` (not in git). Reports in `data/photos_reports
 - In the ensemble 21/22 balls are confirmed by both models (Gemma said "other" for ball-016): full force would be unlocked for 21 of 22 balls and never for an egg.
 - **Caveats:** one person, one place, one day, 50 photos; folder name = label; the ensemble rule was fixed before these results but the same photos were used to look at them (no held-out set). A second recogniser adds ~8 s of latency (Gemma): for a live take the call happens once before the grasp, with the 15 s timeout of `ai/recognize.py` and the conservative cap as fallback.
 - The earlier all-failed Gemini run (77/77) was the venue network (66% packet loss), not a model problem.
+
+## Update 14/11 evening: PaliGemma 2 3B on our own A100 (Verda), through the SSH tunnel
+Same 50 labelled photos (448 px JPEG), served by `tools/paligemma_server.py` (Transformers), median **0.21-0.24 s** per photo, 0 failed calls, no quota.
+
+| Prompt | Correct | Note |
+|---|---|---|
+| "Is this object fragile or rigid?" (the requested check) | binary egg-vs-rest **22/50** | answers "fragile" for 48/50 photos, balls and cans included: **useless as a classifier** (never says "rigid" for an egg, which is the safe direction, but it does not discriminate) |
+| free-form "What is the object in the hand?" | 42/50 | eggs often called ball/other |
+| 3-option "Which object is in the hand: an egg, an orange ball, or a drink can? Answer with one word." | **49/50** (egg 19/20, ball 22/22, can 8/8; the miss: one egg -> can) | no confidence score; **the prompt was designed before the run, not tuned on its errors, but three prompts were tried on the same photos: optimistic** |
+
+**Three-model ensemble, fragile-first** (Nemotron API + Gemma-4 API + PaliGemma local, computed offline from the saved answers): **50/50, eggs 20/20, every ball confirmed by >= 2 models (22/22).** Cross-check PaliGemma vs Nemotron: agree 68/77; vs Gemma-4: 65/77; every single-model error on the labelled photos was flagged by a disagreement, none shared. Same caveats: 50 photos, one person/place/day, no held-out set.
+Why this matters: PaliGemma is a **different model family size and architecture** (SigLIP + Gemma 2, 3B), runs on our own GPU (open weights, no quota, no data leaves), and is as fast as Nemotron. It cannot follow JSON, so the router and the Advisor stay on Gemma-4/Nemotron.

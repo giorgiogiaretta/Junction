@@ -100,7 +100,8 @@ class QuotaErr(Exception):
     pass
 
 
-def test_daily_quota_skips_to_next_model_without_retrying_and_remembers():
+def test_daily_quota_skips_to_next_model_without_retrying_and_remembers(monkeypatch):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)   # a GEMINI_MODEL exported in the shell must not override the chain under test
     jg._EXHAUSTED.clear()
     class C:
         def __init__(self): self.calls = []; self.models = self
@@ -115,7 +116,8 @@ def test_daily_quota_skips_to_next_model_without_retrying_and_remembers():
     jg._EXHAUSTED.clear()
 
 
-def test_per_minute_429_backs_off_exponentially_then_succeeds():
+def test_per_minute_429_backs_off_exponentially_then_succeeds(monkeypatch):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
     jg._EXHAUSTED.clear(); waits = []
     class C:
         def __init__(self): self.n = 0; self.models = self
