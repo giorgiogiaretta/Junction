@@ -85,3 +85,29 @@ def behaviour(label):
     key = normalize(label)
     b = dict(OBJECTS.get(key, UNKNOWN)); b.update(object=key, known=key in OBJECTS)
     return b
+
+
+# --- Full force only when we are sure (G1 live policy, Giorgio's request 2026-11-14) ------------------------------------------------
+FULL_CAP = {"stress_ball": 1.0, "can": 1.0}   # objects nothing bad happens to at full closure (empty can may dent: accepted by Giorgio)
+CONFIDENT = 0.9
+# The model's confidence on its WRONG answers is not measured yet (Verda died before the confidence run). Until the 2 eggs called
+# 'stress ball' in imgs/ are shown to get confidence < CONFIDENT, a model answer alone never unlocks full force: set True after that check.
+CONFIDENCE_VALIDATED = False
+
+
+def cap_for(pick):
+    """Closure cap for a picker result (ai.profile_picker / ai.pick_profile dict). Returns {'object','max_closure','why'}.
+    Full force (FULL_CAP) only when: source='manual' (operator --set, label = the object key or profile name), OR the model answered with
+    confidence >= CONFIDENT, no safety rule softened it, and CONFIDENCE_VALIDATED. Everything else: behaviour(label) caps (egg/ball share the
+    robust cap); fallback -> UNKNOWN."""
+    src = pick.get("source")
+    if src == "fallback": return {"object": "other", "max_closure": UNKNOWN["max_closure"], "why": "fallback: conservative"}
+    key = normalize(pick.get("object") if src != "manual" else (pick.get("object_key") or pick.get("profile")))
+    if key in FULL_CAP:
+        if src == "manual":
+            return {"object": key, "max_closure": FULL_CAP[key], "why": "operator set the object"}
+        c = pick.get("confidence")
+        if src == "model" and not pick.get("safety") and isinstance(c, (int, float)) and c >= CONFIDENT and CONFIDENCE_VALIDATED:
+            return {"object": key, "max_closure": FULL_CAP[key], "why": f"model confident ({c})"}
+    b = behaviour(key)
+    return {"object": key, "max_closure": b["max_closure"], "why": "robust cap" if key in OBJECTS else "unknown: conservative"}
