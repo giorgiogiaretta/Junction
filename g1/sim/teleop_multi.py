@@ -118,6 +118,14 @@ def main():
         o["seen"] = seen
         print(f"[camera] {name}: " + ("NOT seen" if seen is None else f"seen, error {100 * np.linalg.norm((seen - o['p0'])[:2]):.1f} cm"), flush=True)
         o["G"] = {h: (T.grasp_pose(name, h, seen, rest) if seen is not None and D.best_grasp(name) else None) for h in hands}
+    # Mirror the right-hand Cartesian can grasp across the sagittal plane, then solve it on the left.
+    if "can_empty" in O and "left" in hands and O["can_empty"]["G"].get("left") is not None:
+        M = np.diag([1.0, -1.0, 1.0])
+        right_seen = O["can_empty"]["seen"].copy(); right_seen[1] *= -1
+        right_pose = T.grasp_pose("can_empty", "right", right_seen, rest)
+        if right_pose is not None:
+            rp, rR, rpin = right_pose
+            O["can_empty"]["G"]["left"] = (M @ rp, M @ rR @ M, M @ rpin)
     # each hand is anchored on the nearest object on its side (your table centre = that spot)
     anchor, base_R = {}, {}
     for h in hands:
@@ -132,6 +140,7 @@ def main():
     rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0")))
     shift = {h: np.zeros(3) for h in hands}; last_t = {}; stage = {h: None for h in hands}; t_st = {h: 0.0 for h in hands}; lock = {h: None for h in hands}
     target = {h: None for h in hands}; raw_last = {}; hist = {"left": [], "right": []}; blocked = 0
+    need_align = False; reset_park_until = 0.0; force_window = {h: [] for h in hands}; egg_grip_cap = {h: 0.70 for h in hands}
     viewer = None
     if not a.headless:
         from mujoco import viewer as mjv
@@ -141,6 +150,26 @@ def main():
     hand_bodies = {h: {b for b in range(m.nbody) if (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "").startswith(f"{h}_hand_")} for h in ("left", "right")}
     while time.time() - t0 < a.seconds and (viewer is None or viewer.is_running()):
         t_tick = time.time(); fingers = {"left": None, "right": None}; status = []
+        if need_align:
+            # Keep the reset posture and park objects until the operator realigns with A.
+            if reset_park_until and t_tick >= reset_park_until:
+                for o in O.values():
+                    d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = o["q0"]
+                    d.qvel[o["dof"]:o["dof"] + 6] = 0
+                mujoco.mj_forward(m, d); reset_park_until = 0.0
+            if viewer is not None:
+                with viewer.lock(): viewer.user_scn.ngeom = 0
+                viewer.sync()
+            if not a.headless and tick % 3 == 0:
+                k = cv2.waitKey(1) & 0xFF
+                if k in (ord("a"), ord("A")) and reset_park_until == 0.0:
+                    need_align = False
+                    for h in hands:
+                        if h in raw_last: shift[h] = -np.array(TC[h]["R"]) @ (raw_last[h] - np.array(TC[h]["origin"]))
+                        PF[h].reset(); QF[h].reset(); DB[h].reset(); grip_f[h] = None
+                    print("[key] A: teleop riallineato", flush=True)
+                elif k in (ord("q"), ord("Q")): break
+            tick += 1; time.sleep(max(0.0, 1 / RATE - (time.time() - t_tick))); continue
         for h in hands:
             s = gl[h].read()
             if s is None or s[1] is None or s[2] is None or np.isnan(s[1]).any(): status.append(f"{h}: no Coil"); continue
@@ -199,6 +228,12 @@ def main():
                     if why: kin.a.q.update(q_prev); kin.a.apply()
                 if why: blocked += 1; mode += f" [BLOCKED: {why[0]}]"
             c = 0.0 if hold_f else pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))   # egg: never above 0.70 however hard you squeeze
+            if name == "egg" and stage[h] in ("close", "hold"):
+                cap_now = egg_grip_cap[h]
+                mean_force = float(np.mean([f for _, f in force_window[h]])) if force_window[h] else 0.0
+                if cap_now > 0.55 and mean_force > 14.0: cap_now = max(0.55, cap_now - 0.02)
+                elif mean_force < 10.0: cap_now = min(0.70, cap_now + 0.02)
+                egg_grip_cap[h] = cap_now; c = min(c, cap_now)
             fingers[h] = [c, c, c, 0, 0]; status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
         hq = rt.step(left=fingers["left"], right=fingers["right"])
         for n, v in kin.a.q.items():
@@ -216,6 +251,9 @@ def main():
                             if other in hand_bodies[h]: mujoco.mj_contactForce(m, d, i, f6); fs[h] += abs(f6[0]); fso[n] += abs(f6[0])
             for h in fh: fh[h] = max(fh[h], fs[h])
             for n in fo: fo[n] = max(fo[n], fso[n])
+        for h in hands:
+            force_window[h].append((t_tick, fo.get("egg", 0.0) if target[h] == "egg" else 0.0))
+            force_window[h] = [(ts, f) for ts, f in force_window[h] if t_tick - ts <= 0.1]
         for h in ("left", "right"): hist[h].append(fh[h])
         for n, o in O.items():                                          # egg breaks / can dents (assumed thresholds)
             o.setdefault("fh", []).append(fo[n]); o["fh"] = o["fh"][-3:]
@@ -230,17 +268,6 @@ def main():
         if viewer is not None:
             with viewer.lock():
                 viewer.user_scn.ngeom = 0
-                for h in hands:
-                    name = target[h]
-                    if name is not None and O[name]["G"].get(h) is not None:
-                        pin_t = O[name]["G"][h][2]
-                        gidx = viewer.user_scn.ngeom
-                        mujoco.mjv_initGeom(viewer.user_scn.geoms[gidx], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.015, 0, 0]), pin_t, np.eye(3).flatten(), np.array([1.0, 0.85, 0.05, 0.8], dtype=np.float32))
-                        viewer.user_scn.ngeom += 1
-                    pt = T.pinch(kin, h); gidx = viewer.user_scn.ngeom
-                    col = [0.1, 0.9, 0.2, 0.8] if h == "right" else [0.2, 0.4, 1.0, 0.8]
-                    mujoco.mjv_initGeom(viewer.user_scn.geoms[gidx], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.015, 0, 0]), pt, np.eye(3).flatten(), np.array(col, dtype=np.float32))
-                    viewer.user_scn.ngeom += 1
                 viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, "teleop", line)])
             viewer.sync()
         if tick % 15 == 0: print(line, flush=True)
@@ -251,19 +278,31 @@ def main():
             k = cv2.waitKey(1) & 0xFF
             if k != 255: print(f"[key] {chr(k) if 32 <= k < 127 else k}", flush=True)
             if k in (ord("a"), ord("A"), ord("c"), ord("C")):
+                need_align = False
                 for h in hands:
                     if h in raw_last: shift[h] = -np.array(TC[h]["R"]) @ (raw_last[h] - np.array(TC[h]["origin"]))
                     PF[h].reset(); QF[h].reset(); DB[h].reset(); grip_f[h] = None; stage[h] = None; lock[h] = None
                 print("[clutch] re-centred", flush=True)
             if k in (ord("r"), ord("R")):
+                kin.a.q.update(rest); kin.a.apply()
+                for n, v in rest.items():
+                    if n in act: d.qpos[jq[n]] = v; d.ctrl[act[n]] = v
+                hq = rt.step(left=[0, 0, 0, 0, 0] if "left" in hands else None, right=[0, 0, 0, 0, 0] if "right" in hands else None)
+                for n, v in zip(names, hq):
+                    d.ctrl[act[n]] = v
+                    if n in jq: d.qpos[jq[n]] = v
+                last_t.clear()
                 for name, o in O.items():
-                    d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = o["q0"]
+                    d.qpos[o["adr"]:o["adr"] + 3] = o["p0"] + np.array([0.0, 0.0, -1.0]); d.qpos[o["adr"] + 3:o["adr"] + 7] = o["q0"]
                     d.qvel[o["dof"]:o["dof"] + 6] = 0
                     m.geom_size[o["geom"]][0] = o["r0"]; m.geom_rgba[o["geom"]] = o["rgba0"]
                     o["crush"], o["broken"] = 0.0, False
-                for h in hands: stage[h] = None; lock[h] = None; target[h] = None; t_st[h] = 0.0
+                for h in hands:
+                    stage[h] = None; lock[h] = None; target[h] = None; t_st[h] = 0.0; grip_f[h] = None
+                    shift[h].fill(0); PF[h].reset(); QF[h].reset(); DB[h].reset(); force_window[h].clear(); egg_grip_cap[h] = 0.70
+                need_align = True; reset_park_until = time.time() + 1.0
                 mujoco.mj_forward(m, d)
-                print("[scene] reset", flush=True)
+                print("[key] R: scena resettata, premi A per riallineare", flush=True)
             if k in (ord("q"), ord("Q")): break
         tick += 1; time.sleep(max(0.0, 1 / RATE - (time.time() - t_tick)))
 
