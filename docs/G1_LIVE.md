@@ -40,7 +40,7 @@ py -3.11 Rokoko/src/rgmp_client.py --hand right --udp-port 14043
 $env:G1_MAX_CLOSURE="0.1"; py -3.11 g1/live_policy.py --source udp:14043 --hand right --host 0.0.0.0
 ```
 - Se lo staff fa girare il runner su un'altra macchina: `--host 0.0.0.0` e dagli l'indirizzo `ws://<IP del tuo PC>:8000`. Se gira sul tuo PC: togli `--host 0.0.0.0` e l'indirizzo è `ws://localhost:8000`.
-- Per **forzare l'oggetto** senza modello (se la rete o Nemotron non vanno): aggiungi `--object egg` (oppure `stress_ball`, `can`, `none`). Il limite di chiusura viene solo da `ai.object_profile.cap_for` (una sola tabella): pallina e lattina arrivano a 1,0 solo se l'oggetto lo imposti tu con `--object` (o con conferma di 2 riconoscitori); un modello da solo dà al massimo il limite condiviso 0,70; l'uovo non supera mai 0,70.
+- Per **forzare l'oggetto** senza modello (se la rete o Nemotron non vanno): aggiungi `--object egg` (oppure `stress_ball`, `can`, `none`). Il limite di chiusura viene solo da `ai.object_profile.cap_for` (una sola tabella): la pallina arriva a 1,0 solo se l'oggetto lo imposti tu con `--object` (o con conferma di 2 riconoscitori); la lattina non arriva mai a 1,0 finché è solo da visione; un modello da solo dà al massimo il limite condiviso 0,70; l'uovo non supera mai 0,70.
 
 **Staff, runner reale** (lo lanciano loro, sulla loro macchina):
 ```
