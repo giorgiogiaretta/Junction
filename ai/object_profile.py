@@ -4,7 +4,8 @@ ml/grasp_assist.py (cup, egg, can, none). UNKNOWN objects get the CONSERVATIVE p
 Published on UDP 127.0.0.1:14070 as {"object", "profile", "max_closure", "max_speed"} (backward compatible with {"profile"})."""
 OBJECTS = {
     "egg":         {"profile": "egg", "max_closure": 0.50, "max_speed": 0.5},   # very fragile
-    "stress_ball": {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # soft: firm hold is safe
+    "stress_ball": {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # soft: firm hold is safe. INTENDED: 'profile' is the ml/grasp_assist
+                                                                                 # motion style (cup/egg/can/none, no 'ball'); the cap is per object
     "can":         {"profile": "can", "max_closure": 0.80, "max_speed": 1.0},   # light empty can: do not crush
 }
 UNKNOWN = {"profile": "cup", "max_closure": 0.68, "max_speed": 0.5}   # 0.68: still holds the egg (hold 0.65 + margin) and stays 0.07 below its break (0.75)
