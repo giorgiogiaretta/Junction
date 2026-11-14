@@ -4,3 +4,5 @@ ml/model.npz
 graphify-out/
 data/overnight/
 data/g1sim/
+__pycache__/
+*.pyc

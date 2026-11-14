@@ -1,0 +1,53 @@
+night job: 5.0 h on cuda, H takes 10, C 10, all 51
+[0.03 h] trials=1
+GPU 84 C: cooling
+GPU 86 C: cooling
+GPU 85 C: cooling
+GPU 80 C: cooling
+[0.37 h] trials=16
+GPU 80 C: cooling
+GPU 81 C: cooling
+[0.74 h] trials=27
+GPU 80 C: cooling
+[1.10 h] trials=40
+GPU 81 C: cooling
+GPU 82 C: cooling
+[1.46 h] trials=51
+GPU 83 C: cooling
+[1.83 h] trials=63
+GPU 81 C: cooling
+GPU 81 C: cooling
+GPU 83 C: cooling
+GPU 81 C: cooling
+GPU 81 C: cooling
+[2.18 h] trials=80
+GPU 81 C: cooling
+GPU 82 C: cooling
+GPU 82 C: cooling
+[2.55 h] trials=96
+GPU 82 C: cooling
+[2.89 h] trials=105
+GPU 82 C: cooling
+GPU 83 C: cooling
+GPU 83 C: cooling
+[3.28 h] trials=115
+GPU 85 C: cooling
+GPU 81 C: cooling
+GPU 74 C: cooling
+GPU 83 C: cooling
+[3.64 h] trials=124
+GPU 82 C: cooling
+GPU 72 C: cooling
+GPU 74 C: cooling
+[4.04 h] trials=135
+GPU 70 C: cooling
+GPU 80 C: cooling
+GPU 73 C: cooling
+GPU 83 C: cooling
+[4.37 h] trials=148
+GPU 80 C: cooling
+[4.76 h] trials=162
+GPU 81 C: cooling
+GPU 81 C: cooling
+GPU 83 C: cooling
+night job finished: 172 trials, see data/night/report.md (local only: nothing is pushed or posted)
