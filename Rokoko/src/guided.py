@@ -17,7 +17,7 @@ except Exception:
 
 H = struct.Struct("<dI")
 RAW = "data/raw"; LOG = f"{RAW}/takes.jsonl"
-OBJ = {"ball": ("stress_ball", "la PALLINA"), "can": ("can", "la LATTINA"), "egg": ("egg", "l'UOVO")}
+OBJ = {"ball": ("stress_ball", "la PALLINA"), "can": ("can", "la LATTINA"), "canempty": ("can_empty", "la LATTINA VUOTA"), "egg": ("egg", "l'UOVO")}
 CODES = {"": None, "C": "dropped", "S": "slipped", "X": "crushed", "M": "missed", "N": "discard", "O": "ok"}
 # what to do in the 'hold' phase for each planned outcome
 FAIL = {"ok": "SOLLEVALO di 15 cm e TIENILO FERMO",
@@ -25,8 +25,9 @@ FAIL = {"ok": "SOLLEVALO di 15 cm e TIENILO FERMO",
         "slipped": "SOLLEVALO e allenta piano le dita: lascialo SCIVOLARE",
         "missed": "MANCA la presa: chiudi la mano ACCANTO all'oggetto, non prenderlo",
         "crushed": "STRINGI FORTE fino a romperlo / schiacciarlo",
+        "strong": "SOLLEVALO e STRINGI FORTE per 2 secondi (se si schiaccia va bene)",
         "slipped_low": "SOLLEVALO di 1-2 cm SOPRA il tavolo e allenta le dita: lascialo SCIVOLARE giu' (nessun danno)"}
-PLANS = {"lowslip": ["slipped_low"] * 3, "safe": ["slipped_low", "missed", "slipped_low", "missed"], "miss": ["missed"] * 3, "good": ["ok"] * 5, "fail": ["dropped", "slipped", "dropped", "slipped", "missed"], "crush": ["crushed"]}
+PLANS = {"strong": ["strong"] * 5, "lowslip": ["slipped_low"] * 3, "safe": ["slipped_low", "missed", "slipped_low", "missed"], "miss": ["missed"] * 3, "good": ["ok"] * 5, "fail": ["dropped", "slipped", "dropped", "slipped", "missed"], "crush": ["crushed"]}
 LEAD, TAIL = 3.5, 1.0   # sync fist window 0.5-2.5 s, look at 3.5 s
 
 
@@ -86,9 +87,9 @@ def main():
         else: step(t0, 11.5, f"rimetti {name} sul segno (se puoi) e apri la mano")
         step(t0, 13.5, "MANO A RIPOSO, FERMA 2 secondi", 660)
         step(t0, 15.5, "fine: premi Invio", 440)
-        r = input("   Invio = esito " + want.upper() + "  |  oppure C caduto, S scivolato, X schiacciato, M mancato, O ok, N annulla: ").strip().upper()
+        r = input("   Invio = esito " + ("OK (se si e' schiacciata scrivi X)" if want == "strong" else want.upper()) + "  |  oppure C caduto, S scivolato, X schiacciato, M mancato, O ok, N annulla: ").strip().upper()
         v = cam.stop(); stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
-        out = CODES.get(r, None) or ("slipped" if want == "slipped_low" else want)
+        out = CODES.get(r, None) or {"slipped_low": "slipped", "strong": "ok"}.get(want, want)
         if out == "discard":
             for f in (path, f"data/video/take_{n:02d}.mp4", f"data/video/take_{n:02d}_frames.json"):
                 if os.path.exists(f): os.remove(f)
