@@ -4,6 +4,7 @@ Backends (each optional, run in parallel with a hard timeout so a dead endpoint 
   gemini   -> $GEMINI_MODEL (default gemini-3.5-flash), key GEMINI_API_KEY
   gemma    -> $GEMMA_MODEL (default gemma-4-26b-a4b-it), same Google key (open-weights model)
   nemotron -> Verda/NVIDIA endpoint, key VERDA_INFERENCE_KEY
+  paligemma-> PaliGemma 2 on our own GPU (PALIGEMMA_BASE_URL through the SSH tunnel), 3-option prompt, 49/50 on our photos, ~0.2 s, no confidence
   color    -> local colour rule (no network, 76% on our photos): orange = ball, white blob = egg, gold elongated = can
 Decision rule (FRAGILE-FIRST): any ok vote 'egg' with confidence >= 0.6 (or unknown confidence) -> egg; otherwise the object with most votes (ties -> higher mean confidence).
 `agree` = number of votes for the winner, `confidence` = mean confidence of those votes (None when no vote has one). No ok vote -> 'other' -> conservative cap.
@@ -38,7 +39,12 @@ def _color(img):
     return {"object": classify_bytes(img), "confidence": None, "ok": True}
 
 
-BACKENDS = {"gemini": _vlm("gemini"), "gemma": _gemma_run, "nemotron": _vlm("nemotron"), "color": _color}
+def _paligemma(img):
+    from ai.paligemma import make_client, recognise_bytes
+    return recognise_bytes(make_client(), img)
+
+
+BACKENDS = {"gemini": _vlm("gemini"), "gemma": _gemma_run, "nemotron": _vlm("nemotron"), "color": _color, "paligemma": _paligemma}
 
 
 def collect(img, backends, registry=None, timeout=TIMEOUT_S):
