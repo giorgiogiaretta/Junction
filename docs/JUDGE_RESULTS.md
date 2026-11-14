@@ -10,6 +10,11 @@ Setup: `python -m ai.judge --version 1|2` over 60 episodes (A-J). Human labels (
 
 How it was improved: v1 gave only peak/mean closure and wrist ranges, so the model said unclear or bad. v2 states the task (grip held while the wrist moves; thumb ignored; series A is a flat hand on a box) and sends a coarse timeline. Reasoning model: needs max_tokens 6000 (~10 s per episode).
 
+## Correction (2026-11-14, PR on branch 71-judge-timeline-compare)
+The code that produced the v2 column did NOT send the timeline: `summarize_episode(path, 2)` ignored `version` and `timeline()` was never called. So 22/32 was measured with **v2 prompt (task definition) + aggregate stats only**. The fix adds the 0.5 s timeline to v2 summaries; the v2 number must be re-measured (`python -m ai.judge --version 2`) before the pitch quotes "timeline". Until then say "task-definition prompt: 5/32 -> 22/32".
+
+Two-backend comparison: `python -m ai.compare_judges --a nemotron --b gemini` (needs `GEMINI_API_KEY`; Gemini never receives the NVIDIA/Verda key) prints per-model recall/precision and model-vs-model agreement (raw + Cohen's kappa).
+
 ## Warnings (do not over-claim)
 - v2 calls non-grasp series `good`: E (calibration open hand/fist) 3/3 and D (noise) 5/5. So it is permissive; precision is probably poor.
 - Series F (hands at rest) is correctly `bad` (3/3).
