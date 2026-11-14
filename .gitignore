@@ -2,3 +2,4 @@
 .agent-loop.log
 ml/model.npz
 graphify-out/
+data/overnight/
