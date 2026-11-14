@@ -32,3 +32,16 @@ def test_recognize_parses_json_and_survives_failure():
     assert r["object"] == "egg" and r["ok"]
     c2 = ChatClient("k", transport=lambda *a: (500, {}), sleep=lambda s: None, rpm=6000, max_retries=0); r2 = recognize(c2, b"img")
     assert r2["object"] == "other" and not r2["ok"]
+
+
+def test_folder_labels_and_mix(tmp_path):
+    from ai.eval_objects import prep_image
+    for d, n in (("ball", "ball-001.jpg"), ("egg", "egg-001.jpg"), ("mix", "mix-001.jpg")):
+        (tmp_path / d).mkdir(); (tmp_path / d / n).write_bytes(b"x")
+    assert expected_label(str(tmp_path / "ball" / "ball-001.jpg")) == "stress_ball" and expected_label(str(tmp_path / "mix" / "mix-001.jpg")) is None
+    seen = []
+    def fake(client, img, mime): seen.append(1); return {"object": "egg", "confidence": 0.9, "latency_s": 0.1, "ok": True}
+    assert len(evaluate(None, str(tmp_path), recog=fake)) == 2           # mix skipped by default
+    rows = evaluate(None, str(tmp_path), recog=fake, include_mix=True); assert len(rows) == 3
+    md = report(rows, "fake"); assert "accuracy: 50%" in md and "mix" in md
+    assert prep_image(b"not an image") == b"not an image"
