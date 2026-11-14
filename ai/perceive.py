@@ -24,6 +24,7 @@ S = 4                    # downsampling for segmentation
 MIN_H, MAX_H = 0.012, 0.25
 MIN_PX = 6               # downsampled pixels per blob (~100 full-res)
 MIN_EXT, MAX_EXT = 0.02, 0.20
+CAN_MIN_H = 0.09        # blob top >= 9 cm above the table and no model answer -> standing can (egg 4.3 cm, ball 6.5 cm, can 14.6 cm)
 LABEL = {"egg": "egg", "stress_ball": "stress_ball", "can": "can_empty"}
 
 
@@ -106,7 +107,8 @@ def perceive(head_rgb, head_depth, pixel_to_pelvis, table_z=None, recognizer=Non
         if len(us) < 20: continue
         u0, u1, v0, v1 = int(us.min()), int(us.max()), int(vs.min()), int(vs.max()); pu, pv = (u1 - u0) // 4 + 8, (v1 - v0) // 4 + 8
         crop = rgb[max(0, v0 - pv):min(H, v1 + pv + 1), max(0, u0 - pu):min(W, u1 + pu + 1)]
-        blobs.append({"mask": full, "bbox": [u0, v0, u1, v1], "crop": crop})
+        height = float(np.percentile(z[c], 95)) - table_z   # top of the blob above the table (m)
+        blobs.append({"mask": full, "bbox": [u0, v0, u1, v1], "crop": crop, "height": height})
     info["n_blobs"] = len(blobs)
     rec = recognizer or _default_recognizer(timeout=timeout)
     ex = cf.ThreadPoolExecutor(max_workers=max(1, len(blobs)))
@@ -122,6 +124,8 @@ def perceive(head_rgb, head_depth, pixel_to_pelvis, table_z=None, recognizer=Non
         why = r.get("reason", "")
         if col == "egg" and label != "egg":           # fragile-first: white blob = treat as egg whatever the models say
             label, why = "egg", f"colour veto: {frac:.0%} white pixels -> egg (models: {r.get('object')})"
+        elif label == "unknown" and b["height"] >= CAN_MIN_H:   # no model answer, taller than any egg/ball: standing can (geometry)
+            label, conf, agree, source, why = "can_empty", None, 1, "depth+geometry", f"no model answer, {100 * b['height']:.0f} cm tall -> can"
         elif label == "unknown" and col is not None:   # no model answer: colour rule alone (no full force from it)
             label, conf, agree, source, why = col, None, 1, "depth+colour", f"no model answer, colour {frac:.0%} -> {col}"
         loc = locate(rgb, depth, to3d, label=label if label != "unknown" else None, conf=conf, mask=b["mask"], table_z=table_z)
