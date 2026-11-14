@@ -103,27 +103,19 @@ def behaviour(label):
     return b
 
 
-# --- Full force only when we are sure (G1 live policy, Giorgio's request 2026-11-14) ------------------------------------------------
-FULL_CAP = {"stress_ball": 1.0, "can": 1.0}   # objects nothing bad happens to at full closure (empty can may dent: accepted by Giorgio)
-CONFIDENT = 0.9
-# The model's confidence on its WRONG answers is not measured yet (Verda died before the confidence run). Until the 2 eggs called
-# 'stress ball' in imgs/ are shown to get confidence < CONFIDENT, a model answer alone never unlocks full force: set True after that check.
-CONFIDENCE_VALIDATED = False
-
-
+# --- Dict front-end for picker results (G1 live policy). ONE policy: it delegates to cap_for_votes above. -------------------------
 def cap_for(pick):
-    """Closure cap for a picker result (ai.profile_picker / ai.pick_profile dict). Returns {'object','max_closure','why'}.
-    Full force (FULL_CAP) only when: source='manual' (operator --set, label = the object key or profile name), OR the model answered with
-    confidence >= CONFIDENT, no safety rule softened it, and CONFIDENCE_VALIDATED. Everything else: behaviour(label) caps (egg/ball share the
-    robust cap); fallback -> UNKNOWN."""
+    """Closure cap for a picker result dict (ai.profile_picker / ai.pick_profile). Returns {'object','max_closure','why'}.
+    Same rule as cap_for_votes: ball full force only if manual (source='manual', object_key) or confidence >= FULL_FORCE_MIN_CONF with
+    pick['agree'] >= FULL_FORCE_MIN_AGREE independent recognisers (default 1 = not enough). A model answer softened by a safety rule never
+    unlocks it. Fallback -> UNKNOWN. Egg/unknown/can never get full force (can: vision only until the G1 posture re-run)."""
     src = pick.get("source")
     if src == "fallback": return {"object": "other", "max_closure": UNKNOWN["max_closure"], "why": "fallback: conservative"}
-    key = normalize(pick.get("object") if src != "manual" else (pick.get("object_key") or pick.get("profile")))
-    if key in FULL_CAP:
-        if src == "manual":
-            return {"object": key, "max_closure": FULL_CAP[key], "why": "operator set the object"}
-        c = pick.get("confidence")
-        if src == "model" and not pick.get("safety") and isinstance(c, (int, float)) and c >= CONFIDENT and CONFIDENCE_VALIDATED:
-            return {"object": key, "max_closure": FULL_CAP[key], "why": f"model confident ({c})"}
-    b = behaviour(key)
-    return {"object": key, "max_closure": b["max_closure"], "why": "robust cap" if key in OBJECTS else "unknown: conservative"}
+    manual = src == "manual"
+    label = (pick.get("object_key") or pick.get("profile")) if manual else pick.get("object")
+    key = normalize(label)
+    conf = None if pick.get("safety") else pick.get("confidence")
+    c = cap_for_votes(key, confidence=conf, agree=int(pick.get("agree") or 1), manual=manual)
+    why = ("full force: " + ("operator set the object" if manual else f"confidence {conf}, {pick.get('agree')} recognisers agree")) \
+        if c == FULL_FORCE.get(key) and key in FULL_FORCE else ("robust cap" if key in OBJECTS else "unknown: conservative")
+    return {"object": key, "max_closure": c, "why": why}
