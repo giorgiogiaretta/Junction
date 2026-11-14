@@ -35,6 +35,9 @@ def colour_mask(rgb):
     return {"egg": white, "stress_ball": orange}
 
 
+MAX_BLOB_PX = 20000   # a 65 mm ball at >= 0.35 m from the camera covers < ~10000 px at fx 615; bigger white/orange areas = mats, walls, paper
+
+
 def _bbox(mask, pad=2):
     vs, us = np.nonzero(mask)
     if len(us) < MIN_DEPTH_PX: return None
@@ -51,16 +54,26 @@ def _axis_px(mask):
     return V[:, 1], float(np.sqrt(w[1] / max(w[0], 1e-9)))   # main direction (du, dv), elongation ratio
 
 
-def locate(head_rgb, head_depth, pixel_to_pelvis=None, label=None, conf=None, bbox=None, table_z=None, elongated_min=1.1):
+def locate(head_rgb, head_depth, pixel_to_pelvis=None, label=None, conf=None, bbox=None, table_z=None, elongated_min=1.1, mask=None):
+    """mask: optional HxW bool object mask from a detector/segmenter (best); else bbox; else colour blobs (fallback, lighting-sensitive)."""
     rgb = np.asarray(head_rgb); depth = np.asarray(head_depth)
     masks = colour_mask(rgb)
+    if mask is not None:
+        mask = np.asarray(mask, bool); masks = {k: (mask if k == (label or "unknown") else v) for k, v in masks.items()}
+        masks.setdefault(label or "unknown", mask)
+        if bbox is None: bbox = _bbox(mask)
+        if bbox is None:
+            return {"object": label or "unknown", "conf": conf, "p_pelvis": None, "axis_pelvis": None, "bbox": None, "depth_ok": False,
+                    "why": "given mask is (almost) empty"}
     obj = label or None
-    if bbox is None:   # pick the biggest colour blob
-        best = max(masks, key=lambda k: int(masks[k].sum()))
-        if masks[best].sum() < MIN_DEPTH_PX:
+    if bbox is None:   # pick the biggest colour blob of plausible object size
+        sizes = {k: int(v.sum()) for k, v in masks.items()}
+        cands = [k for k in masks if MIN_DEPTH_PX <= sizes[k] <= MAX_BLOB_PX]
+        if not cands:
             return {"object": obj or "unknown", "conf": conf, "p_pelvis": None, "axis_pelvis": None, "bbox": None, "depth_ok": False,
-                    "why": "no bbox given and no white/orange blob found"}
-        obj = obj or best; mask = masks[best]; bbox = _bbox(mask)
+                    "why": f"no bbox/mask given and no object-sized white/orange blob (px: {sizes})"}
+        best = max(cands, key=lambda k: sizes[k])
+        obj = obj or best; bbox = _bbox(masks[best])
     u0, v0, u1, v1 = [int(x) for x in bbox]
     obj = obj or "unknown"
     box = np.zeros(depth.shape, bool); box[v0:v1 + 1, u0:u1 + 1] = True
