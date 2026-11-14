@@ -43,7 +43,7 @@ Optional `--html`, `--notes` and `--docs` arguments allow checking temporary fix
 
 - `python3 deck/check_deck.py`: passed, including the negative mutation checks described above.
 - Default `python3 -m pytest tests -q`: could not start because that interpreter lacks pytest.
-- `PATH=/opt/anaconda3/bin:$PATH python3 -m pytest tests -q`: **268 passed, 5 skipped in 34.00 s**, using existing dependencies. Skips do not establish experiment coverage.
+- `PATH=/opt/anaconda3/bin:$PATH python3 -m pytest tests -q`: **269 passed, 5 skipped in 32.97 s**, using existing dependencies. Skips do not establish experiment coverage.
 - Headless installed Chrome: twelve slides in both themes, content/footer fit, keyboard/button/click navigation, theme toggle, resize, no JavaScript errors and no external page requests. HTTP(S) page requests were blocked during verification.
 - Both PDF exports: twelve pages, 960 × 540 points. All slides visually reviewed in dark and light contact sheets. Exports/screenshots are temporary validation artifacts, not committed assets.
 - No inference endpoint, physical robot, new photo evaluation or force calibration was run. PR CI is separate from these local checks.
