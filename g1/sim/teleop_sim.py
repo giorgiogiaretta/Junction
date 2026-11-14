@@ -155,7 +155,7 @@ def live_calib(read, hand):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--obj", default="egg", choices=list(D.OBJECTS)); ap.add_argument("--replay", type=int)
     ap.add_argument("--hands", default="both", choices=["both", "right", "left"]); ap.add_argument("--spot", default="0.35,-0.15")
-    ap.add_argument("--zoff", type=float, default=0.06, help="m: your wrist height above the table at the moment you grasp (sensor above the hand)"); ap.add_argument("--gain", type=float, default=1.0, help="table mapping gain (1.0 = your 10 cm are the robot's 10 cm)"); ap.add_argument("--scale", type=float, default=0.6, help="your motion x scale (0.6 = calmer and more precise)"); ap.add_argument("--smooth", type=float, default=0.7, help="One Euro min cutoff Hz: lower = smoother/slower"); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--assist", default="soft", choices=["soft", "strong"], help="soft: max 3 cm correction near the object; strong: staged auto-approach"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
+    ap.add_argument("--zoff", type=float, default=0.10, help="m: your wrist height above the table at the moment you grasp (sensor above the hand)"); ap.add_argument("--gain", type=float, default=1.0, help="table mapping gain (1.0 = your 10 cm are the robot's 10 cm)"); ap.add_argument("--scale", type=float, default=0.6, help="your motion x scale (0.6 = calmer and more precise)"); ap.add_argument("--smooth", type=float, default=0.7, help="One Euro min cutoff Hz: lower = smoother/slower"); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--assist", default="soft", choices=["soft", "strong"], help="soft: max 3 cm correction near the object; strong: staged auto-approach"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
     ap.add_argument("--headless", action="store_true"); ap.add_argument("--calib", action="store_true", help="10 s axis calibration at start (do it whenever the Coil moved)"); ap.add_argument("--seconds", type=float, default=900)
     a = ap.parse_args(); obj = a.obj; pr = D.PROFILE[obj]; spot = [float(x) for x in a.spot.split(",")]
     hands = ["left", "right"] if a.hands == "both" else [a.hands]
@@ -253,6 +253,8 @@ def main():
                     corr = np.clip(gp - p_tel, -0.03, 0.03)                   # never more than 3 cm per axis: you still do the reaching
                     tgt_p = p_tel + w * corr; mode = f"assist {w:.1f}"
                     if w > 0.5: tgt_R = gR                                    # close enough: grasp orientation
+                    if w > 0.8 and g > 0.5 * pr["g_ref"] and float((p_tel - gp)[2]) < 0.02:
+                        tgt_p = gp; mode = "assist: holding still while you close"   # no jitter while the fingers close; lifting your hand releases it
             elif G[h] is not None:
                 gp, gR, pin_t = G[h]; appr = APPR[h]; pre_p = gp + CLEAR * appr; dv = pinch(kin, h) - seen
                 dist = float(np.hypot(dv[0], dv[1])) if -0.03 < dv[2] < 0.20 else 9.9
