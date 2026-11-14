@@ -1,7 +1,7 @@
 """Ball full force only when sure; egg/unknown never."""
 import pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).parents[1]))
-from ai.object_profile import cap_for, behaviour
+from ai.object_profile import cap_for_votes as cap_for, behaviour
 
 
 def test_ball_full_force_needs_confidence_and_agreement():
