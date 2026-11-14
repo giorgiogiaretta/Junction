@@ -1,4 +1,5 @@
 """Two-hand teleoperation with SEVERAL objects on the table (default: egg on the right, empty can on the left).
+OpenCV keys: A/C align and re-centre; R reset scene; Q quit.
   py -3.11 g1/sim/teleop_multi.py --cam                 # live gloves + Coil, uses the table calibration of teleop_sim.py (--calib to redo it)
   py -3.11 g1/sim/teleop_multi.py --objs "egg:0.35,-0.15;can_empty:0.35,0.15" --cam
 What is new vs teleop_sim.py
@@ -20,6 +21,19 @@ from live_sim import GloveLive
 from teleop_filters import OneEuro, QuatFilter, Deadband
 
 RATE = T.RATE
+SNAP_XY, SNAP_Z, SNAP_DEG = 0.04, 0.05, 60
+GRIP_TAU = 0.15
+
+
+def slerp_mat(R0, R1, weight):
+    """Interpolate rotation matrices via MuJoCo's wxyz quaternion slerp."""
+    q0, q1, out = np.zeros(4), np.zeros(4), np.zeros(4)
+    mujoco.mju_mat2Quat(q0, np.asarray(R0, dtype=float).flatten())
+    mujoco.mju_mat2Quat(q1, np.asarray(R1, dtype=float).flatten())
+    mujoco.mju_slerp(out, q0, q1, float(np.clip(weight, 0.0, 1.0)))
+    mat = np.zeros(9)
+    mujoco.mju_quat2Mat(mat, out)
+    return mat.reshape(3, 3)
 
 
 def build_multi(objs):
@@ -96,7 +110,8 @@ def main():
     for name, sp in objs:
         ob = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, f"obj_{name}"); oa = m.jnt_qposadr[m.body_jntadr[ob]]
         p = kin.base + np.array([sp[0], sp[1], D.COUNTER_Z + D.half_h(name)]); d.qpos[oa:oa + 3] = p; d.qpos[oa + 3:oa + 7] = D.obj_quat(name)
-        O[name] = dict(body=ob, adr=oa, dof=m.body_dofadr[ob], geom=mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, f"g_{name}"), p0=p, r0=float(m.geom_size[mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, f"g_{name}")][0]),
+        og = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, f"g_{name}")
+        O[name] = dict(body=ob, adr=oa, dof=m.body_dofadr[ob], geom=og, p0=p, q0=D.obj_quat(name), r0=float(m.geom_size[og][0]), rgba0=np.array(D.OBJECTS[name]["rgba"], dtype=float),
                        crush=0.0, broken=False)
     mujoco.mj_forward(m, d)
     for name, o in O.items():                                   # head camera: where is each object?
@@ -113,6 +128,7 @@ def main():
         anchor[h], base_R[h] = (O[pick]["G"][h][0], O[pick]["G"][h][1]) if pick else (kin.a.d.xpos[kin.a.ee[h]].copy(), kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3).copy())
         print(f"[map] {h} hand: table centre = robot hand on the {pick}", flush=True)
     gl = {h: GloveLive(h) for h in hands}
+    grip_f = {h: None for h in hands}
     PF = {h: OneEuro(freq=RATE, min_cutoff=a.smooth, beta=0.02) for h in hands}; QF = {h: QuatFilter(freq=RATE, min_cutoff=a.smooth, beta=0.02) for h in hands}
     DB = {h: Deadband(0.003) for h in hands}
     rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0")))
@@ -130,7 +146,12 @@ def main():
         for h in hands:
             s = gl[h].read()
             if s is None or s[1] is None or s[2] is None or np.isnan(s[1]).any(): status.append(f"{h}: no Coil"); continue
-            F, P, Q = s; g = 0.5 * (F[1] + F[2]); raw_last[h] = np.asarray(P, float).copy()
+            F, P, Q = s; g_raw = 0.5 * (F[1] + F[2]); raw_last[h] = np.asarray(P, float).copy()
+            if grip_f[h] is None: grip_f[h] = (g_raw, t_tick)
+            else:
+                dt = max(t_tick - grip_f[h][1], 1e-6); alpha = 1.0 - np.exp(-dt / GRIP_TAU)
+                grip_f[h] = (grip_f[h][0] + alpha * (g_raw - grip_f[h][0]), t_tick)
+            g = grip_f[h][0]
             P = DB[h](PF[h](P, t_tick)); Q = QF[h](Q, t_tick)
             Tc = TC[h]; Rh_ = np.array(Tc["R"]); rel = Rh_ @ (P - np.array(Tc["origin"])) + shift[h]; rel[2] -= a.zoff
             p_tel = anchor[h] + a.gain * rel
@@ -153,11 +174,11 @@ def main():
                 r_e = np.degrees(np.linalg.norm(arm_ik.rot_err(gR, kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3))))
                 st = stage[h]
                 if st is None:
-                    if dxy < T.SNAP_XY and abs(dv[2]) < T.SNAP_Z and r_e < T.SNAP_DEG and g > 0.3 * pr["g_ref"]:
+                    if dxy < SNAP_XY and abs(dv[2]) < SNAP_Z and r_e < SNAP_DEG and g > 0.3 * pr["g_ref"]:
                         st, t_st[h] = "close", time.time(); print(f"[{h}] snap grasp on the {name}", flush=True)
                     elif dxy < 0.06 and -0.02 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]:
                         w = float(np.clip((0.06 - dxy) / 0.04, 0, 1)); tgt_p = p_tel + w * np.clip(gp - p_tel, -0.03, 0.03); mode = f"assist {w:.1f} ({name})"
-                        if w > 0.5: tgt_R = gR
+                        tgt_R = slerp_mat(R_tel, gR, w)
                 if st == "close":
                     tgt_p, tgt_R, mode = gp, gR, f"closing on the {name}"
                     if g > 0.6 * pr["g_ref"] and time.time() - t_st[h] > 0.5: st = "hold"; lock[h] = gp - p_tel
@@ -207,7 +228,20 @@ def main():
                 d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = D.obj_quat(n); d.qvel[o["dof"]:o["dof"] + 6] = 0
         line = " | ".join(status) + f" | L {fh['left']:4.1f} N R {fh['right']:4.1f} N | " + " ".join(f"{n}:{'ROTTO' if o['broken'] else ('ammaccata %d%%' % (100 * o['crush']) if o['crush'] > 0 else 'ok')}" for n, o in O.items()) + f" | blocked {blocked}"
         if viewer is not None:
-            with viewer.lock(): viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, "teleop", line)])
+            with viewer.lock():
+                viewer.user_scn.ngeom = 0
+                for h in hands:
+                    name = target[h]
+                    if name is not None and O[name]["G"].get(h) is not None:
+                        pin_t = O[name]["G"][h][2]
+                        gidx = viewer.user_scn.ngeom
+                        mujoco.mjv_initGeom(viewer.user_scn.geoms[gidx], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.015, 0, 0]), pin_t, np.eye(3).flatten(), np.array([1.0, 0.85, 0.05, 0.8], dtype=np.float32))
+                        viewer.user_scn.ngeom += 1
+                    pt = T.pinch(kin, h); gidx = viewer.user_scn.ngeom
+                    col = [0.1, 0.9, 0.2, 0.8] if h == "right" else [0.2, 0.4, 1.0, 0.8]
+                    mujoco.mjv_initGeom(viewer.user_scn.geoms[gidx], mujoco.mjtGeom.mjGEOM_SPHERE, np.array([0.015, 0, 0]), pt, np.eye(3).flatten(), np.array(col, dtype=np.float32))
+                    viewer.user_scn.ngeom += 1
+                viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, "teleop", line)])
             viewer.sync()
         if tick % 15 == 0: print(line, flush=True)
         if not a.headless and tick % 3 == 0:
@@ -215,10 +249,21 @@ def main():
             if rend is not None:
                 rend.update_scene(d, "head_cam"); cv2.imshow("camera in testa G1", rend.render()[:, :, ::-1].copy())
             k = cv2.waitKey(1) & 0xFF
-            if k in (ord("c"), ord("C")):
+            if k != 255: print(f"[key] {chr(k) if 32 <= k < 127 else k}", flush=True)
+            if k in (ord("a"), ord("A"), ord("c"), ord("C")):
                 for h in hands:
-                    if h in raw_last: shift[h] = -np.array(TC[h]["R"]) @ (raw_last[h] - np.array(TC[h]["origin"])); PF[h].reset(); QF[h].reset(); DB[h].reset(); stage[h] = None
+                    if h in raw_last: shift[h] = -np.array(TC[h]["R"]) @ (raw_last[h] - np.array(TC[h]["origin"]))
+                    PF[h].reset(); QF[h].reset(); DB[h].reset(); grip_f[h] = None; stage[h] = None; lock[h] = None
                 print("[clutch] re-centred", flush=True)
+            if k in (ord("r"), ord("R")):
+                for name, o in O.items():
+                    d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = o["q0"]
+                    d.qvel[o["dof"]:o["dof"] + 6] = 0
+                    m.geom_size[o["geom"]][0] = o["r0"]; m.geom_rgba[o["geom"]] = o["rgba0"]
+                    o["crush"], o["broken"] = 0.0, False
+                for h in hands: stage[h] = None; lock[h] = None; target[h] = None; t_st[h] = 0.0
+                mujoco.mj_forward(m, d)
+                print("[scene] reset", flush=True)
             if k in (ord("q"), ord("Q")): break
         tick += 1; time.sleep(max(0.0, 1 / RATE - (time.time() - t_tick)))
 
