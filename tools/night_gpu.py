@@ -16,6 +16,26 @@ HOURS = float(os.environ.get("NIGHT_HOURS", "7")); T0 = time.time(); OUT = ROOT 
 dev = pick_device(); rng = random.Random(int(time.time()))
 
 
+TEMP_MAX = int(os.environ.get("GPU_TEMP_MAX", "80")); TEMP_OK = int(os.environ.get("GPU_TEMP_OK", "70"))
+WORK_MIN = float(os.environ.get("WORK_MIN", "20")); REST_MIN = float(os.environ.get("REST_MIN", "4")); _cycle_start = [time.time()]
+
+
+def gpu_temp():
+    try:
+        return int(subprocess.run(["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=15).stdout.split()[0])
+    except Exception:
+        return 0
+
+
+def be_gentle():
+    """Duty cycle (WORK_MIN on / REST_MIN off) + thermal guard: pause while the GPU is above GPU_TEMP_MAX until it is below GPU_TEMP_OK."""
+    if time.time() - _cycle_start[0] > WORK_MIN * 60:
+        time.sleep(REST_MIN * 60); _cycle_start[0] = time.time()
+    if gpu_temp() >= TEMP_MAX:
+        print(f"GPU {gpu_temp()} C: cooling", flush=True)
+        while gpu_temp() > TEMP_OK: time.sleep(30)
+
+
 def log(task, cfg, res):
     with open(OUT / "trials.jsonl", "a") as f:
         f.write(json.dumps({"t": round(time.time() - T0), "task": task, "cfg": cfg, "res": res}) + "\n")
@@ -145,7 +165,7 @@ def main():
     takes, _ = SP.load_takes(); epsC = load_eps({"C"}); epsS = load_eps(set("ABCDHJ")); last = 0; i = 0
     print(f"night job: {HOURS} h on {dev}, H takes {len(takes)}, C {len(epsC)}, all {len(epsS)}", flush=True)
     while time.time() - T0 < HOURS * 3600:
-        task = "PIS"[i % 3]; i += 1
+        be_gentle(); task = "PIS"[i % 3]; i += 1
         try: {"P": lambda: trial_P(takes), "I": lambda: trial_I(epsC), "S": lambda: trial_S(epsS)}[task]()
         except Exception: log(task, {}, {"error": traceback.format_exc()[-300:]})
         if time.time() - last > 1200: report(); last = time.time(); print(f"[{(time.time() - T0) / 3600:.2f} h] trials={i}", flush=True)
