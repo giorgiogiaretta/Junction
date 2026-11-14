@@ -1,6 +1,9 @@
 # Runner on the REAL G1 from Windows. Policy must already be listening on ws://localhost:8000.
 # Usage: & C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1 [-Seconds 120]
-param([int]$Seconds = 120)
+param([int]$Seconds = 120, [switch]$NoCamera)
+# High priority: the runner process also runs the 250 Hz arm control thread (xr_teleoperate); under load its loop stretched
+# to ~100 ms and the robot lagged the commands by ~1 s (14/11 night logs). Children inherit the priority class.
+try { [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'High' } catch {}
 $root = "C:\Users\giorg\Desktop\aaltonomous-humanoid"
 $env:PATH = "$root\third_party\cyclonedds\install\bin;$env:PATH"
 $env:PYTHONPATH = "$root\winshim;$root"
@@ -15,4 +18,9 @@ foreach ($h in @($env:G1_CAM_IP, "192.168.123.164", "192.168.123.254") | Where-O
     if (Test-NetConnection $h -Port 55560 -InformationLevel Quiet -WarningAction SilentlyContinue) { $cam = $h; break }
 }
 if ($cam) { Write-Host "camera (PC2) su: $cam" -ForegroundColor Green } else { Write-Host "camera (PC2) NON trovata (.164/.254 :55560): niente immagine" -ForegroundColor Yellow; $cam = "192.168.123.164" }
-py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip $cam --time-limit $Seconds
+if ($NoCamera) {   # runner's own options: no head RGB-D, image server on localhost (nothing there) = no image decoding at all
+    Write-Host "camera DISATTIVATA (meno carico)" -ForegroundColor Yellow
+    py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip 127.0.0.1 --no-head-rgbd --time-limit $Seconds
+} else {
+    py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip $cam --time-limit $Seconds
+}

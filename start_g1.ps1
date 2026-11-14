@@ -11,7 +11,8 @@
 #                                                              palm down, in front"; right hand only, -Both for both hands;
 #                                                              -NoCalib to reuse the last calibration)
 #   -NoConsole: no operator console (less CPU = less delay)
-param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [int]$Seconds = 300, [string]$Closure = "0.6",
+#   -NoCamera: the runner does not read the camera streams (less load on this PC = the robot follows with less delay)
+param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
@@ -69,4 +70,6 @@ while (-not (Test-NetConnection 127.0.0.1 -Port 8000 -InformationLevel Quiet -Wa
 Write-Host "policy pronta ($pol, chiusura max $Closure)"
 
 Write-Host "== 5/5 runner sul robot: GUANTI APERTI, arresto di emergenza in mano, poi Invio a 'Place the cubes'" -ForegroundColor Yellow
-& "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1" -Seconds $Seconds
+try { [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'High' } catch {}
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'live_policy|arms_glove|arms_simple|rgmp_client' -and $_.Name -match 'python' } | ForEach-Object { try { (Get-Process -Id $_.ProcessId).PriorityClass = 'High' } catch {} }
+& "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1" -Seconds $Seconds -NoCamera:$NoCamera

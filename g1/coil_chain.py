@@ -1,4 +1,4 @@
-"""Coil + glove -> G1 arm chain shared by the simulator (g1/sim/teleop_multi.py) and the live policy (g1/live_policy_v2.py).
+﻿"""Coil + glove -> G1 arm chain shared by the simulator (g1/sim/teleop_multi.py) and the live policy (g1/live_policy_v2.py).
 
 Seated-beside setup: the operator sits next to the robot, facing the same way, both gloves FLAT on the table at the start.
   hand flat + still on the table  ==  robot hand in its REST pose over the counter (no first-tick jump, A7)
@@ -31,7 +31,8 @@ class Cfg:
     def __init__(self, **kw):
         self.legacy = False
         # 14/11 evening (operator: "smooth is fine, too much delay"): faster filters + higher limits. Cfg.slow() = previous values.
-        self.pos_cutoff, self.pos_beta = 4.0, 60.0       # One Euro: Hz, Hz per m/s   (was 2.5, 40)
+        self.pos_cutoff, self.pos_beta = 5.0, 60.0       # One Euro: Hz, Hz per m/s   (was 2.5, 40; 4.0)
+        self.lead = float(__import__("os").environ.get("G1_LEAD", "0.0"))   # s of motion prediction (14/11 night, robot delay)
         self.rot_cutoff, self.rot_beta = 4.0, 3.0        # Hz, Hz per rad/s           (was 2.5, 2)
         self.leash = 0.0015                              # m, raw-signal deadband (continuous)
         self.post_deadband = 0.0                         # m, legacy hold-deadband after the filter
@@ -55,14 +56,14 @@ class Cfg:
     def slow(cls, **kw):
         """The new chain with the speed/filter values before the 14/11 evening tuning."""
         return cls(**{**dict(pos_cutoff=2.5, pos_beta=40.0, rot_cutoff=2.5, rot_beta=2.0, grip_tau=0.05, joint_speed=0.7, vmax=0.35,
-                             vfinal=0.30, wfinal=np.radians(150)), **kw})
+                             vfinal=0.30, wfinal=np.radians(150), lead=0.0), **kw})
 
     @classmethod
     def old(cls, **kw):
         """The previous teleop_multi.py chain (for before/after measurements only)."""
         c = cls(legacy=True, pos_cutoff=0.7, pos_beta=0.02, rot_cutoff=0.7, rot_beta=0.02, leash=0.0, post_deadband=0.003, grip_tau=0.15,
                 joint_speed=1.0, uniform_step=False, vfinal=None, assist_r=0.06, w_rate=None, ns_fade=None, fixed_target=False,
-                raise_only_counter=False, zoff=0.10, reanchor=False, snap_ticks=1)
+                raise_only_counter=False, zoff=0.10, reanchor=False, snap_ticks=1, lead=0.0)
         for k, v in kw.items(): setattr(c, k, v)
         return c
 
@@ -233,6 +234,8 @@ class HandChain:
         rel_raw = self.Rh @ (np.asarray(P, float) - self.P0)
         self.p_raw = self.map_rel(rel_raw)                                   # unfiltered reference (for the latency measurement)
         x = self.post(self.pf(self.leash(P), t))
+        if c.lead and not c.legacy:                                              # prediction: compensate the pipeline delay
+            x = x + np.clip(self.pf.dx * c.lead, -0.03, 0.03)                   # (filtered velocity x lead time, max 3 cm)
         p_tel = self.map_rel(self.Rh @ (x - self.P0)) + (self.blend if not c.legacy else 0)
         self.p_filt = p_tel.copy()
         if c.legacy and self.first: self.p_tel = p_tel.copy()                 # old: the first mapped target is taken as is (A7 jump)
