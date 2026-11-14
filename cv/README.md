@@ -48,3 +48,27 @@ synchronization. This differs from VLM HTTP latency. Original photos are passed 
 Ultralytics' own resize/letterbox preprocessing; there is no 1024px JPEG re-encode.
 No ground-truth boxes exist, so these results measure image-level classification,
 not localization accuracy, mAP, tracking quality, or safe grasp performance.
+
+## Frozen-embedding classifier (separate from detection)
+
+[Embedding results and reproduction](EMBEDDING_RESULTS.md) compare fixed CLIP
+zero-shot and leave-one-photo-out linear probing. Install
+`cv/requirements-embeddings.txt` in the same environment. YOLO results remain intact.
+
+```python
+from cv.embeddings import CLIPClassifier, make_probe, prediction
+import numpy as np
+
+encoder = CLIPClassifier(device="cpu")  # or explicit "mps"
+result = encoder.classify("/absolute/path/photo.jpg")  # zero-shot, four prompts/classes
+# For a probe, fit ONLY your training split, never the held-out photos:
+# x_train = np.stack([encoder.encode(p) for p in training_paths])
+# probe = make_probe().fit(x_train, training_labels)
+# feature = encoder.encode(held_out_path)
+# result = prediction(probe.predict_proba(feature[None, :])[0], probe.classes_, .5)
+```
+
+Results have `label`, `score`, `scores`, `raw_label`, `rejected`. This is whole-image
+classification, without boxes. The probe can learn only labels present in training;
+`other` rejection is not validated on real unknowns. No trained probe is presented
+as a deployable safety policy. Use `cv.eval_embeddings` for held-out evaluation.
