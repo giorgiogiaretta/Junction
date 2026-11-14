@@ -26,7 +26,7 @@ FAIL = {"ok": "SOLLEVALO di 15 cm e TIENILO FERMO",
         "missed": "MANCA la presa: chiudi la mano ACCANTO all'oggetto, non prenderlo",
         "crushed": "STRINGI FORTE fino a romperlo / schiacciarlo"}
 PLANS = {"good": ["ok"] * 5, "fail": ["dropped", "slipped", "dropped", "slipped", "missed"], "crush": ["crushed"]}
-LEAD, TAIL = 1.8, 1.0   # sync fist at 0.2 s, rest at 0.9 s, look at 1.8 s
+LEAD, TAIL = 3.5, 1.0   # sync fist window 0.5-2.5 s, look at 3.5 s
 
 
 def check(path, head):
@@ -66,7 +66,7 @@ def main():
         takes = [json.loads(l) for l in open(LOG)] if os.path.exists(LOG) else []
         n = max([t["take"] for t in takes], default=0) + 1; path = f"{RAW}/take_{n:02d}.rgmp"
         print(f"\n================ TAKE {i + 1}/{len(plan)} (n. {n}) - {name} - obiettivo: {want.upper()} ================")
-        for k in (2, 1): print(f"   parte tra {k}...", flush=True); time.sleep(1)
+        for k in (3, 2, 1): print(f"   parte tra {k}...", flush=True); time.sleep(1)
         sock = socket.create_connection(("127.0.0.1", 12276)); stop = threading.Event(); t0 = time.time(); cam.start(n)
         def rec():
             with open(path, "wb") as f:
@@ -76,15 +76,15 @@ def main():
                     if not b: break
                     f.write(H.pack(time.time() - t0, len(b)) + b)
         th = threading.Thread(target=rec, daemon=True); th.start()
-        step(t0, 0.2, "REC. PUGNO DI SCATTO davanti alla camera (sync)", 1200)
-        step(t0, 0.9, f"mano {mano} A RIPOSO sul tavolo, ferma")
-        step(t0, 1.8, f"GUARDA {name} (1 secondo, testa ferma)")
-        step(t0, 3.0, f"PRENDI {name} LENTAMENTE con pollice + indice + medio")
-        step(t0, 6.0, FAIL[want])
-        if want == "ok": step(t0, 9.0, f"POSA {name} sul segno e APRI la mano")
-        else: step(t0, 9.0, f"rimetti {name} sul segno (se puoi) e apri la mano")
-        step(t0, 11.0, "MANO A RIPOSO, FERMA 2 secondi", 660)
-        step(t0, 12.5, "fine: premi Invio", 440)
+        step(t0, 0.5, "REC. PUGNO DI SCATTO davanti alla camera (sync)", 1200)
+        step(t0, 2.5, f"mano {mano} A RIPOSO sul tavolo, ferma")
+        step(t0, 3.5, f"GUARDA {name} (1 secondo, testa ferma)")
+        step(t0, 5.0, f"PRENDI {name} LENTAMENTE con pollice + indice + medio")
+        step(t0, 8.5, FAIL[want])
+        if want == "ok": step(t0, 11.5, f"POSA {name} sul segno e APRI la mano")
+        else: step(t0, 11.5, f"rimetti {name} sul segno (se puoi) e apri la mano")
+        step(t0, 13.5, "MANO A RIPOSO, FERMA 2 secondi", 660)
+        step(t0, 15.5, "fine: premi Invio", 440)
         r = input("   Invio = esito " + want.upper() + "  |  oppure C caduto, S scivolato, X schiacciato, M mancato, O ok, N annulla: ").strip().upper()
         v = cam.stop(); stop.set(); t1 = time.time(); sock.close(); th.join(timeout=2)
         out = CODES.get(r, None) or want
