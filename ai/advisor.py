@@ -58,8 +58,7 @@ if __name__ == "__main__":
     from ai.eval_objects import make_client, prep_image
     ap = argparse.ArgumentParser(); ap.add_argument("image"); ap.add_argument("--backend", default="nemotron", choices=["nemotron", "gemini", "gemma"])
     ap.add_argument("--json", action="store_true"); a = ap.parse_args()
-    c = make_client("nemotron" if a.backend == "nemotron" else "gemini")
-    if a.backend == "gemma": c.model = "gemma-4-26b-a4b-it"
+    c = make_client(a.backend)
     r = advise(c, prep_image(open(a.image, "rb").read()))
     if a.json: print(json.dumps(r, indent=1))
     else:

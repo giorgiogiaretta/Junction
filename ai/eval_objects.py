@@ -14,6 +14,11 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 
 
 def make_client(backend):
+    if backend == "gemma":
+        # Local/own-GPU Gemma (vLLM, OpenAI-compatible) when GEMMA_BASE_URL is set (e.g. http://127.0.0.1:8000/v1 through an SSH tunnel to the Verda GPU); else Gemma on the Google API (free tier).
+        if os.environ.get("GEMMA_BASE_URL"):
+            return ChatClient(api_key=os.environ.get("GEMMA_API_KEY", "local"), base_url=os.environ["GEMMA_BASE_URL"], model=os.environ.get("GEMMA_MODEL", "google/gemma-4-26b-a4b-it"), timeout=60)
+        c = make_client("gemini"); c.model = os.environ.get("GEMMA_MODEL", "gemma-4-26b-a4b-it"); return c
     if backend == "gemini":
         return ChatClient(api_key=os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"), base_url=GEMINI_URL,
                           model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"), timeout=60)  # model id UNVERIFIED
