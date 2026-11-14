@@ -27,7 +27,7 @@ from robot.g1_dex3 import G1Dex3Retargeter
 CHUNK = 3          # targets per call (one call per tick cannot keep 30 Hz, see live_policy_v1.py)
 RATE = 30.0
 JOINT_SPEED = 0.9  # rad/s, 90 % of the runner's 1 rad/s (14/11 evening: was 0.7, operator wanted less delay)
-START_SPEED = 0.6  # rad/s, startup move from the robot's real rest pose to the palm-down front pose
+START_SPEED = 0.9  # rad/s (was 0.6), startup move from the robot's real rest pose to the palm-down front pose
 # The organisers' OWN workspace check (same code as the runner filter): the real rest pose has the wrists INSIDE the counter keep-out,
 # the runner rejects any step that increases the penetration -> lift out first, then never send a step it would clip.
 try:
@@ -50,6 +50,9 @@ class CoilInput:
         self.sock = None; self.last = {"left": None, "right": None}; self.rep = None; self.takes = None
         if source.startswith("udp:"):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); self.sock.bind(("0.0.0.0", int(source[4:]))); self.sock.setblocking(False)
+            # RECORD every raw glove + Coil packet (to replay the same movements later without the Coil)
+            os.makedirs(LIVE, exist_ok=True)
+            self.rec = open(os.path.join(LIVE, time.strftime("coil_input_%Y%m%d_%H%M%S.jsonl")), "a")
         elif source.startswith("replay:"):
             self.takes = [int(x) for x in source[7:].split(",")]
         else: raise ValueError("source: udp:<port> or replay:<right>[,<left>]")
@@ -69,7 +72,8 @@ class CoilInput:
             P, Q, F = self.rep[side]; j = i % len(F); return F[j], P[j], Q[j]      # loops (test only)
         try:
             while True:
-                d = json.loads(self.sock.recv(65536).decode())
+                raw = self.sock.recv(65536).decode(); d = json.loads(raw)
+                self.rec.write(json.dumps({"t_rx": time.time(), "pkt": d}) + "\n")
                 h = d.get("hand")
                 if h in self.last and d.get("fingers") is not None:
                     wp, wq = d.get("wrist_position"), d.get("wrist_quaternion")
