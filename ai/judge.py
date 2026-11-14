@@ -43,9 +43,9 @@ def summarize_episode(path, version=1):
     c4 = f[:, 1:].mean(1)  # thumb excluded: its calibrated span is too small to trust
     lo, hi = np.nanmin(p, 0), np.nanmax(p, 0)
     return {"episode": os.path.basename(path), "series": str(z["series"]), "hand": h, "duration_s": round(float(t[-1]), 1),
-            "calibrated": bool(z["calibrated"]), "closure_index_to_little": {"peak": round(float(c4.max()), 2), "mean": round(float(c4.mean()), 2),
-            "t_of_peak_s": round(float(t[int(np.argmax(c4))]), 1)},
-            "wrist_range_m": [round(float(b - a), 2) for a, b in zip(lo, hi)], "wrist_rise_m": round(float(hi[2] - lo[2]), 2),
+            "calibrated": bool(z["calibrated"]), "closure_index_to_little": {"peak": _r(np.nanmax(c4)), "mean": _r(np.nanmean(c4)),
+            "t_of_peak_s": _r(t[int(np.nanargmax(c4))], 1)},
+            "wrist_range_m": [_r(b - a) for a, b in zip(lo, hi)], "wrist_rise_m": _r(hi[2] - lo[2]),
             "handoff_mark_s": _mark(z), **({"timeline": timeline(path)} if version >= 2 else {})}
 
 
