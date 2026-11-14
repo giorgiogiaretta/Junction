@@ -51,7 +51,7 @@ def _components(mask):
     return lab, n
 
 
-def _default_recognizer(backends=("gemini", "nemotron", "color"), timeout=12.0):
+def _default_recognizer(backends=("nemotron", "gemma", "color"), timeout=12.0):
     def run(crop):
         import io
         from PIL import Image
