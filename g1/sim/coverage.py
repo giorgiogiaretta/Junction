@@ -31,13 +31,28 @@ def main():
     best = json.load(open(os.path.join(HERE, "grasp_postures.json"))); os.makedirs(OUT, exist_ok=True); out = {}
     with mp.Pool(a.workers) as pool:
         for obj in a.objects.split(","):
-            b = best[obj]["best"]; spots = [(float(x), float(y)) for x in XS for y in YS]
+            postures = best[obj].get("postures") or [best[obj]["best"]]; spots = [(float(x), float(y)) for x in XS for y in YS]
             errs = pool.map(see, [(obj, s) for s in spots])
-            jobs = [(obj, b["posture"], tuple(np.array(b["aim"]) - np.array([e[0], e[1], 0.0])) if e else b["aim"], s) for s, e in zip(spots, errs)]
+            jobs = []
+            for cell_idx, (s, e) in enumerate(zip(spots, errs)):
+                for posture_idx, p in enumerate(postures):
+                    aim = tuple(np.array(p["aim"]) - np.array([e[0], e[1], 0.0])) if e else p["aim"]
+                    jobs.append((cell_idx, posture_idx, (obj, p["posture"], aim, s)))
             # the robot aims at the SEEN position: equivalent to the true object displaced by -error relative to the aim
-            res = pool.map(GS.trial, jobs)
-            cells = [{"x": s[0], "y": s[1], "visible": e is not None, "err_cm": None if e is None else round(100 * float(np.hypot(e[0], e[1])), 2),
-                      "lift_cm": r["lift_cm"], "peak_N": r["peak_N"], "held": e is not None and GS.held(obj, r), "why": r["reason"]} for s, e, r in zip(spots, errs, res)]
+            res = pool.map(GS.trial, [job for _, _, job in jobs])
+            trials_by_cell = [[] for _ in spots]
+            for (cell_idx, posture_idx, _), r in zip(jobs, res):
+                is_held = errs[cell_idx] is not None and GS.held(obj, r)
+                trials_by_cell[cell_idx].append((posture_idx, r, is_held))
+            cells = []
+            for cell_idx, (s, e) in enumerate(zip(spots, errs)):
+                def rank(item):
+                    posture_idx, r, is_held = item
+                    # Prefer a successful grasp, then greater lift. For egg, lower force breaks ties.
+                    return (is_held, r["reason"] == "", r["lift_cm"], -r["peak_N"] if obj == "egg" else 0.0)
+                posture_idx, r, is_held = max(trials_by_cell[cell_idx], key=rank)
+                cells.append({"x": s[0], "y": s[1], "visible": e is not None, "err_cm": None if e is None else round(100 * float(np.hypot(e[0], e[1])), 2),
+                              "lift_cm": r["lift_cm"], "peak_N": r["peak_N"], "held": is_held, "why": r["reason"], "posture_idx": posture_idx})
             out[obj] = cells
             n_vis = sum(c["visible"] for c in cells); n_held = sum(c["held"] for c in cells); n_reach = sum(c["why"] == "" for c in cells)
             print(obj, f"cells {len(cells)} visible {n_vis} reachable {n_reach} held {n_held}", flush=True)

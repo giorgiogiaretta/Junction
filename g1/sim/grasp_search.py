@@ -105,15 +105,28 @@ def search(obj, pool):
     jobs = [(obj, c, a) for c in keep for a in aims]
     res = pool.map(trial, jobs)
     rows = [{"posture": c, "aim": a, **r} for (_, c, a), r in zip(jobs, res)]
-    good = sorted([r for r in rows if held(obj, r)], key=lambda r: (r["peak_N"] if obj == "egg" else -r["lift_cm"]))[:6]
+    good_all = sorted([r for r in rows if held(obj, r)], key=lambda r: (r["peak_N"] if obj == "egg" else -r["lift_cm"]))
+    good, gp = [], set()
+    for r in good_all:                                               # best aim of up to 8 DIFFERENT postures
+        if tuple(r["posture"]) in gp: continue
+        gp.add(tuple(r["posture"])); good.append(r)
+        if len(good) == 8: break
     best = None
     for g in good:                                                   # robustness: +-1 cm on each axis
         nb = [tuple(np.array(g["aim"]) + np.array(v)) for v in ((0.01, 0, 0), (-0.01, 0, 0), (0, 0.01, 0), (0, -0.01, 0), (0, 0, 0.01), (0, 0, -0.01))]
         rr = pool.map(trial, [(obj, g["posture"], a) for a in nb])
         g["robust"] = round(sum(held(obj, r) for r in rr) / len(rr), 2); g["neighbours"] = rr
-        if best is None or (g["robust"], -g["peak_N"]) > (best["robust"], -best["peak_N"]): best = g
+        score = (g["robust"], -g["peak_N"] if obj == "egg" else g["lift_cm"], g["lift_cm"])
+        best_score = None if best is None else (best["robust"], -best["peak_N"] if obj == "egg" else best["lift_cm"], best["lift_cm"])
+        if best is None or score > best_score: best = g
+    ranked = sorted(good, key=lambda g: (g["robust"], -g["peak_N"] if obj == "egg" else g["lift_cm"], g["lift_cm"]), reverse=True)
+    seen, postures = set(), []
+    for g in ranked:                                                 # distinct postures only (a different aim of the same posture is not a new posture)
+        if tuple(g["posture"]) in seen: continue
+        seen.add(tuple(g["posture"])); postures.append({k: g[k] for k in ("posture", "aim", "robust", "peak_N", "lift_cm")})
+        if len(postures) == 5: break
     return {"object": obj, "candidates": len(keep), "trials": len(rows), "held": sum(held(obj, r) for r in rows), "best": best,
-            "runtime_s": round(time.time() - t0, 1)}
+            "postures": postures, "runtime_s": round(time.time() - t0, 1)}
 
 
 def _geo_star(a): return geometry(*a)
