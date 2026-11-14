@@ -1,4 +1,4 @@
-﻿"""V2 live, WITH the Coil: the arms follow the operator's wrists (same chain as g1/sim/teleop_multi.py, g1/coil_chain.py), the gloves
+"""V2 live, WITH the Coil: the arms follow the operator's wrists (same chain as g1/sim/teleop_multi.py, g1/coil_chain.py), the gloves
 drive the fingers, camera (or CLI xy) gives the objects for assist/snap. Seated beside the robot: start with both gloves FLAT and STILL on
 the table = robot rest pose; a hand resting still on the table for 1 s re-anchors (no Coil drift).
 
@@ -13,8 +13,12 @@ Mock:    AALTO_REPO=<clone> py -3.11 g1/run_mock_gate.py --policy ws://localhost
 Safety per tick (any failure -> both arms keep the last command, 3 consecutive -> HOLD for the rest of the episode): joint filter bounds,
 box + counter keep-out (wrist and palm), self-collision, palms > 10 cm apart, joint speed vs the LAST COMMAND <= 0.7 rad/s (runner 1 rad/s).
 G1_MAX_CLOSURE scales the fingers (0.1 on the first run). --dry: computes and logs everything but commands the measured pose (robot still).
-Log: data/live/live_policy_v2.jsonl (per tick arm_q_target 14 + hand_q 14); head frame: data/live/head_latest.jpg (<= 2 Hz)."""
-import argparse, json, os, socket, sys, time
+Log: data/live/live_policy_v2.jsonl (per tick arm_q_target 14 + hand_q 14); head frame: data/live/head_latest.jpg (<= 2 Hz).
+Vision (15/11, docs/COIL_REVIEW.md): after the start-up path, ONE head RGB-D frame goes to a persistent background worker (ai.perceive via
+g1/perception_v1.perceive_with_ai, no API keys); act() only polls it, the arms hold, after G1_VISION_TIMEOUT s (10) -> CLI object + xy.
+The camera label can only LOWER the finger cap (egg <= 0.70, can_empty = perception_v1.CAP 0.45; stress_ball 1.0); position from the
+camera only when it is within G1_XY_GATE (0.12 m) of --right-xy/--left-xy. --right/--left stay the object profile (override)."""
+import argparse, json, os, socket, sys, threading, time
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -40,6 +44,18 @@ try:
 except Exception as _e:
     print("[v2] organisers' workspace check NOT loaded:", _e); WS = None
 FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3
+try:
+    import perception_v1 as PV           # CAP, robot_mask, perceive_with_ai, assign, pinhole_pixel_to_pelvis (one module identity)
+except Exception as _e:
+    print("[v2] perception_v1 NOT loaded, vision off (CLI object + xy):", _e); PV = None
+VISION_TIMEOUT = float(os.environ.get("G1_VISION_TIMEOUT", "10"))   # s; the arms HOLD meanwhile, act() never waits on the worker
+XY_GATE = float(os.environ.get("G1_XY_GATE", "0.12"))                # m: camera xy further than this from the CLI xy -> CLI xy
+VLM = tuple(v for v in os.environ.get("G1_VLM", "").split(",") if v)       # e.g. "nemotron,gemma" (keys from env, ai.recognize); default: local colour + geometry only
+LOG_FLUSH_S = 0.5                                                    # s for routine tick lines; events and blocked ticks flush at once
+# hard finger caps per object (the camera label can only LOWER the CLI object's cap): egg 0.70 never more; empty can = perception_v1's
+# rule (0.45, object_profiles.json); stress_ball keeps demo_e2e's 1.0 (cannot break, the real grip is weak: a lower cap only drops it)
+CAP_HARD = {"egg": 0.70, "can_empty": min(0.45, float(PV.CAP["can_empty"])) if PV is not None else 0.45, "stress_ball": 1.0}
+LABELS = {"can": "can_empty", "ball": "stress_ball", "egg": "egg", "can_empty": "can_empty", "stress_ball": "stress_ball"}
 LIVE = os.path.join(ROOT, "data", "live")
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))
 SAFE_LO = {k: np.array([e["filter"][0] for e in sorted(LIM[k], key=lambda e: e["idx"])]) + 0.005 for k in ("arm_q", "hand_q")}
@@ -115,12 +131,20 @@ class LivePolicyV2(Policy):
         if miss: raise SystemExit(f"no seated calibration for {miss}: run  py -3.11 g1/live_policy_v2.py --source udp:14044 --calib")
         if not replay: CC.load_neutral(arm_ik.CALIB, list(objs))   # calibration's last step: open, palm down, in front = robot rest
         os.makedirs(LIVE, exist_ok=True); self.log = open(os.path.join(LIVE, "live_policy_v2.jsonl"), "a"); self.t_img = 0.0
+        # ONE persistent perception worker: the MuJoCo renderer of the self-mask is bound to the thread that created it (a new thread
+        # per episode rendered garbage after a runner reset in live_policy_v1); results of an older episode are dropped (self.ep)
+        import concurrent.futures as cf
+        self.worker = cf.ThreadPoolExecutor(max_workers=1, thread_name_prefix="perception"); self.ep = 0; self.ep_lock = threading.Lock()
         self.reset("")
 
     def reset(self, instruction, task=None, seed=None):
+        if hasattr(self, "log"): self.log.flush()
         self.initialized = False; self.chains = {}; self.seen = {}; self.blocked = 0; self.consec = 0; self.abort = False
         self.last_cmd = None; self.hand_init = False; self.tick = 0; self.t0 = time.time(); self.t_wait = None
-        self.started = False; self.stall = 0
+        self.started = False; self.stall = 0; self.t_last = None; self.t_flush = time.time()
+        with self.ep_lock: self.ep += 1; self.perc = None
+        self.vision_future = None; self.vision_started = None; self.vision_logged = False; self.pose_failed = set()
+        self.head_busy = False; self.head_err = None
 
     def _ws_safe(self, q):
         """Runner filter rule: never more counter keep-out penetration than the last command; bisect the step. Returns (q, fraction)."""
@@ -169,42 +193,92 @@ class LivePolicyV2(Policy):
         return q, hq
 
     def _write(self, d):
-        d["t"] = round(time.time() - self.t0, 3); self.log.write(json.dumps(d) + "\n"); self.log.flush()
+        """ONE writer (the act thread). Routine tick lines are flushed every LOG_FLUSH_S (was: a flush per target = 60/s on the control
+        thread); events and blocked ticks are flushed at once, so the tail a human reads after a problem is on disk."""
+        d["t"] = round(time.time() - self.t0, 3); self.log.write(json.dumps(d, default=lambda x: x.tolist() if hasattr(x, "tolist") else str(x)) + "\n")
+        if "event" in d or d.get("reasons") or time.time() - self.t_flush >= LOG_FLUSH_S: self.log.flush(); self.t_flush = time.time()
 
     def _head(self, rgb):
-        """head frame for the operator console: <= 2 Hz, atomic write"""
-        if time.time() - self.t_img < 0.5 or not _valid_image(rgb): return
+        """head frame for the operator console: <= 2 Hz, atomic write, in a thread (a JPEG encode + disk write is 5-30 ms on this PC)"""
+        if time.time() - self.t_img < 0.5 or self.head_busy or not _valid_image(rgb): return
+        self.t_img = time.time(); self.head_busy = True
+        threading.Thread(target=self._save_head, args=(np.asarray(rgb).copy(),), daemon=True).start()
+
+    def _save_head(self, rgb):
         try:
             import cv2
-            tmp = os.path.join(LIVE, "head_latest.tmp.jpg"); cv2.imwrite(tmp, np.asarray(rgb)[:, :, ::-1]); os.replace(tmp, os.path.join(LIVE, "head_latest.jpg"))
-            self.t_img = time.time()
-        except Exception as e: self._write({"event": "HEAD_IMG_ERROR", "error": str(e)})
+            tmp = os.path.join(LIVE, "head_latest.tmp.jpg"); cv2.imwrite(tmp, rgb[:, :, ::-1]); os.replace(tmp, os.path.join(LIVE, "head_latest.jpg"))
+        except Exception as e: self.head_err = str(e)                # logged by the act thread (one log writer)
+        finally: self.head_busy = False
 
-    def _locate(self, rgb, depth, side):
-        import live_policy_v1 as V1
-        return V1.LivePolicy._locate(self, rgb, depth, side)
+    def _vision(self, rgb, depth, arm, hand, ep):
+        """Perception worker (once per episode). Never raises. Same K/T as live_policy_v1.Camera, without importing live_policy_v1
+        (its import asserts AALTO_REPO and rewrites arm_ik.ARM_STEP, a global the act thread uses)."""
+        t0 = time.time()
+        try:
+            from aaltonomous.interface.calibration import Calibration
+            cal = Calibration.load(); K, Tc = cal.cams["head"].K, cal._T("head")
+            sm = PV.robot_mask(arm, hand, K, Tc, shape=np.asarray(depth).shape[:2])(depth)   # robot's own pixels out (hands near the objects)
+            res = PV.perceive_with_ai(rgb, depth, PV.pinhole_pixel_to_pelvis(K, Tc), vlm=VLM, vlm_timeout=0.8 * VISION_TIMEOUT, self_mask=sm)
+            asg = PV.assign(res.get("objects", []), sides=tuple(self.obj)); out = {}
+            for s in self.obj:
+                try:
+                    o = asg.get(s)
+                    out[s] = None if o is None else {"label": LABELS.get(str(o.get("label")), "unknown"), "raw_label": o.get("label"),
+                                                    "conf": o.get("conf"), "pv_cap": o.get("cap"), "depth_ok": bool(o.get("depth_ok")),
+                                                    "p": None if o.get("p_pelvis") is None else np.asarray(o["p_pelvis"], float)}
+                except Exception as e: out[s] = None; print("[v2] vision object error:", s, e, flush=True)
+            payload = (out, res.get("table_z"), res.get("engine"), res.get("error") or res.get("ai_error"), time.time() - t0)
+        except Exception as e:
+            payload = ({}, None, None, f"{type(e).__name__}: {e}", time.time() - t0)
+        with self.ep_lock:
+            if ep == self.ep: self.perc = payload                    # a result from before a runner reset is dropped
 
     def _init(self, obs):
+        """Poll the vision worker (never wait on it; the arms hold at the rest pose meanwhile), then one HandChain per hand."""
         rgb, depth = obs.get("head_rgb"), obs.get("head_depth")
-        if not (_valid_image(rgb) and depth is not None and np.asarray(depth).any()):
-            if self.t_wait is None: self.t_wait = time.time()
-            if time.time() - self.t_wait < 3.0 or any(self.xy[s] is None for s in self.obj): return False
-            rgb = None
+        valid = _valid_image(rgb) and depth is not None and np.asarray(depth).any()
+        if self.perc is None:
+            if valid and PV is not None and self.vision_future is None:
+                self.vision_started = time.time()
+                self.vision_future = self.worker.submit(self._vision, np.asarray(rgb).copy(), np.asarray(depth).copy(),
+                                                        np.asarray(obs["arm_q"], float).copy(), np.asarray(obs["hand_q"], float).copy(), self.ep)
+            if self.vision_future is None:                           # no camera frame (or no perception module): 3 s grace, then CLI
+                if self.t_wait is None: self.t_wait = time.time()
+                if time.time() - self.t_wait < 3.0 or any(self.xy[s] is None for s in self.obj): return False
+            elif time.time() - self.vision_started < VISION_TIMEOUT: return False
+        found, table_z, engine, error, lat = self.perc if self.perc is not None else \
+            ({}, None, None, "vision timeout" if self.vision_future is not None else "no camera frame", time.time() - (self.vision_started or time.time()))
+        if not self.vision_logged:
+            self.vision_logged = True
+            self._write({"event": "VISION", "engine": engine, "error": error, "table_z": table_z, "latency_s": round(lat, 2),
+                         "found": {s: (None if v is None else {**v, "p": None if v["p"] is None else np.round(v["p"], 4).tolist()}) for s, v in found.items()}})
+        # measured table height only if plausible (a bad frame must not move the grasp height): within 5 cm of the nominal counter
+        z0 = float(table_z) if table_z is not None and abs(float(table_z) - D.COUNTER_Z) < 0.05 else D.COUNTER_Z
         for side, name in self.obj.items():
-            try:
-                if rgb is None: raise RuntimeError("no camera frame")
-                seen, origin = self._locate(rgb, depth, side), "camera"
-            except Exception as e:
-                if self.xy[side] is None: self._write({"event": "NO_POSE", "hand": side, "error": str(e)}); return False
-                seen, origin = self.kin.base + np.array([self.xy[side][0], self.xy[side][1], D.COUNTER_Z + D.half_h(name)]), "cli_fallback"
-            # camera/CLI positions are in the pelvis frame; the kinematic model has the pelvis at kin.base
-            if origin == "camera": seen = self.kin.base + np.asarray(seen, float)
+            if side in self.chains: continue                          # never rebuilt: that would reset the Coil anchor/filters every tick
+            det = found.get(side) or {}; lab = det.get("label") if det.get("label") in CAP_HARD else None
+            seen, origin = None, "cli_fallback"
+            if det.get("depth_ok") and det.get("p") is not None and (self.xy[side] is None or np.hypot(*(det["p"][:2] - np.asarray(self.xy[side]))) <= XY_GATE):
+                seen, origin = self.kin.base + det["p"], "camera"     # camera/CLI positions are pelvis frame; the model has the pelvis at kin.base
+            elif self.xy[side] is not None:
+                seen = self.kin.base + np.array([self.xy[side][0], self.xy[side][1], z0 + D.half_h(name)])
+            if seen is None:
+                if side not in self.pose_failed:
+                    self.pose_failed.add(side); self._write({"event": "NO_POSE", "hand": side, "error": error or f"no camera pose and no --{side}-xy"})
+                return False
+            # finger cap = the CLI object's profile cap, LOWERED by the camera label; never above the hard caps (egg 0.70, can 0.45)
+            cap = float(D.PROFILE.get(name, D.PROFILE["unknown"])["cap"])
+            for lb in (name, lab):
+                if lb in CAP_HARD: cap = min(cap, CAP_HARD[lb])
             gp, gR, pin_t = T.grasp_pose(name, side, seen, self.rest)
             self.seen[side] = seen
-            self.chains[side] = CC.HandChain(side, self.Rh[side], self.rest_pose[side], (gp, gR, pin_t, name, D.PROFILE.get(name, D.PROFILE["unknown"])), self.cfg, self.floor)
-            self._write({"event": "POSE", "hand": side, "object": name, "position_pelvis": (seen - self.kin.base).round(4).tolist(), "source": origin})
+            pr = dict(D.PROFILE.get(name, D.PROFILE["unknown"])); pr["cap"] = cap     # the chain and the finger command both read pr["cap"]
+            self.chains[side] = CC.HandChain(side, self.Rh[side], self.rest_pose[side], (gp, gR, pin_t, name, pr), self.cfg, self.floor)
+            self._write({"event": "POSE", "hand": side, "object": name, "camera_label": lab, "cap": round(cap, 3), "source": origin,
+                         "position_pelvis": (seen - self.kin.base).round(4).tolist()})
         if self.src.takes is not None: self.src.prepare_replay(self.chains)
-        return True
+        return all(s in self.chains for s in self.obj)
 
     def _unsafe(self, k):
         r = T.unsafe(k)
@@ -215,12 +289,21 @@ class LivePolicyV2(Policy):
     def act(self, obs):
         o = dict(obs); arms, hands = [], []
         if obs.get("head_rgb") is not None: self._head(obs["head_rgb"])
-        for _ in range(CHUNK):
-            r = self._act1(o); arms.append(r[0]); hands.append(r[1]); o["arm_q"] = r[0]; o["hand_q"] = r[1]
+        # Coil-chain time follows the wall clock: with the runner at ~100 ms per call and 2 targets, tick/RATE ran at 2/3 of real time,
+        # so every filter / timer of coil_chain was 1.5x slower (OneEuro 5 Hz -> 3.3 Hz, grip tau 40 -> 60 ms, assist 0.4 -> 0.6 s).
+        # Sub-ticks stay exactly 1/RATE apart and catch-up is bounded (dt <= 2/RATE); offline (fast loop) it equals tick/RATE.
+        # The per-target joint step (ARM_STEP = JOINT_SPEED/RATE) and the arm_speed check do not depend on t: unchanged.
+        wall = time.time() - self.t0; lag = (CHUNK - 1) / RATE
+        if self.t_last is None: base = max(0.0, wall - lag)
+        else: base = min(max(self.t_last + 1.0 / RATE, wall - lag), self.t_last + 2.0 / RATE)
+        for i in range(CHUNK):
+            r = self._act1(o, base + i / RATE); arms.append(r[0]); hands.append(r[1]); o["arm_q"] = r[0]; o["hand_q"] = r[1]
+        self.t_last = base + lag
         return {"arm_q_target": np.array(arms), "hand_q_target": np.array(hands)}
 
-    def _act1(self, obs):
-        arm = np.asarray(obs["arm_q"], float); hand = np.asarray(obs["hand_q"], float); t = self.tick / RATE; self.tick += 1
+    def _act1(self, obs, t):
+        arm = np.asarray(obs["arm_q"], float); hand = np.asarray(obs["hand_q"], float); self.tick += 1
+        if self.head_err: self._write({"event": "HEAD_IMG_ERROR", "error": self.head_err}); self.head_err = None
         if self.last_cmd is None:                                     # IK starts from the MEASURED joints
             self.kin.a.q.update({n: float(v) for n, v in zip(arm_ik.ARM_NAMES, arm)}); self.kin.a.apply(); self.last_cmd = arm.copy()
         if not self.hand_init: self.rt.q = [float(np.clip(v, *j["filter"])) for v, j in zip(hand, self.rt.joints)]; self.hand_init = True
