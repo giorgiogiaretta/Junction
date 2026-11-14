@@ -71,3 +71,50 @@ def test_inspire_live_path_against_fake_modbus_server():
     assert addrs <= {ANGLE_SET, FORCE_SET, SPEED_SET}, addrs        # nothing else is ever written
     assert all(len(v) == 6 and all(0 <= x <= 1000 for x in v) for a, v in srv.writes if a == ANGLE_SET)
     assert srv.writes[0][0] in (FORCE_SET, SPEED_SET)               # limits are set BEFORE the first angle command
+
+
+class _Fake2(threading.Thread):
+    """Fake Modbus TCP server with a firmware quirk switch: wrong_tid echoes transaction id 0xABCD; ANGLE_ACT (1546) returns `act`."""
+    def __init__(self, wrong_tid=False, act=(10, 20, 30, 40, 50, 700)):
+        super().__init__(daemon=True); self.s = socket.socket(); self.s.bind(("127.0.0.1", 0)); self.s.listen(1); self.port = self.s.getsockname()[1]
+        self.writes, self.wrong, self.act = [], wrong_tid, list(act)
+    def run(self):
+        c, _ = self.s.accept()
+        while True:
+            try: h = c.recv(7)
+            except OSError: return
+            if len(h) < 7: return
+            tid, pid, ln, unit = struct.unpack(">HHHB", h); pdu = c.recv(ln - 1); fc = pdu[0]; t = 0xABCD if self.wrong else tid
+            if fc == 16:
+                addr, n, bc = struct.unpack(">HHB", pdu[1:6]); self.writes.append((addr, list(struct.unpack(">%dH" % n, pdu[6:6 + bc]))))
+                c.sendall(struct.pack(">HHHBB", t, 0, 6, unit, 16) + struct.pack(">HH", addr, n))
+            elif fc == 3:
+                addr, n = struct.unpack(">HH", pdu[1:5]); vals = self.act if addr == 1546 else [0] * n
+                c.sendall(struct.pack(">HHHBBB", t, 0, 3 + 2 * n, unit, 3, 2 * n) + struct.pack(">%dH" % n, *vals[:n]))
+
+def test_inspire_raw_client_survives_wrong_transaction_id_echo():
+    srv = _Fake2(wrong_tid=True); srv.start()
+    from robot.inspire import InspireHand, ANGLE_SET
+    h = InspireHand(host="127.0.0.1", port=srv.port, dry=False, speed=300)
+    for k in range(5): h.set_fingers([0.1 * k] * 5); time.sleep(0.02)
+    h.close(); time.sleep(0.2)
+    assert [w for w in srv.writes if w[0] == ANGLE_SET] and len([w for w in srv.writes if w[0] == ANGLE_SET]) == 5
+
+def test_inspire_freeze_thumb_rotation_after_read_only_handshake():
+    srv = _Fake2(act=(1, 2, 3, 4, 5, 612)); srv.start()
+    from robot.inspire import InspireHand, ANGLE_SET
+    h = InspireHand(host="127.0.0.1", port=srv.port, dry=False, freeze_thumb_rot=True)
+    for k in range(6): h.set_fingers([0.2 * k] * 5); time.sleep(0.02)
+    h.close(); time.sleep(0.2)
+    cmds = [v for a, v in srv.writes if a == ANGLE_SET]
+    assert cmds and all(v[5] == 612 for v in cmds)                      # thumb rotation never moved, only the measured value is re-sent
+    assert any(v[0] != cmds[0][0] for v in cmds)                        # the other joints do move
+
+def test_inspire_freeze_refuses_to_start_if_read_fails():
+    s = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen(1); port = s.getsockname()[1]
+    def deaf():
+        c, _ = s.accept(); time.sleep(5)
+    threading.Thread(target=deaf, daemon=True).start()
+    from robot.inspire import InspireHand
+    import pytest
+    with pytest.raises(Exception): InspireHand(host="127.0.0.1", port=port, dry=False, freeze_thumb_rot=True)
