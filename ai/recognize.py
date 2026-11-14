@@ -89,6 +89,10 @@ def _timed(fn, img):
     t = time.time(); v = fn(img); v["latency_s"] = round(time.time() - t, 2); return v
 
 
+# Independence for the two-key rule is counted per MODEL FAMILY, not per backend: gemma-4 and paligemma are the same family (Gemma), so they are ONE key.
+FAMILY = {"nemotron": "nvidia", "gemma": "google-gemma", "paligemma": "google-gemma", "gemini": "google-gemini", "color": "colour-rule"}
+
+
 def decide(votes):
     """Fragile-first majority vote -> {'object','confidence','agree','n_ok','reason'}."""
     ok = [v for v in votes if v.get("ok")]
@@ -103,7 +107,8 @@ def decide(votes):
             return (len(count[k]), sum(cs) / len(cs) if cs else 0.0)
         win, why = max(count, key=score), "majority vote"
     agreeing = [v for v in ok if v["object"] == win]; cs = [v["confidence"] for v in agreeing if v["confidence"] is not None]
-    return {"object": win, "confidence": round(sum(cs) / len(cs), 3) if cs else None, "agree": len(agreeing), "n_ok": len(ok), "reason": why}
+    families = {FAMILY.get(v.get("name"), v.get("name")) for v in agreeing}    # distinct model families among the agreeing votes
+    return {"object": win, "confidence": round(sum(cs) / len(cs), 3) if cs else None, "agree": len(families), "n_votes": len(agreeing), "n_ok": len(ok), "reason": why}
 
 
 def recognise(img, backends=("gemini", "gemma", "nemotron", "color"), registry=None, timeout=TIMEOUT_S):
