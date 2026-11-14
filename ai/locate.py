@@ -106,7 +106,14 @@ def locate(head_rgb, head_depth, pixel_to_pelvis=None, label=None, conf=None, bb
         p1 = np.asarray(to3d(u - a[0] * L, v - a[1] * L, d), float); p2 = np.asarray(to3d(u + a[0] * L, v + a[1] * L, d), float)
         ax = p2 - p1; nrm = np.linalg.norm(ax)
         if nrm > 0: axis = (ax / nrm).round(4).tolist()
-    ok = spread < max(30.0, 2.5 * r * 1000.0)   # a depth spread wider than the object = mixed with background
+    # Refusal gates (Giorgio, board 13:00; sim egg bbox outlier 10.7 cm = table/mat depth mixed into the median). They only flip
+    # depth_ok to False, never move the estimate: callers must not grasp when depth_ok is False.
+    why = f"median depth {d:.0f} mm over {n} px, IQR {spread:.0f} mm"
+    ok = spread < max(30.0, 2.0 * r * 1000.0)   # depth spread wider than the object diameter = mixed with background
+    if not ok: why += f" > object diameter {2000 * r:.0f} mm: mixed with background"
+    if ok and table_z is not None and half_h is not None and pixel_to_pelvis is not None:
+        hgt = 2.0 * half_h; zs = float(surf[2]) - table_z   # visible surface height above the table
+        if not (0.25 * hgt <= zs <= hgt + 0.03):            # on the table/mat (or floating): not the object's surface
+            ok = False; why += f"; surface {1000 * zs:.0f} mm above table, object is {1000 * hgt:.0f} mm tall: not on the object"
     return dict(out, p_pelvis=centre.round(4).tolist(), p_surface=surf.round(4).tolist(), axis_pelvis=axis, depth_ok=bool(ok),
-                frame="pelvis" if pixel_to_pelvis else "camera", z_snapped=snapped,
-                why=f"median depth {d:.0f} mm over {n} px, IQR {spread:.0f} mm")
+                frame="pelvis" if pixel_to_pelvis else "camera", z_snapped=snapped, why=why)

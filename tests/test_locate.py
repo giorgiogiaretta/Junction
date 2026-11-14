@@ -84,6 +84,20 @@ def test_big_white_mat_is_not_an_egg_and_mask_param():
     assert locate(rgb, depth, p2p, mask=np.zeros_like(egg))["p_pelvis"] is None
 
 
+def test_loose_bbox_on_white_mat_is_refused_not_mislocated():
+    """Sim outlier (egg bbox, 10.7 cm): mat depth mixed into the median. Must come back depth_ok=False, never a wrong pose marked ok."""
+    c = np.array([0.36, 0.04, TABLE_Z + 0.0215])
+    rgb, depth = render(c, (0.0215, 0.0215, 0.0215), (245, 245, 240))
+    egg = (rgb == (245, 245, 240)).all(-1); vs, us = np.nonzero(egg)
+    rgb[~egg] = (217, 217, 204)                                                 # light mat everywhere: colour cannot separate egg/mat
+    cu, cv, hw, hh = us.mean(), vs.mean(), us.max() - us.min(), vs.max() - vs.min()
+    loose = [int(cu - 2 * hw), int(cv - 2 * hh), int(cu + 2 * hw), int(cv + 2 * hh)]   # box 4x the egg: core mostly mat
+    out = locate(rgb, depth, p2p, label="egg", bbox=loose, table_z=TABLE_Z)
+    assert out["depth_ok"] is False, out
+    tight = locate(rgb, depth, p2p, label="egg", mask=egg, table_z=TABLE_Z)     # the same frame with a real mask is still accepted
+    assert tight["depth_ok"] and np.linalg.norm(np.array(tight["p_pelvis"][:2]) - c[:2]) <= 0.01, tight
+
+
 def test_bench_adapter_frame_conversion():
     from ai.locate_bench import pixel_to_world
     pos = np.array([0.1, 0.2, 0.3]); Rm = np.eye(3)                              # MuJoCo camera looking along world -z
