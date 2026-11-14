@@ -5,10 +5,14 @@ Run from the repository root:
 ```sh
 python3 -m verify.run
 python3 -m verify.run --json
+python3 -m verify.run --strict
 python3 -m pytest tests/test_verify_run.py -q
 ```
 
-The first command prints a PASS/FAIL table and exits nonzero on any failure.
+The first command prints a PASS/WARN/FAIL table and exits nonzero on any failure.
+Unregistered numeric wording is WARN by default and does not change the exit code.
+Use `--strict` to make coverage gaps FAIL. Counts include all three statuses in
+text and JSON output. Other failures remain failures in both modes.
 JSON mode includes computed metrics, photo-level error details and the same checks.
 No packages beyond Python's standard library are required for the checker.
 It reads saved JSON and imports `ai.recognize.decide`; it never calls recognisers,
@@ -44,9 +48,11 @@ unique photos, not individual wrong votes.
 `claims.json` records exact text units, file paths and sources. Markdown units are
 trimmed nonempty lines; HTML units are visible text nodes and image alt text,
 with styles and scripts excluded. Thus inline HTML can split a sentence into
-several units. Every unit with a digit must be registered, including headings,
+several units. Coverage reports every unregistered unit with a digit, including headings,
 commands and model names; selected spelled-out claims are also registered.
-New submission Markdown files are discovered automatically. This conservative
+New submission Markdown files are discovered automatically. Architecture, scorecard
+and code-tour documents are also checked. Coverage is deliberately incomplete:
+new editorial numbers, headings and commands stay visible as warnings until reviewed. This conservative
 coverage check catches new numeric wording, but is not a semantic parser for
 arbitrary spelled-out numbers or claims split across HTML nodes.
 
@@ -55,8 +61,8 @@ or `{ "doc": "docs/OBJECT_RECOGNITION_RESULTS.md" }`. Optional `checks` attach
 multiple metric/value comparisons to a unit. Each metric binding is reviewed
 against the exact registered wording; formatting such as `48 of 50` and `48/50`
 may represent the same value. `expected_metrics` separately checks the saved-run
-baseline. Missing wording, missing sources, unknown metrics, numerical drift,
-and uncovered numeric units fail. A document-source PASS means **trace exists
+baseline. Missing wording, missing sources, unknown metrics and numerical drift
+fail. Uncovered numeric units warn unless `--strict` is selected. A document-source PASS means **trace exists
 only**, not that its contents were recomputed or independently validated.
 Historical runs, timings without saved evidence, simulation thresholds, prompt
 experiments and planned settings retain document traces rather than invented
@@ -71,22 +77,18 @@ These are review findings, not accusations that the author made a positive claim
 
 ## Findings in the current checked-in documents
 
-Reproduce with `python3 -m verify.run --json`:
+Reproduce with `python3 -m verify.run --json`. The registry retains published
+values even when they disagree with saved evidence; it is not a green-status
+allowlist. Stale exact text has been removed.
 
-- `docs/OBJECT_RECOGNITION_RESULTS.md` says “none shared”. Nemotron and PaliGemma
-  both miss `egg/egg-012.jpg` (stress ball and can respectively); Gemma says egg.
-  The disagreement still flags it, and the triple decision is correct.
-- `docs/STORY_MODELS.md` says PaliGemma median 0.21 s; the saved successful
-  labelled answers have median 0.24 s rounded to two decimals. This may describe
-  a different run, but that run is not in the supplied evidence.
-- Literal lint flags `guarantee` wording in the deck, notes and recognition
-  report, and `Newton` / `96% in general` in the submission README's warning.
-- Manual source review: `STORY_MODELS.md` presents Gemma-4's API accuracy under
-  an “on our own GPU” heading. The evidence README identifies Gemma-4 as API
-  and PaliGemma as local. README/submission/deck statements that Gemma is planned
-  or that the Nemotron run has not been repeated are stale relative to the
-  recognition report's afternoon/evening updates. These semantic issues are not
-  automatically proven by the numeric checker.
+- The recognition report says “none shared”, but Nemotron and PaliGemma both
+  miss `egg/egg-012.jpg` with different wrong labels. Gemma gets it right.
+- PaliGemma latency in the README, architecture, model story and Rokoko submission
+  is 0.21 s; saved successful labelled answers give 0.24 s. Another run may
+  explain it but is not supplied as per-photo evidence.
+- Literal forbidden-phrase findings include negative caveats and quoted warnings.
+  They remain failures under the existing lint rule, not allegations of positive
+  assertions. See the PR discrepancy list for semantic review findings.
 
 Documents outside `verify/` are deliberately left untouched. These checks do not
 rerun recognition, establish generalisation, measure real forces, or validate

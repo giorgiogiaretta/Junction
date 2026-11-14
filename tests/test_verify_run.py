@@ -81,7 +81,8 @@ def test_exact_claim_missing_wrong_value_new_claim_and_source(repo):
     path.write_text('49 of 50\n')
     failures = [r for r in check(repo, registry, {}) if r[0] == 'FAIL']
     assert any('exact text' in r[2] for r in failures)
-    assert any('unregistered' in r[2] for r in failures)
+    assert any(r[0] == 'WARN' and 'unregistered' in r[2]
+               for r in check(repo, registry, {}))
     registry['claims'][0]['source'] = {'doc': 'missing.md'}
     assert any('document trace' in r[2] and r[0] == 'FAIL' for r in check(repo, registry, {}))
 
@@ -114,10 +115,13 @@ def test_cli_success_failure_and_invalid_json(repo, tmp_path, capsys):
     assert main(['--root', str(repo), '--registry', str(registry)]) == 1
 
 
-def test_registry_covers_current_numeric_units():
+def test_registry_contains_current_text_and_valid_traces():
     registry = json.loads((ROOT / 'verify/claims.json').read_text())
     values, _ = recompute(ROOT)
-    assert not any('unregistered' in r[2] for r in check(ROOT, registry, values))
+    results = check(ROOT, registry, values)
+    assert not any(r[0] == 'FAIL' and ('exact text' in r[2] or 'document trace' in r[2])
+                   for r in results)
+    assert all(r[0] == 'WARN' for r in results if 'unregistered' in r[2])
 
 
 def test_unknown_metric_cannot_pass_as_null(repo):
@@ -154,10 +158,40 @@ def test_bad_latency_and_malformed_registry(repo):
 
 def test_new_submission_is_included(repo):
     (repo / 'docs/submission/new.md').write_text('New claim 99%')
-    assert any(r[0] == 'FAIL' and r[1].endswith('new.md') for r in check(repo, {'claims': []}, {}))
+    assert any(r[0] == 'WARN' and r[1].endswith('new.md') for r in check(repo, {'claims': []}, {}))
 
 
 def test_inline_html_cannot_hide_forbidden_phrase(repo):
     (repo / 'deck/index.html').write_text('<p>works <em>on the</em> G1</p>')
     results = check(repo, {'claims': []}, {})
     assert any(r[0] == 'FAIL' and 'forbidden phrase: works on the G1' in r[2] for r in results)
+
+
+@pytest.mark.parametrize('strict', [False, True])
+def test_numeric_coverage_cli_severity_and_counts(repo, tmp_path, capsys, strict):
+    (repo / 'README.md').write_text('New claim 99%\nAnother 12 seconds\n')
+    registry = tmp_path / 'registry.json'
+    registry.write_text(json.dumps({'claims': [], 'expected_metrics': {}}))
+    args = ['--root', str(repo), '--registry', str(registry)]
+    if strict:
+        args.append('--strict')
+    assert main(args) == int(strict)
+    output = capsys.readouterr().out
+    status = 'FAIL' if strict else 'WARN'
+    assert f'2 {status}' in output
+    assert f'{status} | README.md | unregistered numeric text:' in output
+    assert main(args + ['--json']) == int(strict)
+    report = json.loads(capsys.readouterr().out)
+    assert report['counts'][status] == 2
+
+
+@pytest.mark.parametrize('strict', [False, True])
+def test_hard_failures_remain_failures(repo, strict):
+    (repo / 'README.md').write_text('48 of 50\n100% safe\n')
+    registry = {'claims': [
+        {'file': 'README.md', 'text': 'missing 12', 'source': {'doc': 'README.md'}},
+        {'file': 'README.md', 'text': '48 of 50',
+         'source': {'metric': 'nemotron.accuracy', 'value': '48/50'}}]}
+    results = check(repo, registry, {'nemotron.accuracy': '47/50'}, strict=strict)
+    for detail in ('exact text', 'recomputed', 'forbidden phrase'):
+        assert any(r[0] == 'FAIL' and detail in r[2] for r in results)

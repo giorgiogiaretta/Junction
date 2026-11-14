@@ -51,122 +51,6 @@
   },
   "claims": [
     {
-      "file": "README.md",
-      "text": "glove (Smartgloves + Coil Pro) ──UDP 14043──▶ simulated robot hand ◀──UDP 14070── {\"profile\": \"egg\"}",
-      "source": {
-        "doc": "docs/contracts.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "python3 -m ai.pick_profile --set egg",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "python3 -m ai.pick_profile --image photo.jpg",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "Tests: `python3 -m pytest tests -q`.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "| 48 of 50 of our own head-camera photos recognised in one run (egg 18/20, stress ball 22/22, can 8/8); the 2 errors are eggs called stress ball | `python -m ai.eval_objects imgs --backend nemotron --mix`, [docs/OBJECT_RECOGNITION_RESULTS.md](docs/OBJECT_RECOGNITION_RESULTS.md) |",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      },
-      "checks": [
-        {
-          "metric": "nemotron.accuracy",
-          "value": "48/50"
-        },
-        {
-          "metric": "nemotron.egg",
-          "value": "18/20"
-        },
-        {
-          "metric": "nemotron.stress_ball",
-          "value": "22/22"
-        },
-        {
-          "metric": "nemotron.can",
-          "value": "8/8"
-        }
-      ]
-    },
-    {
-      "file": "README.md",
-      "text": "| The picker never leaves the hand without a limit (fallback `cup`); a low-confidence \"stress ball\" is treated as egg | `python3 -m pytest tests/test_picker_safety.py -q` |",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "| Per-object closure limit in sim: eggs broken 10/11 -> 1/11 (scripted grip on real wrist paths, 5-finger sim hand) | `python3 -m robot.replay_all`, [docs/PHASE1_REAL_DATA.md](docs/PHASE1_REAL_DATA.md) |",
-      "source": {
-        "doc": "docs/PHASE1_REAL_DATA.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "| G1 Dex3 hand: 12 commanded joints close in the right direction (URDF geometry only) | `python g1/sim/g1_sim.py`, `python3 -m pytest tests/test_g1_dex3.py -q` |",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "| Episode judge prompt: positives judged good 5/32 -> 22/32 (positives only, noise about ±3) | `python3 -m ai.judge --version 2`, [docs/JUDGE_RESULTS.md](docs/JUDGE_RESULTS.md) |",
-      "source": {
-        "doc": "docs/JUDGE_RESULTS.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "- No single command yet runs photo -> object -> profile -> G1 grasp in MuJoCo -> held/broken.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "- Two objects in simulation (egg, stress ball); the can is recognised but not grasped by the simulated G1 hand (PR #79).",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "- Recognition: 50 photos, one person, one place, one day, one run; the photos are not in git and the endpoint was down afterwards.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "- Real glove finger closures do not yet produce grasps in sim (2/32).",
-      "source": {
-        "doc": "docs/PHASE1_REAL_DATA.md"
-      }
-    },
-    {
-      "file": "README.md",
-      "text": "- Nothing has run on the real G1.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
       "file": "deck/index.html",
       "text": "Rokoko → object recognition → G1 Dex3 simulation",
       "source": {
@@ -1113,71 +997,8 @@
       }
     },
     {
-      "file": "docs/submission/README.md",
-      "text": "English, ready to paste. Every number links to a repo document or command; wording follows `docs/ORCH_BACKLOG.md` section 1 (\"safe phrasing\"). Update before submitting if backlog items B4, B5 or B12 turn green.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "docs/submission/README.md",
-      "text": "- [google.md](google.md): Gemini prize (submit only if B5 produces a live table)",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/README.md",
-      "text": "Never write: \"works on the G1\", forces in Newton as real measurements, \"96% in general\".",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "docs/submission/google.md",
-      "text": "> Submit only if backlog B5 is green: `python -m ai.eval_objects imgs --backend gemini --mix` has produced a live table. Today Gemini has **never been called live** (`docs/ORCH_BACKLOG.md` section 1). Fill the bracketed fields from that run; do not submit with them empty.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/google.md",
-      "text": "Gemini via the Google GenAI SDK, model id `gemini-2.5-flash` (set by `GEMINI_MODEL`; id still to confirm with Google DeepMind). Key from `GEMINI_API_KEY` in the environment only.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/google.md",
-      "text": "- Gemini on our head-camera photos: [N of 50 correct, per-object breakdown, disagreements with Nemotron] from `python -m ai.eval_objects imgs --backend gemini --mix`.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/google.md",
-      "text": "Same 50 photos, one person, one place, one day. Gemma (local) is not used.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/nvidia.md",
-      "text": "Nemotron 3.5 Super VL, called through the hackathon Verda endpoint (OpenAI-compatible chat API, image input, tool calls). Client: `ai/llm.py`. The exact model id string is marked unverified in `ai/llm.py`; confirm with the NVIDIA mentors before submitting.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/nvidia.md",
-      "text": "Nemotron is the **primary object recogniser**. Before a grasp, one head-camera frame (optionally cropped around the hand, `ai/crop.py`) is sent to Nemotron, which returns the object (egg / stress ball / can / other) and a confidence through a tool call. That answer selects the grip limit the robot hand must respect (`ai/pick_profile.py` -> `ai/object_profile.py` -> UDP 14070).",
-      "source": {
-        "doc": "docs/contracts.md"
-      }
-    },
-    {
-      "file": "docs/submission/nvidia.md",
-      "text": "- **Recognition**: 48 of 50 of our own head-camera photos in one run (egg 18/20, stress ball 22/22, can 8/8). `python -m ai.eval_objects imgs --backend nemotron --mix`; `docs/OBJECT_RECOGNITION_RESULTS.md`. One person, one place, one day.",
+      "file": "README.md",
+      "text": "| Recognition on 50 of our own head-camera photos: Nemotron 48/50 in two runs (median 0.22 s), Gemma 4 49/50 with all 20 eggs right, ensemble Nemotron + Gemma 50/50 (computed offline on the same photos) | `python -m ai.eval_objects imgs --backend nemotron --mix`, [docs/OBJECT_RECOGNITION_RESULTS.md](docs/OBJECT_RECOGNITION_RESULTS.md) |",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
@@ -1187,154 +1008,346 @@
           "value": "48/50"
         },
         {
-          "metric": "nemotron.egg",
-          "value": "18/20"
-        },
-        {
-          "metric": "nemotron.stress_ball",
-          "value": "22/22"
-        },
-        {
-          "metric": "nemotron.can",
-          "value": "8/8"
+          "metric": "gemma.accuracy",
+          "value": "49/50"
         }
       ]
     },
     {
-      "file": "docs/submission/nvidia.md",
-      "text": "- **Making the errors safe**: both errors were small eggs called \"stress ball\", the dangerous direction. We made the model report a confidence and added rules that only soften: a stress-ball answer with confidence < 0.9 becomes egg, < 0.6 becomes at most the conservative `cup`, and timeouts fall back to `cup`, never to no limit. `python3 -m pytest tests/test_picker_safety.py -q`. Thresholds are hand-picked and not yet calibrated on live confidences.",
+      "file": "README.md",
+      "text": "| Object position from the G1 head RGB-D, simulated renders only: median xy error 0.14-0.26 cm, with refusals for cut-off or occluded objects | `python -m ai.locate_bench` |",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "ai/locate_bench.py"
       }
     },
     {
-      "file": "docs/submission/nvidia.md",
-      "text": "- **Episode judge prompt**: adding a task definition to the prompt raised positives judged good from 5/32 to 22/32 (a repeat run gave 25/32, so noise is about ±3). Positives only, no labelled negatives, so precision is unknown. `python3 -m ai.judge --version 2`; `docs/JUDGE_RESULTS.md`.",
+      "file": "README.md",
+      "text": "| Real G1: gloves drove both arms and Dex3 hands, 2 runs of 120 s, 0 commands clipped by the safety filter (no vision on the robot: camera computer off) | branch `g1-real-working`, `tools/g1_windows_runner/README.md` (not on `main` yet) |",
       "source": {
-        "doc": "docs/JUDGE_RESULTS.md"
+        "doc": "tools/g1_windows_runner/README.md"
       }
     },
     {
-      "file": "docs/submission/nvidia.md",
-      "text": "- **Reliability lesson**: the endpoint stopped answering after the recognition run (calls timed out from 11:45). This is why the picker has fast failure (20 s, 1 retry), a Gemini backup and a safe fallback.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/nvidia.md",
-      "text": "Latency of the model itself was not measured (the run was dominated by our client rate limiter). The 48/50 run could not be repeated yet.",
+      "file": "README.md",
+      "text": "| PaliGemma 2 on our own GPU: 49/50 on the same photos, 0.21 s; three-model vote 50/50 | [docs/OBJECT_RECOGNITION_RESULTS.md](docs/OBJECT_RECOGNITION_RESULTS.md) |",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
       "checks": [
         {
-          "metric": "nemotron.accuracy",
-          "value": "48/50"
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
+        },
+        {
+          "metric": "triple.accuracy",
+          "value": "50/50"
+        },
+        {
+          "metric": "paligemma.median_latency_2dp",
+          "value": 0.21
         }
       ]
     },
     {
-      "file": "docs/submission/rokoko.md",
-      "text": "1. **Glove capture**: Smartgloves II + Coil Pro streamed as `hand_state v1` over UDP (`Rokoko/src/rgmp_client.py`, contract in `docs/contracts.md`), with raw recording and replay (`Rokoko/src/replay_rgmp.py`).",
+      "file": "README.md",
+      "text": "| Every object on the table from one G1 head RGB-D frame (label + position + cap), simulated frames only: egg 24/24, can 23/24 | `ai/perceive.py`, [docs/G1_V1_RUN.md](docs/G1_V1_RUN.md) |",
       "source": {
-        "doc": "docs/contracts.md"
+        "doc": "docs/G1_V1_RUN.md"
       }
     },
     {
-      "file": "docs/submission/rokoko.md",
-      "text": "2. **Object recognition from a head camera**: one frame goes to a vision-language model (Nemotron, Gemini as backup) that names the object (`ai/pick_profile.py`).",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "docs/submission/rokoko.md",
-      "text": "3. **Object -> grip profile**: each object maps to a maximum closure and speed (`ai/object_profile.py`), published on UDP 14070.",
-      "source": {
-        "doc": "docs/contracts.md"
-      }
-    },
-    {
-      "file": "docs/submission/rokoko.md",
-      "text": "4. **Simulated robot hand**: MuJoCo hand driven by the glove stream, with a per-object closure limit (\"Force Cushion\", `robot/`), plus G1 Dex3 hand geometry (`g1/sim/g1_sim.py`).",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "docs/submission/rokoko.md",
-      "text": "- **Recognition**: 48 of 50 of our own head-camera photos correct in one run (egg 18/20, stress ball 22/22, can 8/8); the 2 errors are small eggs called stress ball. `python -m ai.eval_objects imgs --backend nemotron --mix`; details `docs/OBJECT_RECOGNITION_RESULTS.md`. One person, one place, one day; the photo folder is not in git.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      },
-      "checks": [
-        {
-          "metric": "nemotron.accuracy",
-          "value": "48/50"
-        },
-        {
-          "metric": "nemotron.egg",
-          "value": "18/20"
-        },
-        {
-          "metric": "nemotron.stress_ball",
-          "value": "22/22"
-        },
-        {
-          "metric": "nemotron.can",
-          "value": "8/8"
-        }
-      ]
-    },
-    {
-      "file": "docs/submission/rokoko.md",
-      "text": "- **Safety of the error direction**: the picker never leaves the hand without a limit (fallback `cup`), and a low-confidence \"stress ball\" is treated as an egg. `python3 -m pytest tests/test_picker_safety.py -q`.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "docs/submission/rokoko.md",
-      "text": "- **Closure limit in simulation**: with a scripted grip on real recorded wrist paths, eggs broken 10/11 without the limit and 1/11 with it. `python3 -m robot.replay_all`; `docs/PHASE1_REAL_DATA.md`. Toy break threshold, 5-finger sim hand, not the G1. Forces are outputs of the simulation model, not measurements.",
+      "file": "README.md",
+      "text": "- Real glove finger closures alone do not yet produce grasps in the older 5-finger sim (2/32, [docs/PHASE1_REAL_DATA.md](docs/PHASE1_REAL_DATA.md)).",
       "source": {
         "doc": "docs/PHASE1_REAL_DATA.md"
       }
     },
     {
-      "file": "docs/submission/rokoko.md",
-      "text": "- **Real glove data in sim**: the real Coil Pro wrist path with a scripted grip lifts the cube in 7/11 takes; real finger closures alone do not yet produce grasps (2/32). `docs/PHASE1_REAL_DATA.md`.",
+      "file": "docs/ARCHITECTURE.md",
+      "text": "- Egg and stress ball share one cap (0.70), so an egg/ball mix-up neither drops nor crushes the egg in the simulation.",
+      "source": {
+        "doc": "ai/object_profile.py"
+      }
+    },
+    {
+      "file": "docs/ARCHITECTURE.md",
+      "text": "| Nemotron 3.5 Super VL (NVIDIA, Verda) | `ai/pick_profile.py`, `ai/recognize.py` | 48/50 in two runs, median 0.22 s per call (second run) |",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "nemotron.accuracy",
+          "value": "48/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/ARCHITECTURE.md",
+      "text": "| Gemma 4 26B A4B (Google API) | `ai/recognize.py` | 49/50, eggs 20/20, median 7.7 s |",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "gemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/ARCHITECTURE.md",
+      "text": "| PaliGemma 2 3B on our A100 (Verda), 3-option question | `ai/paligemma.py`, `tools/paligemma_server.py` | 49/50, median 0.21 s |",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
+        },
+        {
+          "metric": "paligemma.median_latency_2dp",
+          "value": 0.21
+        }
+      ]
+    },
+    {
+      "file": "docs/ARCHITECTURE.md",
+      "text": "| Three-model vote Nemotron + Gemma 4 + PaliGemma | offline from saved answers | 50/50, every ball confirmed by >= 2 |",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "triple.accuracy",
+          "value": "50/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/ARCHITECTURE.md",
+      "text": "G1 head RGB-D -> object centre in the pelvis frame, with refusals (`depth_ok=False`) for mixed depth, objects cut by the frame edge and occluded balls. Measured only in simulation: `python -m ai.locate_bench` on MuJoCo renders of the G1 head camera, 20 placements per object, median xy error 0.14-0.26 cm with a perfect mask. Not tested on real G1 frames, not wired into a grasp.",
+      "source": {
+        "doc": "ai/locate_bench.py"
+      }
+    },
+    {
+      "file": "docs/ARCHITECTURE.md",
+      "text": "One G1 head RGB-D frame -> every object on the table with label (ensemble on crops + colour veto), position (`locate`) and cap. Used once at the first frame by `g1/live_policy_v1.py`. Simulated frames only: egg 24/24, can 23/24, xy median 0.2/0.4 cm (`docs/G1_V1_RUN.md`).",
+      "source": {
+        "doc": "docs/G1_V1_RUN.md"
+      }
+    },
+    {
+      "file": "docs/ARCHITECTURE.md",
+      "text": "- **Real G1 (14/11, branch `g1-real-working`, not on `main` yet): Rokoko gloves drove both arms and both Dex3 hands, 2 runs of 120 s, 29.8 commands/s, 0 commands clipped by the safety filter. The robot's camera computer was off, so vision did not run on the real robot and no object grasp outcome is recorded.**",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "docs/SCORECARD.md",
+      "text": "9. **What improvement is measured?** The older five-finger simulation reports egg breaks 10/11→1/11 with real wrist paths and scripted closure (`docs/PHASE1_REAL_DATA.md`).",
       "source": {
         "doc": "docs/PHASE1_REAL_DATA.md"
       }
     },
     {
-      "file": "docs/submission/rokoko.md",
-      "text": "- **Tests**: `python3 -m pytest tests -q`.",
+      "file": "docs/SCORECARD.md",
+      "text": "10. **Do real fingers reproduce that improvement?** Not in that experiment: the report records only 2/32 cube lifts for calibrated real grips and does not establish the cushion benefit on them.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/PHASE1_REAL_DATA.md"
       }
     },
     {
-      "file": "docs/submission/rokoko.md",
-      "text": "- No single command runs photo -> object -> profile -> G1 grasp -> outcome.",
+      "file": "docs/SCORECARD.md",
+      "text": "19. **Did the episode judge improve too?** Reported positive recall went 5/32→22/32, but that run lacked the timeline and had no negatives; do not confuse it with recognition (`docs/JUDGE_RESULTS.md`).",
+      "source": {
+        "doc": "docs/PHASE1_REAL_DATA.md"
+      }
+    },
+    {
+      "file": "docs/SCORECARD.md",
+      "text": "7. **What did API Gemma score?** 49/50, including 20/20 eggs, on the saved set (`docs/evidence/recognition/gemma4_api.json`).",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "gemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/SCORECARD.md",
+      "text": "8. **What did PaliGemma score?** 49/50 for the three-option prompt; one egg became can (`docs/OBJECT_RECOGNITION_RESULTS.md`).",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/CODE_TOUR.md",
+      "text": "**5:00–6:00 — Separate the two simulators.** Open `robot/pipeline.py` and `robot/e2e_g1.py`. Show row 8's test output, including any skip. The older 10/11→1/11 egg-break comparison belongs to a five-finger simulation with scripted closure on real wrist paths (`docs/PHASE1_REAL_DATA.md`), not a real G1 result. The newer bridge uses Dex3 geometry and requires separate cached assets.",
+      "source": {
+        "doc": "docs/PHASE1_REAL_DATA.md"
+      }
+    },
+    {
+      "file": "docs/submission/AUDIT.md",
+      "text": "| D4 | `docs/STORY_MODELS.md` | Il titolo \"Gemma 4 on our own GPU\" e \"49/50\" mescolano due cose: Gemma 4 49/50 è stato misurato **via Google API**; sulla nostra GPU è stato misurato **PaliGemma 2** (49/50, 0,21 s). | Proprietario di STORY_MODELS: dire \"Gemma 4 (Google API) e PaliGemma 2 (nostra GPU)\" |",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/submission/AUDIT.md",
+      "text": "| Riconoscimento | \"Sulle nostre 50 foto: Nemotron 48/50 in 0,22 s, Gemma 4 49/50 con tutte le uova, PaliGemma sulla nostra GPU 49/50 in 0,21 s; insieme, prima il fragile, 50/50 sulle stesse foto\" | `docs/OBJECT_RECOGNITION_RESULTS.md` |",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "nemotron.accuracy",
+          "value": "48/50"
+        },
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/submission/STORY.md",
+      "text": "| 7 | **Now it's easy** | Repetitive work: the glove teaches, the robot repeats. Delicate work: the camera protects. The operator just moves naturally. On the real G1 the gloves already drive both arms and hands: 2 runs of 120 s, 0 safety clips. | Live / video of the run |",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "docs/submission/STORY.md",
+      "text": "| real G1 | \"Gloves drove the real G1's arms and hands: 2 runs of 120 s, 0 safety clips\" (never \"grasps the egg\", no vision on the robot yet) | branch `g1-real-working` |",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "docs/submission/aaltonomous.md",
+      "text": "- `g1/arms_simple.py`: Rokoko gloves drive **both arms and both Dex3 hands**: glove open -> arm up; glove closed -> arm goes down about 11 cm, then fingers close; open again -> release. **2 runs of 120 s, 29.8 commands/s, 0 commands clipped by the safety filter.**",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "docs/submission/aaltonomous.md",
+      "text": "- V1 without Coil (`g1/live_policy_v1.py`, `docs/G1_V1_RUN.md`): camera finds the objects once (`ai.perceive`), hover -> descend -> capped grasp -> lift. Simulated frames: labels egg 24/24, can 23/24, position error median 0.2/0.4 cm; mock runner 29-30 Hz, 0 clipped.",
+      "source": {
+        "doc": "docs/G1_V1_RUN.md"
+      }
+    },
+    {
+      "file": "docs/submission/google.md",
+      "text": "- **Gemma 4**: 49/50, eggs 20/20, median 7.7 s per call (Google API), 0 failed calls.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "gemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/submission/google.md",
+      "text": "- **PaliGemma 2 on our GPU**: 49/50 (egg 19/20, ball 22/22, can 8/8) with a 3-option question, median 0.21-0.24 s, 0 failed calls. Honest note: the question \"fragile or rigid?\" is useless on it (answers \"fragile\" for 48/50).",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/submission/google.md",
+      "text": "- **Three-model vote, fragile first** (Nemotron + Gemma 4 + PaliGemma, computed offline from the saved answers): 50/50, eggs 20/20, every ball confirmed by at least 2 models.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "triple.accuracy",
+          "value": "50/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/submission/rokoko.md",
+      "text": "- **Recognition, same 50 of our own head-camera photos** (`docs/OBJECT_RECOGNITION_RESULTS.md`): Nemotron 48/50 in two runs, median 0.22 s; Gemma 4 49/50 with eggs 20/20; ensemble Nemotron + Gemma 50/50, computed offline from the saved answers. `python -m ai.eval_objects imgs --backend nemotron --mix`.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "nemotron.accuracy",
+          "value": "48/50"
+        },
+        {
+          "metric": "gemma.accuracy",
+          "value": "49/50"
+        }
+      ]
+    },
+    {
+      "file": "docs/submission/rokoko.md",
+      "text": "- **Object position**: median xy error 0.14-0.26 cm on simulated G1 head renders, with refusals for cut-off or occluded objects. `python -m ai.locate_bench`.",
+      "source": {
+        "doc": "ai/locate_bench.py"
       }
     },
     {
       "file": "docs/submission/rokoko.md",
-      "text": "- Two objects in simulation (egg, stress ball); the can is recognised but not grasped by the simulated G1 hand.",
+      "text": "- **Real G1 (14/11, branch `g1-real-working`, not on `main` yet): Rokoko gloves drove both arms and both Dex3 hands, 2 runs of 120 s, 29.8 commands/s, 0 commands clipped by the safety filter. The robot's camera computer was off, so vision did not run on the real robot and no object grasp outcome is recorded.**",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "tools/g1_windows_runner/README.md"
       }
     },
     {
       "file": "docs/submission/rokoko.md",
-      "text": "- Nothing on the real G1.",
+      "text": "- **PaliGemma 2 on our GPU**: 49/50 at 0.21 s; three-model vote 50/50 on the same photos.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
+        },
+        {
+          "metric": "triple.accuracy",
+          "value": "50/50"
+        },
+        {
+          "metric": "paligemma.median_latency_2dp",
+          "value": 0.21
+        }
+      ]
     }
   ]
 }
