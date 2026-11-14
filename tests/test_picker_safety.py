@@ -67,6 +67,17 @@ def test_cli_uses_gemini_backup_when_primary_fails(monkeypatch):
     assert r["source"] == "fallback" and r["profile"] == "cup" and "backup" not in r
 
 
+def test_cli_flags_objects_the_g1_cannot_grasp(monkeypatch):
+    from ai import pick_profile as cli
+    import ai.object_profile as op
+    monkeypatch.setitem(op.OBJECTS, "can", dict(op.OBJECTS["can"], supported=False, why="squeezed out"))
+    monkeypatch.setattr(cli, "socket", FakeSocketModule([]))
+    r = cli.main(["--text", "x"], client=client([answer("soda can", "can", 0.95)]))
+    assert r["supported"] is False and r["why"] == "squeezed out" and r["profile"] == "can"
+    r = cli.main(["--text", "x"], client=client([answer("egg", "egg", 0.95)]))
+    assert "supported" not in r
+
+
 def test_cli_without_gemini_key_skips_backup(monkeypatch):
     from ai import pick_profile as cli
     for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY"): monkeypatch.delenv(k, raising=False)
