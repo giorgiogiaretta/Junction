@@ -26,8 +26,9 @@ LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))
 ALO = np.array([e["filter"][0] for e in sorted(LIM["arm_q"], key=lambda e: e["idx"])]) + 0.01
 AHI = np.array([e["filter"][1] for e in sorted(LIM["arm_q"], key=lambda e: e["idx"])]) - 0.01
 RATE, CHUNK, DT = 30.0, 3, 1 / 30.0
-V_MAX = min(float(os.environ.get("G1_ARM_SPEED", "0.80")), 0.9)     # rad/s, per joint (runner filter: 1.0)
-A_MAX = float(os.environ.get("G1_ARM_ACC", "4.0"))                    # rad/s^2
+V_MAX = min(float(os.environ.get("G1_ARM_SPEED", "0.95")), 0.95)    # rad/s, per joint (runner filter: 1.0). 14/11 night: 0.8 -> 0.95
+A_MAX = float(os.environ.get("G1_ARM_ACC", "6.0"))                    # rad/s^2 (was 4)
+START_V = 0.6                                                         # rad/s along the planned start-up path (straight segments)
 SP = {"left": 0, "right": 7}
 UP_EXTRA = float(os.environ.get("G1_UP_RAD", "0.35"))
 CLEAR = 0.015
@@ -132,6 +133,24 @@ class ArmsGlove:
     def reset(self, *a, **k):
         self.cmd = None; self.vel = np.zeros(14); self.r = None
         self.state = {"left": "START", "right": "START"}; self.t_state = {"left": 0.0, "right": 0.0}; self.start_phase = 0; self.t0 = time.time()
+        self.wps = None; self.wp_i = 0; self.spd = 0.0; self.plan_err = None
+
+    def _plan(self):
+        """Background: start-up path rest -> DOWN that the runner filter accepts (g1/start_path.py). The arms hold meanwhile."""
+        import start_path
+        try:
+            t = time.time(); p = start_path.plan(WS, self.cmd.copy(), self.down, ALO, AHI)
+            if p is None: self.plan_err = "no path found"; return
+            self.log.write(json.dumps({"event": "START_PATH", "waypoints": len(p), "plan_s": round(time.time() - t, 2)}) + "\n"); self.wps = p
+        except Exception as e: self.plan_err = repr(e)
+
+    def _line(self, tgt):
+        """Straight joint-space segment toward tgt (all joints together, so the path is the one that was checked), scalar trapezoid."""
+        e = tgt - self.cmd; D = float(np.abs(e).max())
+        if D < 1e-6: self.spd = 0.0; return tgt.copy()
+        self.spd = min(START_V, self.spd + A_MAX * DT, np.sqrt(2 * A_MAX * D))
+        self.vel = e / D * self.spd
+        return tgt.copy() if self.spd * DT >= D else self.cmd + e / D * self.spd * DT
 
     def _profile(self, tgt):
         """Per-joint trapezoid toward tgt: |v| <= V_MAX, |dv| <= A_MAX*DT, decelerates to stop exactly at the target."""
@@ -166,19 +185,36 @@ class ArmsGlove:
             self.cmd = np.clip(arm, ALO, AHI); self.rest = self.cmd.copy(); self.down, self.up = build(self.rest)
             self.log.write(json.dumps({"event": "START", "v_max": V_MAX, "a_max": A_MAX, "rest": self.rest.round(4).tolist(),
                                        "down": self.down.round(4).tolist(), "up": self.up.round(4).tolist()}) + "\n")
+            threading.Thread(target=self._plan, daemon=True).start()
         if self.r is None:
             self.r = G1Dex3Retargeter(); self.r.q = [min(max(float(v), j["filter"][0]), j["filter"][1]) for v, j in zip(hand, self.r.joints)]
             self.r.max_step *= 0.7
         arms, hands = [], []; now = time.time()
         for _ in range(CHUNK):
             f = self.g.read(); fingers = {}; tgt = self.cmd.copy()
-            if self.start_phase < 2:                      # rest -> DOWN -> UP, gloves ignored
-                goal = self.down if self.start_phase == 0 else self.up
-                tgt = goal.copy()
-                if np.abs(self.cmd - goal).max() < 1e-3 and np.abs(self.vel).max() < 1e-3:
-                    self.start_phase += 1
-                    if self.start_phase == 2: self.state = {"left": "UP", "right": "UP"}
-                fingers = {"left": [0.0] * 3 + [0.0, 0.0], "right": [0.0] * 3 + [0.0, 0.0]}
+            if self.start_phase < 2:                      # rest -> (planned path) -> DOWN -> UP, gloves ignored
+                fingers = {"left": [0.0] * 5, "right": [0.0] * 5}
+                if self.start_phase == 0:
+                    if self.wps is None:                  # still planning (or no path): HOLD the rest pose (zero step, accepted)
+                        if self.plan_err and not getattr(self, "_err_logged", False):
+                            self._err_logged = True; self.log.write(json.dumps({"event": "START_PATH_FAILED", "error": self.plan_err}) + "\n")
+                            print("[arms_glove] NO start-up path the runner accepts: arms stay still. Error:", self.plan_err, flush=True)
+                        arms.append(self.cmd.copy()); hands.append(np.asarray(self.r.step(left=fingers["left"], right=fingers["right"]), float)); continue
+                    w = self.wps[self.wp_i]; new = self._line(w); prev = self.cmd.copy()
+                    self.cmd = self._safe(new)
+                    if np.abs(self.cmd - w).max() < 1e-6:
+                        self.wp_i += 1; self.stall = 0
+                        if self.wp_i >= len(self.wps): self.start_phase = 1; self.spd = 0.0; self.vel[:] = 0.0
+                    elif np.abs(self.cmd - prev).max() < 1e-4:
+                        self.stall = getattr(self, "stall", 0) + 1
+                        if self.stall > 6:                # the filter rule blocks this segment: re-plan from HERE (arms hold meanwhile)
+                            self.stall = 0; self.wps = None; self.wp_i = 0; self.spd = 0.0
+                            self.log.write(json.dumps({"event": "START_REPLAN"}) + "\n")
+                            threading.Thread(target=self._plan, daemon=True).start()
+                    arms.append(self.cmd.copy()); hands.append(np.asarray(self.r.step(left=fingers["left"], right=fingers["right"]), float)); continue
+                tgt = self.up.copy()
+                if np.abs(self.cmd - self.up).max() < 1e-3 and np.abs(self.vel).max() < 1e-3:
+                    self.start_phase = 2; self.state = {"left": "UP", "right": "UP"}
             else:
                 for side in ("left", "right"):
                     sl = slice(SP[side], SP[side] + 7); gl = f[side]; g = 0.0 if gl is None else float(np.mean([gl[1], gl[2]]))

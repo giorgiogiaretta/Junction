@@ -131,21 +131,29 @@ class LivePolicyV2(Policy):
     def _startup(self, obs, hand):
         """Real rest pose -> lift out of the counter keep-out (joint space, as g1/arms_simple.py that worked on the robot) -> palm-down
         front rest pose, hands open. The Coil chains engage only after this (robot = your 'open, palm down, in front' pose)."""
-        q = self.last_cmd.copy(); phase = "lift"
-        if WS is None or WS.violation(q) <= 1e-4:
-            d = self.rest_q - q; m = float(np.abs(d).max()); st = START_SPEED / RATE
-            if m <= st: q = self.rest_q.copy(); self.started = True; phase = "at_rest"
-            else: q = q + d * st / m; phase = "to_rest"
-        if phase != "lift":
-            q2, frac = self._ws_safe(q)
-            if frac < 0.5: self.stall += 1
-            else: self.stall = 0
+        # path planned in the background by g1/start_path.py (hand back/up first if needed, as the raised robot of 14/11 night
+        # requires); straight segments at START_SPEED; re-plan from here if the filter rule stalls a segment. Arms hold meanwhile.
+        import threading, start_path
+        q = self.last_cmd.copy(); phase = "planning"
+        if getattr(self, "wps", None) is None and not getattr(self, "planning", False):
+            self.planning = True; self.wp_i = 0; q0 = q.copy()
+            def run():
+                try: self.wps = start_path.plan(WS, q0, self.rest_q, SAFE_LO["arm_q"], SAFE_HI["arm_q"]) if WS is not None else [self.rest_q]
+                except Exception as e: self.wps = None; print("[v2] start path error:", e, flush=True)
+                if self.wps is None: print("[v2] NO start-up path the runner accepts: arms stay still", flush=True)
+                self.planning = False
+            threading.Thread(target=run, daemon=True).start()
+        if getattr(self, "wps", None) is not None:
+            w = self.wps[self.wp_i]; d = w - q; m = float(np.abs(d).max()); st = START_SPEED / RATE
+            q2 = w.copy() if m <= st else q + d * st / m
+            q2, frac = self._ws_safe(q2); phase = f"path {self.wp_i + 1}/{len(self.wps)}"
+            if np.abs(q2 - w).max() < 1e-6:
+                self.wp_i += 1; self.stall = 0
+                if self.wp_i >= len(self.wps): self.started = True; phase = "at_rest"
+            elif np.abs(q2 - q).max() < 1e-4:
+                self.stall += 1
+                if self.stall > 6: self.stall = 0; self.wps = None; phase = "replan"
             q = q2
-            if self.stall > 10:                                   # the straight joint path dips into the keep-out: lift a bit more
-                q = self.last_cmd.copy(); phase = "lift"
-        if phase == "lift":
-            for i in (0, 7): q[i] -= 0.02; q[i + 3] -= 0.01
-            q, _ = self._ws_safe(q)
         self.kin.a.q.update({n: float(v) for n, v in zip(arm_ik.ARM_NAMES, q)}); self.kin.a.apply(); self.last_cmd = q.copy()
         hq = np.clip(np.asarray(self.rt.step(left=None, right=None)), SAFE_LO["hand_q"], SAFE_HI["hand_q"])   # hands open
         self._write({"tick": self.tick, "startup": phase, "arm_q_target": np.round(q, 4).tolist(), "hand_q": np.round(hq, 4).tolist(),

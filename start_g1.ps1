@@ -26,8 +26,8 @@ if (-not $ip) {
 }
 $env:G1_IFACE = $ip.InterfaceAlias
 if (-not (Test-Connection 192.168.123.161 -Count 1 -Quiet)) { Write-Host "Robot (192.168.123.161) NON raggiungibile: cavo, robot acceso, NordVPN spento?" -ForegroundColor Red; return }
-$cam = Test-Connection 192.168.123.164 -Count 1 -Quiet
-Write-Host ("robot ok; camera testa (PC2 .164): " + $(if ($cam) { "OK" } else { "spenta: niente immagine, il resto funziona" }))
+$cam = (Test-NetConnection 192.168.123.164 -Port 55560 -InformationLevel Quiet -WarningAction SilentlyContinue) -or (Test-NetConnection 192.168.123.254 -Port 55560 -InformationLevel Quiet -WarningAction SilentlyContinue)
+Write-Host ("robot ok; camera testa (PC2 .164 o .254): " + $(if ($cam) { "OK" } else { "spenta: niente immagine, il resto funziona" }))
 
 Write-Host "== 2/5 driver guanti Rokoko" -ForegroundColor Cyan
 if (-not (Get-Process rokoko-sdk -ErrorAction SilentlyContinue)) {
