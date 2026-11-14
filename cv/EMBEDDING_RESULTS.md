@@ -47,7 +47,9 @@ files; this does **not** rule out near-duplicate views. Hashes are in the report
 
 `other` is a miss for egg recall, separately counted from the firm-class error;
 it is not assumed safe without a downstream policy. Nothing here sends robot
-commands. The zero-shot result still fails the desired zero-egg-to-firm criterion.
+commands. `egg_to_firm` is a label-error diagnostic (`stress_ball` or `can`),
+not a measured force or actual downstream grasp action: main PR #98 now softens
+the egg/ball policy. The zero-shot result still fails the zero-label-error criterion.
 
 Zero-shot confusion (rows true, columns predicted):
 
@@ -136,7 +138,7 @@ No additional model weights downloaded or committed. Method reference:
 [OpenAI CLIP zero-shot and linear-probe examples](https://github.com/openai/CLIP).
 
 Validation: `PYTHONDONTWRITEBYTECODE=1 cv/.venv/bin/python -m pytest tests -q`
--> **100 passed**, one existing Pillow deprecation warning. Ten CV tests total,
+-> **104 passed after rebasing on main with #98**, one existing Pillow deprecation warning. Ten CV tests total,
 five new embedding tests: train/test separation, complete held-out coverage,
 invalid split rejection, egg-to-firm versus egg-to-other accounting, and synthetic
 out-of-sample separability. Full-suite local-socket tests run outside the restricted
