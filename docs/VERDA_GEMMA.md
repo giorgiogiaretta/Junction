@@ -26,3 +26,10 @@ With `GEMMA_BASE_URL` set, `ai.recognize`, `ai.intent_router`, `ai.advisor` and 
 
 ## 4. What to measure and write down (no claim before the numbers)
 Accuracy on the 50 labelled photos vs the Google-API Gemma (49/50, eggs 20/20), median latency, GPU, price per hour, the exact model id used. If the local numbers differ from the API run, say so.
+
+## CORRECTION and decision (14/11 evening): PaliGemma 2 on the GPU, Gemma 4 stays on the API
+Tommaso's instruction: serve **`google/paligemma2-3b-mix-224`** (3B, SigLIP + Gemma 2, 224 px input) on the Verda GPU instead of Gemma 4 26B. Done in `tools/serve_gemma.sh` (default `SERVER=paligemma`, served by `tools/paligemma_server.py`: Hugging Face Transformers, OpenAI-compatible, port 8000, SSH tunnel unchanged). `SERVER=vllm MODEL=...` still serves a chat VLM.
+Two facts to keep straight (so the pitch stays true):
+- **Gemma 4 26B is NOT text-only**: through the Google API it read our photos (49/50, eggs 20/20, `docs/OBJECT_RECOGNITION_RESULTS.md`). It stays our second recogniser via the API. PaliGemma 2 is a *different, smaller* model.
+- **PaliGemma 2 is a vision-language model, not a VLA** (it does not output robot actions). It answers short task prompts ("answer en Is this object fragile or rigid?", "detect egg"); it is **not a JSON-following chat model**, so it cannot replace the JSON recognisers or the intent router without a different prompt design. Its 224 px input is small for our photos. Treat it as a fast local second opinion on **fragile vs rigid** until measured: `python -m ai.check_gemma_local` (sanity check on 6 photos, then evaluate on all 50 before any claim).
+- **Token hygiene:** `HF_TOKEN` is read from the environment on the instance only. A token pasted in a chat or a doc is compromised: revoke it on Hugging Face after the download and create a new one if needed. Nothing in this repo contains a token.
