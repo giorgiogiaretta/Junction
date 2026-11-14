@@ -89,6 +89,24 @@ class G1Arms:
 
     def arm_q(self): return [self.q[n] for n in ARM_NAMES]
 
+    def self_collisions(self, margin=0.02):
+        """Pairs of robot parts closer than `margin` (m): arm vs torso/pelvis/legs/head, arm vs the other arm. Fingers of the same hand and
+        adjacent links are ignored. The organisers' filter does NOT check this (INTERFACE.md section 5): we do, before sending."""
+        m, d = self.m, self.d
+        if not hasattr(self, "_grp"):
+            par = m.body_parentid; names = [mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "" for b in range(m.nbody)]
+            def root(b):
+                while b > 0 and not names[b].endswith("shoulder_pitch_link"): b = par[b]
+                return names[b] if b > 0 else "body"
+            self._grp = [root(b) for b in range(m.nbody)]
+            m.geom_margin[:] = margin
+        mujoco.mj_collision(m, d); out = []
+        for c in d.contact[:d.ncon]:
+            b1, b2 = m.geom_bodyid[c.geom1], m.geom_bodyid[c.geom2]; g1, g2 = self._grp[b1], self._grp[b2]
+            if g1 == g2 or (g1 == "body" and g2 == "body"): continue
+            if c.dist < margin: out.append((mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b1), mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b2), round(float(c.dist), 3)))
+        return out
+
     def min_clearance(self):
         """Smallest distance between an arm/hand geom and the torso/pelvis/legs or the other arm (m); < 0 = collision."""
         mujoco.mj_forward(self.m, self.d); best = 1.0

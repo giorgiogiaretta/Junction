@@ -22,9 +22,12 @@ sys.path.insert(0, HERE); sys.path.insert(0, ROOT); sys.path.insert(0, os.path.j
 import demo_e2e as D, perceive as PC, arm_ik
 from robot.g1_dex3 import G1Dex3Retargeter
 from live_sim import GloveLive
+from teleop_filters import OneEuro, QuatFilter, Deadband
 
 RATE = 30
 CLEAR = 0.10
+WRIST_MAX_DEG = 70.0
+WRIST_ON_TABLE = 0.06    # robot wrist height above the counter when your wrist sensor rests on your table (hand flat)
 MIRROR = {"shoulder_roll", "shoulder_yaw", "wrist_roll", "wrist_yaw"}
 
 
@@ -56,6 +59,7 @@ def unsafe(kin):
             B, K = D.BOX, D.KEEP
             if not (B["x"][0] <= p[0] <= B["x"][1] and B["y"][0] <= p[1] <= B["y"][1] and B["z"][0] <= p[2] <= B["z"][1]): r.append(f"{side}_{nm}_box")
             if K["x"][0] <= p[0] <= K["x"][1] and K["y"][0] <= p[1] <= K["y"][1] and p[2] < K["z"]: r.append(f"{side}_{nm}_counter")
+    r += [f"self:{a}-{b}" for a, b, _ in kin.a.self_collisions()]       # arm vs torso / other arm / legs (not in the organisers' filter)
     return r
 
 
@@ -98,13 +102,16 @@ def live_calib(read, hand):
             time.sleep(1 / RATE)
         if len(P) < 10: raise SystemExit(f"[calib] no Coil position from the {hand} glove")
         P = np.array(P); return np.median(P[len(P) // 2:], 0)
+    tb = hold("mano APPOGGIATA PIATTA sul tavolo")
     r0 = hold("mano FERMA davanti al petto"); f = hold("AVANTI 20 cm in linea retta e FERMA", 3.0) - r0
     hold("torna al centro"); l = hold("SINISTRA 20 cm in linea retta e FERMA", 3.0) - r0
     if min(np.linalg.norm(f), np.linalg.norm(l)) < 0.08: raise SystemExit("[calib] movements too small (need ~20 cm): run again")
     f /= np.linalg.norm(f); l /= np.linalg.norm(l); ang = float(np.degrees(np.arccos(np.clip(f @ l, -1, 1))))
+    if not 70 <= ang <= 110: raise SystemExit(f"[calib] forward and left are {ang:.0f} deg apart (need 70-110): move straighter and run again (nothing saved)")
     u = np.cross(f, l); u /= np.linalg.norm(u); f2 = f + np.cross(l, u); f2 /= np.linalg.norm(f2); l2 = np.cross(u, f2)
     R = np.stack([f2, l2, u]).round(5).tolist()
-    json.dump({"R_coil_to_body": {"right": R, "left": R}, "source": f"teleop_sim live calibration ({hand} glove), forward-left {ang:.0f} deg", "manual": True},
+    table_up = float((np.array(R) @ tb)[2])
+    json.dump({"R_coil_to_body": {"right": R, "left": R}, "table_up": table_up, "source": f"teleop_sim live calibration ({hand} glove), forward-left {ang:.0f} deg", "manual": True},
               open(arm_ik.CALIB, "w"), indent=1)
     print(f"[calib] saved: forward-left angle {ang:.0f} deg (90 ideal; < 70 or > 110 = redo with straighter moves)", flush=True); beep(1200)
 
@@ -112,13 +119,13 @@ def live_calib(read, hand):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--obj", default="egg", choices=list(D.OBJECTS)); ap.add_argument("--replay", type=int)
     ap.add_argument("--hands", default="both", choices=["both", "right", "left"]); ap.add_argument("--spot", default="0.35,-0.15")
-    ap.add_argument("--scale", type=float, default=0.8); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
+    ap.add_argument("--scale", type=float, default=0.6, help="your motion x scale (0.6 = calmer and more precise)"); ap.add_argument("--smooth", type=float, default=0.7, help="One Euro min cutoff Hz: lower = smoother/slower"); ap.add_argument("--no-assist", action="store_true"); ap.add_argument("--assist", default="soft", choices=["soft", "strong"], help="soft: max 3 cm correction near the object; strong: staged auto-approach"); ap.add_argument("--rotate-held", action="store_true", help="the held object also follows your wrist rotation (default: grasp orientation kept, more stable)"); ap.add_argument("--cam", action="store_true")
     ap.add_argument("--headless", action="store_true"); ap.add_argument("--calib", action="store_true", help="10 s axis calibration at start (do it whenever the Coil moved)"); ap.add_argument("--seconds", type=float, default=900)
     a = ap.parse_args(); obj = a.obj; pr = D.PROFILE[obj]; spot = [float(x) for x in a.spot.split(",")]
     hands = ["left", "right"] if a.hands == "both" else [a.hands]
     if a.calib and not a.replay:
         g0 = GloveLive(hands[-1]); live_calib(lambda h: g0.read(), hands[-1]); g0.s.close()
-    cal = json.load(open(arm_ik.CALIB))["R_coil_to_body"]; R_cb = {h: np.array(cal.get(h, cal.get("right"))) for h in ("left", "right")}
+    calj = json.load(open(arm_ik.CALIB)); cal = calj["R_coil_to_body"]; table_up = calj.get("table_up"); R_cb = {h: np.array(cal.get(h, cal.get("right"))) for h in ("left", "right")}
     # scene: G1 + counter + object + floor
     m, d = D.build(obj); spec_floor = None
     names = [j["joint"] for j in G1Dex3Retargeter().joints]
@@ -149,6 +156,8 @@ def main():
     gl = {} if a.replay else {h: GloveLive(h) for h in hands}
     read = (lambda h: src.read(h)) if src else (lambda h: gl[h].read())
     rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0")))
+    PF = {h: OneEuro(freq=RATE, min_cutoff=a.smooth, beta=0.02) for h in hands}; QF = {h: QuatFilter(freq=RATE, min_cutoff=a.smooth, beta=0.02) for h in hands}
+    DB = {h: Deadband(0.003) for h in hands}
     ref = {}; stage = {h: None for h in hands}; t_st = {h: 0.0 for h in hands}; rel_p = {}; lock = {h: None for h in hands}
     APPR = {}
     for h in hands:                                             # approach direction: from above (egg, ball) or from the palm side (can)
@@ -171,11 +180,26 @@ def main():
                 status.append(f"{h}: no Coil pose"); continue
             F, P, Q = s; g = 0.5 * (F[1] + F[2])
             if h not in ref: ref[h] = (P.copy(), arm_ik.quat_wxyz_to_mat(Q))      # clutch: first valid sample = robot home pose
+            P = DB[h](PF[h](P, t_tick)); Q = QF[h](Q, t_tick)                      # One Euro on position + rotation, 3 mm deadband: no tremor, no jumps
             p_tel = home[h][0] + a.scale * R_cb[h] @ (P - ref[h][0])
-            R_tel = R_cb[h] @ arm_ik.quat_wxyz_to_mat(Q) @ ref[h][1].T @ R_cb[h].T @ home[h][1]
+            if table_up is not None:                          # YOUR table = the robot's counter: height mapped 1:1 from the table plane
+                p_tel[2] = kin.base[2] + D.COUNTER_Z + WRIST_ON_TABLE + float((R_cb[h] @ P)[2]) - table_up
+            R_rel = R_cb[h] @ arm_ik.quat_wxyz_to_mat(Q) @ ref[h][1].T @ R_cb[h].T
+            rv = np.zeros(3); qq = np.zeros(4); mujoco.mju_mat2Quat(qq, R_rel.flatten()); mujoco.mju_quat2Vel(rv, qq, 1.0)
+            ang = np.linalg.norm(rv)
+            if ang > np.radians(WRIST_MAX_DEG):              # a human wrist does not rotate more than ~70 deg from the reference
+                rv *= np.radians(WRIST_MAX_DEG) / ang; mujoco.mju_quatIntegrate(qq0 := np.array([1.0, 0, 0, 0]), rv, 1.0); R_rel = arm_ik.quat_wxyz_to_mat(qq0)
+            R_tel = R_rel @ home[h][1]
             tgt_p, tgt_R, mode, arrived = p_tel, R_tel, "teleop", False; ghost[h] = p_tel
             wr = kin.a.d.xpos[kin.a.ee[h]]; hold_fingers = False
-            if G[h] is not None:
+            if G[h] is not None and a.assist == "soft":
+                gp, gR, pin_t = G[h]; dv = pinch(kin, h) - pin_t; dxy = float(np.hypot(dv[0], dv[1]))
+                if dxy < 0.06 and -0.02 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]:
+                    w = float(np.clip((0.06 - dxy) / 0.04, 0, 1))             # 0 at 6 cm, 1 within 2 cm
+                    corr = np.clip(gp - p_tel, -0.03, 0.03)                   # never more than 3 cm per axis: you still do the reaching
+                    tgt_p = p_tel + w * corr; mode = f"assist {w:.1f}"
+                    if w > 0.5: tgt_R = gR                                    # close enough: grasp orientation
+            elif G[h] is not None:
                 gp, gR, pin_t = G[h]; appr = APPR[h]; pre_p = gp + CLEAR * appr; dv = pinch(kin, h) - seen
                 dist = float(np.hypot(dv[0], dv[1])) if -0.03 < dv[2] < 0.20 else 9.9
                 st = stage[h]
@@ -198,7 +222,7 @@ def main():
                 elif st == "retreat":                 # 5) opened: hand open, back away 10 cm in 1 s, then free teleop
                     u = min(1.0, (time.time() - t_st[h]) / 1.0); base_p = rel_p.get(h, gp)
                     tgt_p, tgt_R, hold_fingers, mode = base_p + u * CLEAR * appr, gR, True, "release: back away"
-                    if u >= 1.0: st = None; lock[h] = None; ref[h] = (P.copy(), arm_ik.quat_wxyz_to_mat(Q)); home[h] = (wr.copy(), kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3).copy())
+                    if u >= 1.0: st = None; lock[h] = None; ref[h] = (P.copy(), arm_ik.quat_wxyz_to_mat(Q)); home[h] = (tgt_p.copy(), gR.copy())
                 if st != stage[h]: print(f"[{h}] {stage[h]} -> {st} | wrist-grasp {100 * np.linalg.norm(wr - gp):.1f} cm, rot err {np.degrees(np.linalg.norm(arm_ik.rot_err(gR, kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3)))):.0f} deg | object {np.round(100 * (d.qpos[oa:oa + 3] - obj_c), 1)} cm", flush=True)
                 stage[h] = st
             floor = kin.base[2] + D.KEEP["z"] + 0.01; tgt_p = tgt_p.copy(); tgt_p[2] = max(tgt_p[2], floor)
@@ -207,7 +231,7 @@ def main():
             if unsafe(kin):                                            # lift the target until wrist and palm are above the counter keep-out
                 low = floor - min(kin.a.d.xpos[kin.a.ee[h]][2], palm(kin, h)[2])
                 kin.a.q.update(q_prev); kin.a.apply(); kin.a.solve(h, tgt_p + np.array([0, 0, max(low, 0) + 0.01]), tgt_R, q_rest=qr); mode += " [raised]"
-                if unsafe(kin): kin.a.q.update(q_prev); kin.a.apply(); blocked += 1; mode += " [BLOCKED by safety]"
+                if unsafe(kin): kin.a.q.update(q_prev); kin.a.apply(); blocked += 1; mode += " [BLOCKED by safety]"; hold_fingers = True
             c = 0.0 if hold_fingers else pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))   # open while the robot moves to / away from the object
             fingers[h] = [c, c, c, 0, 0]
             status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
@@ -240,7 +264,11 @@ def main():
         if tick % 15 == 0: print(line, flush=True)
         if rend is not None and tick % 4 == 0:
             rend.update_scene(d, "head_cam"); im = rend.render()[:, :, ::-1].copy(); cv2.imshow("camera in testa G1", im); k = cv2.waitKey(1) & 0xFF
-            if k in (ord("c"), ord("C")): ref.clear(); print("[clutch] re-centred: your current hands = robot home", flush=True)
+            if k in (ord("c"), ord("C")):
+                ref.clear()
+                for h2 in hands:
+                    PF[h2].reset(); QF[h2].reset(); DB[h2].reset(); stage[h2] = None; lock[h2] = None; rel_p.pop(h2, None); t_st[h2] = 0.0
+                print("[clutch] re-centred: your current hands = robot home", flush=True)
             if k in (ord("q"), ord("Q")): break
         tick += 1; time.sleep(max(0.0, 1 / RATE - (time.time() - t_tick)))
 
