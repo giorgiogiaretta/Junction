@@ -1,19 +1,20 @@
-# Google (Gemini) prize: draft
+# Google (Gemma / Gemini) prize: draft
 
-> Submit only if backlog B5 is green: `python -m ai.eval_objects imgs --backend gemini --mix` has produced a live table. Today Gemini has **never been called live** (`docs/ORCH_BACKLOG.md` section 1). Fill the bracketed fields from that run; do not submit with them empty.
-
-## Model
-Gemini via the Google GenAI SDK, model id `gemini-2.5-flash` (set by `GEMINI_MODEL`; id still to confirm with Google DeepMind). Key from `GEMINI_API_KEY` in the environment only.
+## Models
+- **Gemma 4 26B A4B** (`gemma-4-26b-a4b-it`, open weights, called through the Google API).
+- **Gemini 3.5 Flash** (`gemini-3.5-flash`), Google GenAI SDK.
+Key from `GEMINI_API_KEY` in the environment only.
 
 ## Role in the system
-Gemini is the **second recognition tier**. When the primary recogniser (Nemotron) times out, the picker asks Gemini the same question on the same head-camera frame and uses its answer, still passing through the same safety rules (`ai/pick_profile.py`). It is also an independent second judge of recorded glove episodes (`ai/judge_gemini.py --compare`), where disagreements with Nemotron go to human review.
+Gemma and Gemini are independent voters in our object-recognition ensemble (`ai/recognize.py`): each looks at the same head-camera frame and names the object (egg / stress ball / can / other). A "fragile first" rule combines the votes, and the result sets the closure cap of the robot hand (`ai/object_profile.py`). Gemini is also the backup when the primary endpoint does not answer (`ai/pick_profile.py`) and a second episode judge (`ai/judge_gemini.py`).
 
 ## Why it matters
-Our primary endpoint stopped answering during the hackathon (`docs/OBJECT_RECOGNITION_RESULTS.md`). Without a second provider the robot hand falls back to one conservative grip for every object. Gemini keeps per-object behaviour available when one provider is down.
+Our fastest model (Nemotron) gets 2 of 20 eggs wrong, calling them stress balls, and its confidence on those errors is as high as on right answers. Gemma gets **all 20 eggs right**. A second independent recogniser is what lets us give the stress ball full closure safely: full closure needs 2 agreeing recognisers, never one confident model.
 
-## Measured
-- Gemini on our head-camera photos: [N of 50 correct, per-object breakdown, disagreements with Nemotron] from `python -m ai.eval_objects imgs --backend gemini --mix`.
-- Picker with Nemotron disabled reports `backup: gemini`: [paste output of `python -m ai.pick_profile --image <egg.jpg>`].
+## Measured (same 50 photos, `docs/OBJECT_RECOGNITION_RESULTS.md`)
+- **Gemma 4**: 49/50, eggs 20/20, median 7.7 s per call (max 33 s), 0 failed calls (sequential run, report `gma2` kept locally, not in git).
+- **Ensemble Nemotron + Gemma, fragile first**: 50/50, 20/20 eggs, computed offline from the saved answers. With it, full closure would be unlocked for 21 of 22 balls and for no egg.
+- **Gemini 3.5 Flash**: full run not finished at the time of writing (spot test only). Fill in before submitting if the run completes; otherwise do not claim a Gemini number.
 
-## Limits
-Same 50 photos, one person, one place, one day. Gemma (local) is not used.
+## Caveats
+One person, one place, one day, 50 photos; folder name = label; no held-out set. Confidence does not separate right from wrong answers. Gemma adds about 8 s, so live it is called once before the grasp, with a 15 s timeout and the conservative cap as fallback.
