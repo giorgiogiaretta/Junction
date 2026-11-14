@@ -1,53 +1,72 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tactile-less HandOff · results</title>
+<meta name="color-scheme" content="light dark"><title>HandOff · demonstration quality control</title>
 <style>
-:root{--bg:#f6f5f1;--card:#fff;--ink:#1d1d1b;--mute:#6b6a63;--line:#e3e1d8;--ok:#1f7a4d;--warn:#b26a00;--no:#b3261e;--acc:#2a5bd7}
-@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#f1efe8;--mute:#a09e94;--line:#34332f;--ok:#58c08a;--warn:#e0a040;--no:#f0766e;--acc:#7da2ff}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:1000px;margin:0 auto;padding:32px 16px 64px}
-h1{font-size:clamp(26px,4vw,38px);margin:0 0 6px;letter-spacing:-.02em}h2{font-size:20px;margin:36px 0 12px}
-.sub{color:var(--mute);margin:0 0 24px;max-width:62ch}
-.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
-.card img{width:100%;border-radius:8px;display:block}.card h3{margin:10px 0 2px;font-size:16px}.card p{margin:0;color:var(--mute);font-size:14px}
-.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid currentColor;margin-right:6px}
-.ok{color:var(--ok)}.warn{color:var(--warn)}.no{color:var(--no)}
-table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}th{color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}tr:last-child td{border-bottom:0}
-.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}.flow span{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}.flow i{color:var(--mute);font-style:normal}
-.note{border-left:3px solid var(--warn);padding:8px 12px;background:var(--card);border-radius:0 8px 8px 0;font-size:14px;color:var(--mute)}
+:root{--bg:#f5f4ef;--card:#fff;--ink:#202822;--muted:#58645b;--line:#d5ddd5;--accent:#166443;--warn:#895100;--bad:#ad2929}
+@media(prefers-color-scheme:dark){:root{--bg:#111814;--card:#1b251f;--ink:#edf4ed;--muted:#afc0b2;--line:#3b4d40;--accent:#88dfb0;--warn:#f3c275;--bad:#ffa5a5}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:40px 20px 80px}h1{font-size:clamp(34px,7vw,68px);line-height:1.08;letter-spacing:-.045em;max-width:850px;margin:16px 0}h2{font-size:24px;margin:0 0 14px}h3{margin:0 0 8px;font-size:17px}p{margin:8px 0 16px}.muted,small{color:var(--muted)}.eyebrow{color:var(--accent);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:12px}.lede{max-width:720px;font-size:20px;color:var(--muted)}section{margin-top:38px}.panel,.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px}.badge{display:inline-block;border:1px solid currentColor;border-radius:24px;padding:2px 10px;font-size:12px;font-weight:650}.ok{color:var(--accent)}.warn{color:var(--warn)}.no{color:var(--bad)}.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:16px 0}button,input,select{font:inherit;max-width:100%;color:var(--ink);background:var(--card)}button,select{padding:8px 12px;border:1px solid var(--line);border-radius:8px}button{cursor:pointer}a{color:var(--accent)}code{font-size:13px;overflow-wrap:anywhere}.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:14px}caption{text-align:left;color:var(--muted);padding-bottom:12px}th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;text-transform:uppercase;color:var(--muted)}td:last-child{min-width:200px}dl{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}dt{color:var(--muted)}dd{margin:0;text-align:right;overflow-wrap:anywhere}#status{overflow-wrap:anywhere}.empty{padding:26px 0;max-width:650px}details{margin-top:16px}summary{cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}.flow{color:var(--accent);font-weight:600}footer{margin-top:36px;font-size:13px;color:var(--muted)}:focus-visible{outline:3px solid var(--accent);outline-offset:3px}@media(max-width:480px){main{padding:24px 14px 50px}.panel,.card{padding:16px}.lede{font-size:18px}dl{font-size:14px}.scroll{overflow:visible}table,tbody,tr,td{display:block}thead{display:none}caption{display:block}tr{padding:10px 0;border-bottom:1px solid var(--line)}td{border:0;padding:6px 0;overflow-wrap:anywhere}td::before{content:attr(data-label);display:block;font-size:11px;text-transform:uppercase;color:var(--muted)}td:last-child{min-width:0}select,input{width:100%}}
 </style></head><body><main>
-<h1>Tactile-less HandOff</h1>
-<p class="sub">Rokoko gloves can't feel. We add a vision-chosen force cushion and record every session as data. Everything below is labelled: <b class="ok">proven in simulation</b>, <b class="warn">partly proven</b>, or <b class="no">not proven</b>. Nothing here ran on a real robot hand yet.</p>
-
-<div class="flow"><span>Rokoko gloves + Coil Pro</span><i>→</i><span>retarget (Inspire / G1 Dex3)</span><i>→</i><span>Force Cushion <small>(profile from Nemotron)</small></span><i>→</i><span>hand (MuJoCo today)</span><i>→</i><span>episodes → judge</span></div>
-
-<h2>Egg: with and without the cushion <span class="tag warn">simulation, scripted grip</span></h2>
-<div class="grid">
- <div class="card"><img src="../docs/media/egg_no_cushion.gif" alt="egg without cushion"><h3>Full fist, no cushion</h3><p>Red bar = broken. Toy threshold 3 N.</p></div>
- <div class="card"><img src="../docs/media/egg_with_cushion.gif" alt="egg with cushion"><h3>Same fist, egg profile</h3><p>Green bar = gripped intact, closure capped at 0.5.</p></div>
- <div class="card"><img src="../docs/media/cube_lift.gif" alt="cube"><h3>Rigid cube</h3><p>Control: the same hand lifts a cube.</p></div>
-</div>
-<p class="note" style="margin-top:14px">On 11 real wrist paths (series B), scripted grip: egg broken <b>10/11 without</b> the cushion, <b>1/11 with</b>. Break threshold and gains are hand-tuned toy values, not measurements.</p>
-
-<h2>Real glove data in the simulator</h2>
-<table><thead><tr><th>Cube, real recordings</th><th>Series A</th><th>Series B</th><th>Series C</th><th>Verdict</th></tr></thead><tbody>
-<tr><td>real Coil Pro wrist + <b>real</b> fingers</td><td>0/11</td><td>0/11</td><td>0/10</td><td class="no">not proven</td></tr>
-<tr><td>real Coil Pro wrist + scripted grip</td><td>8/11</td><td>9/11</td><td>9/10</td><td class="warn">wrist path is usable</td></tr>
-</tbody></table>
-<p class="sub" style="margin-top:10px">Lifted and held. The object position was not recorded, so it is placed under the hand at the pick moment: the approach is not tested.</p>
-
-<h2>Episode judge (NVIDIA Nemotron 3.5 Super VL) <span class="tag warn">recall only</span></h2>
-<table><thead><tr><th>Prompt</th><th>Human-positive episodes judged good</th><th>Unclear</th></tr></thead><tbody>
-<tr><td>v1: aggregate statistics</td><td>5 / 32</td><td>16</td></tr>
-<tr><td>v2: task definition (no timeline yet; two runs)</td><td><b>22 / 32</b> and <b>25 / 32</b> (run-to-run noise ~±3)</td><td>0</td></tr></tbody></table>
-<p class="note" style="margin-top:14px">All human labels are "not dropped": no failure examples, so precision is unknown. v2 also calls non-grasp series (calibration, noise) "good". The timeline version is being re-measured. Needs 5-10 labelled failures and camera frames.</p>
-
-<h2>What exists / what is next</h2>
-<div class="grid">
- <div class="card"><span class="tag ok">built</span><p>Sim scene, retargeting (Inspire, G1 Dex3), dashboard with latency + force bar, 61 real episodes, Nemotron picker (text and image) and judge, 42 tests in CI.</p></div>
- <div class="card"><span class="tag warn">next</span><p>Real Inspire hand (registers from Aalto), camera → picker, judge with video frames, Gemini as second judge.</p></div>
- <div class="card"><span class="tag no">not claimed</span><p>A trained HandOff policy, real-hand grasp, real latency, real egg forces.</p></div>
-</div>
-</main></body></html>
+<header><div class="eyebrow">HandOff / demonstration QC</div><h1>Keep the demonstrations you can trust.</h1><p class="lede">Turn glove recordings into a review queue: a quality score for each take, a keep or discard recommendation with a reason, and a dataset card for the next training run.</p><p class="flow">Record → inspect quality → review decisions → retarget → evaluate</p><span class="badge warn">QC workflow under development</span></header>
+<section class="panel" aria-labelledby="takes-title"><h2 id="takes-title">Take quality review</h2><p class="muted">Inspect reports from <code>data/qc/*.json</code>. Scores and recommendations belong to the report producer; this page does not invent scores or infer success from a threshold. Review overrides stay in this tab until exported.</p>
+<div class="toolbar"><label>Load local QC JSON <input id="files" type="file" accept=".json,application/json" multiple></label><button id="export" disabled>Export reviewed decisions</button></div>
+<p id="status" role="status" aria-live="polite"></p><div id="empty" class="empty"><h3>No QC reports loaded</h3><p>No quality scores, keep rates, or model improvements are available here yet. Bundle local reports with <code>python3 demo/build_results.py</code>, or select JSON files above. All processing stays on this device.</p></div>
+<div id="table-wrap" class="scroll" hidden><table><caption>Report scores and recommendations, with optional human overrides</caption><thead><tr><th>Take / source</th><th>Quality / 100</th><th>Recommendation / reason</th><th>Human review</th></tr></thead><tbody id="takes"></tbody></table></div>
+<details><summary>Report format and reproducibility</summary><p>Provisional UI import contract pending the ML producer schema. Each file may contain a take object, an array of take objects, or <code>{"takes": [...]}</code>. Required fields: a unique <code>take_id</code>, finite numeric <code>score</code> in [0,100], <code>decision</code> (keep/discard), and a non-empty <code>reason</code>. Optional: <code>series</code>, <code>hand</code>. Unknown formats are reported, never converted into scores.</p><p>Rebuild the offline snapshot: <code>python3 demo/build_results.py</code>. The committed page starts empty. Human review exports include the original reports and overrides; raw recordings are never modified.</p></details></section>
+<section aria-labelledby="dataset-title"><h2 id="dataset-title">Dataset card</h2><div class="grid"><div class="card"><h3>Loaded report coverage</h3><dl id="counts"></dl></div><div class="card"><h3>Collection and intended use</h3><p>Rokoko glove demonstrations for quality review and retargeting research. This card describes only valid loaded reports, not the full recording archive.</p><p id="coverage" class="muted"></p></div><div class="card"><h3>Limits and missing evidence</h3><p>Scores are producer-defined quality signals, not calibrated success probabilities. Report recommendations and human overrides are distinct from ground-truth labels.</p><p class="muted">Consent, collection conditions, score calibration, failure labels and train/test splits must accompany a released dataset. They are not established by this page.</p></div></div></section>
+<section><h2>Proven / not proven</h2><div class="grid"><article class="card"><span class="badge ok">proven in simulation</span><h3>Retargeting and replay</h3><p>Inspire and G1 Dex3 simulation paths exist in the repository. Simulation is not a real-hand validation.</p><p><code>python3 -m pytest tests/test_g1_dex3.py tests/test_replay_square.py -q</code></p></article><article class="card"><span class="badge warn">partly proven</span><h3>Episode judging</h3><p>A judge implementation exists. Earlier task-definition prompt runs did not include the timeline. No precision or recall claims are presented here; labelled failures and a reproducible evaluation are still required.</p><p><code>python3 -m pytest tests/test_ai.py -q</code> checks implementation behavior, not judge accuracy.</p></article><article class="card"><span class="badge no">not proven</span><h3>Better training from filtered data</h3><p>Compare the same model on all takes and QC-filtered takes using held-out demonstrations. No improvement result is loaded or claimed.</p><p class="muted">Real-hand grasping, real latency, force in Newtons and autonomous robot learning are not demonstrated here.</p></article></div></section>
+<footer>Offline single file · no network requests · no API keys · report data and review exports may contain your local annotations.</footer>
+<script id="qc-data" type="application/json">[]</script>
+<script>
+'use strict';
+let reports = [], rows = [], overrides = new Map();
+const $ = id => document.getElementById(id);
+function element(tag, text, className) { const el = document.createElement(tag); if(text !== undefined) el.textContent = text; if(className) el.className = className; return el; }
+function parseReports(items) {
+ const valid = [], errors = [], ids = new Set();
+ for(const item of items) {
+  const value = item.report;
+  const takes = Array.isArray(value) ? value : value && Array.isArray(value.takes) ? value.takes : [value];
+  if(!takes.length) errors.push(item.source + ': empty report');
+  takes.forEach((take, index) => {
+   const label = item.source + ' entry ' + (index + 1);
+   if(!take || typeof take.take_id !== 'string' || !take.take_id.trim() || typeof take.score !== 'number' || !Number.isFinite(take.score) || take.score < 0 || take.score > 100 || !['keep','discard'].includes(take.decision) || typeof take.reason !== 'string' || !take.reason.trim()) { errors.push(label + ': unsupported or incomplete take'); return; }
+   const id = take.take_id.trim();
+   if(ids.has(id)) {errors.push(label + ': duplicate take_id ' + id); return;}
+   ids.add(id); valid.push({...take, take_id:id, source:item.source});
+  });
+ }
+ return {valid, errors};
+}
+function card() {
+ const kept = rows.filter(r => r.decision === 'keep').length;
+ const count = $('counts'); count.replaceChildren();
+ for(const [name,value] of [['Valid take reports',rows.length],['Producer: keep',kept],['Producer: discard',rows.length-kept],['Human overrides',overrides.size]]) count.append(element('dt',name),element('dd',String(value)));
+ const group = key => {const values = new Map(); rows.forEach(r=>{const value = typeof r[key] === 'string' && r[key].trim() ? r[key] : 'unspecified'; values.set(value,(values.get(value)||0)+1);}); return [...values].map(([k,v])=>k+': '+v).join(', ') || 'none loaded';};
+ $('coverage').textContent = 'Series — '+group('series')+'. Robot hand — '+group('hand')+'.';
+}
+function render() {
+ const {valid,errors} = parseReports(reports); rows=valid; overrides=new Map(); $('takes').replaceChildren();
+ $('status').textContent = reports.length+' report file(s); '+rows.length+' valid take(s). '+errors.join('; ');
+ $('empty').hidden=rows.length>0; $('table-wrap').hidden=!rows.length; $('export').disabled=!rows.length;
+ rows.forEach(row=>{
+  const tr=element('tr'); const id=element('td'); id.append(element('strong',row.take_id),element('br'),element('small',row.source));
+  const recommendation=element('td'); recommendation.append(element('span',row.decision,'badge '+(row.decision==='keep'?'ok':'no')),element('p',row.reason));
+  const review=element('td'), select=element('select'), reason=element('input'); select.setAttribute('aria-label','Review decision for '+row.take_id);
+  for(const [value,label] of [['','Use report recommendation'],['keep','Keep'],['discard','Discard']]) {const o=element('option',label);o.value=value;select.append(o);}
+  reason.type='text'; reason.placeholder='Reason required for override'; reason.setAttribute('aria-label','Review reason for '+row.take_id); reason.style.width='100%';
+  const update=()=>{if(select.value) overrides.set(row.take_id,{decision:select.value,reason:reason.value.trim()});else overrides.delete(row.take_id);card();}; select.addEventListener('change',update); reason.addEventListener('input',update);review.append(select,reason);
+  tr.append(id,element('td',String(row.score)),recommendation,review); ['Take / source','Quality / 100','Recommendation / reason','Human review'].forEach((label,index)=>tr.children[index].dataset.label=label);$('takes').append(tr);
+ });card();
+}
+$('files').addEventListener('change',async event=>{
+ const items=[], errors=[];
+ for(const file of event.target.files) {try{items.push({source:file.name,report:JSON.parse(await file.text())});}catch{errors.push(file.name+': invalid JSON');}}
+ reports=items;render();if(errors.length)$('status').textContent+=' '+errors.join('; ');event.target.value='';
+});
+$('export').addEventListener('click',()=>{
+ if([...overrides.values()].some(r=>!r.reason)){$('status').textContent='Add a reason for every human override before exporting.';return;}
+ const payload={format:'handoff-ui-review-v1',reports,review:rows.map(row=>({take_id:row.take_id,source:row.source,recommendation:{decision:row.decision,reason:row.reason},human_override:overrides.get(row.take_id)||null}))};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));const link=element('a');link.href=url;link.download='qc-review.json';link.click();$('status').textContent='Review exported. Source reports are unchanged.';setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+try{reports=JSON.parse($('qc-data').textContent);if(!Array.isArray(reports))throw Error();render();}catch{$('status').textContent='Embedded report data is invalid. Load local QC JSON to continue.';card();}
+</script></main></body></html>
