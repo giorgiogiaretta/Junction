@@ -106,7 +106,9 @@ def perceive(head_rgb, head_depth, pixel_to_pelvis, table_z=None, recognizer=Non
         vs, us = np.nonzero(full)
         if len(us) < 20: continue
         u0, u1, v0, v1 = int(us.min()), int(us.max()), int(vs.min()), int(vs.max()); pu, pv = (u1 - u0) // 4 + 8, (v1 - v0) // 4 + 8
-        crop = rgb[max(0, v0 - pv):min(H, v1 + pv + 1), max(0, u0 - pu):min(W, u1 + pu + 1)]
+        ys, xs = slice(max(0, v0 - pv), min(H, v1 + pv + 1)), slice(max(0, u0 - pu), min(W, u1 + pu + 1))
+        crop = rgb[ys, xs].copy()
+        crop[depth[ys, xs] == 0] = 128   # invalid depth (robot's own hand/arm via self_mask, holes) -> neutral grey, so a white robot hand beside a ball is not read as an egg
         height = float(np.percentile(z[c], 95)) - table_z   # top of the blob above the table (m)
         blobs.append({"mask": full, "bbox": [u0, v0, u1, v1], "crop": crop, "height": height})
     info["n_blobs"] = len(blobs)
