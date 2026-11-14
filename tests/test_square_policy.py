@@ -47,3 +47,18 @@ def test_select_k_uses_only_training_takes(monkeypatch):
     k, inner = SP.select_k([{"name": n} for n in "abc"], ks=(10, 20))
     assert k == 20 and inner == {10: 6, 20: 12}
     assert all(len(s) == 2 for s in seen)
+
+
+def test_pick_place_schedule_grips_only_at_grasp_height():
+    # board 14:29: close only once z ~ 0 (descend open), release only after lowering back; legs cut at closest approach
+    h = 0.15; G = np.array([[-h, h], [h, h], [h, -h], [-h, -h]]); S = np.array([[-h, -h]] + G.tolist())
+    xyz, leg = [], []
+    for k in range(4):   # each leg overshoots its corner by 10 cm
+        d = (S[k + 1] - S[k]) / np.linalg.norm(S[k + 1] - S[k])
+        for s in np.linspace(0, 2 * h + 0.10, 40): xyz.append([*(S[k] + d * s), 0.0]); leg.append(k)
+    p, g = SP.pick_place_schedule(np.array(xyz), np.array(leg), goals=G)
+    closed = g >= 0.5
+    on = np.where(closed[1:] & ~closed[:-1])[0] + 1; off = np.where(~closed[1:] & closed[:-1])[0] + 1
+    assert len(on) == 4 and len(off) == 4
+    assert np.all(p[on, 2] <= 0.01) and np.all(p[off, 2] <= 0.01)
+    assert np.allclose(p[off, :2], G, atol=0.02)
