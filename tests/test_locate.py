@@ -71,6 +71,28 @@ def test_given_bbox_and_label_without_colour_support():
     err = np.abs(np.array(out["p_pelvis"]) - c); assert err[0] <= 0.01 and err[1] <= 0.01, (out, c)
 
 
+def test_big_white_mat_is_not_an_egg_and_mask_param():
+    c = np.array([0.36, 0.04, TABLE_Z + 0.0215])
+    rgb, depth = render(c, (0.0215, 0.0215, 0.0215), (245, 245, 240))
+    egg = (rgb == (245, 245, 240)).all(-1)
+    mat = np.zeros_like(egg); mat[300:480, 100:540] = True; mat &= ~egg      # light mat (sim: rgba 0.85) under the egg
+    rgb[mat] = (217, 217, 204)
+    out = locate(rgb, depth, p2p)                                               # mat + egg = one huge white blob -> refused, not mislocated
+    assert out["p_pelvis"] is None or np.linalg.norm(np.array(out["p_pelvis"][:2]) - c[:2]) <= 0.01
+    out = locate(rgb, depth, p2p, mask=egg, label="egg")                        # detector mask: correct
+    assert out["object"] == "egg" and np.linalg.norm(np.array(out["p_pelvis"][:2]) - c[:2]) <= 0.01, out
+    assert locate(rgb, depth, p2p, mask=np.zeros_like(egg))["p_pelvis"] is None
+
+
+def test_bench_adapter_frame_conversion():
+    from ai.locate_bench import pixel_to_world
+    pos = np.array([0.1, 0.2, 0.3]); Rm = np.eye(3)                              # MuJoCo camera looking along world -z
+    p = pixel_to_world((pos, Rm))(CX, CY, 500)
+    assert np.allclose(p, [0.1, 0.2, -0.2])
+    p = pixel_to_world((pos, Rm))(CX + FX, CY + FY, 1000)                        # right and down in the image
+    assert np.allclose(p, [1.1, -0.8, -0.7])
+
+
 def test_no_object_and_no_depth_are_flagged():
     rgb = np.full((H, W, 3), (90, 70, 50), np.uint8); depth = np.zeros((H, W), np.uint16)
     assert locate(rgb, depth, p2p)["p_pelvis"] is None
