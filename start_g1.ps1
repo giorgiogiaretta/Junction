@@ -18,7 +18,7 @@
 #   -LowLag: runner process with the bit-identical fast CRC (winshim/lowlag.py): fixes the ~1 s stale robot state that made
 #            the arms lag and move in steps (docs/ARM_DELAY.md). Performance only, no safety rule changed. Off by default
 #            until confirmed on the robot.
-param([switch]$NoPrior, [switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [switch]$LowLag, [switch]$Assist, [int]$Seconds = 300, [string]$Closure = "0.6",
+param([switch]$NoPrior, [switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [switch]$LowLag, [switch]$Assist, [switch]$Video, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
@@ -87,4 +87,4 @@ Write-Host "policy ready ($pol, max closure $Closure)"
 Write-Host "== 5/5 runner on the robot: GLOVES OPEN, emergency stop in hand, then Enter at 'Place the cubes'" -ForegroundColor Yellow
 try { [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'High' } catch {}
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'live_policy|arms_glove|arms_simple|rgmp_client' -and $_.Name -match 'python' } | ForEach-Object { try { (Get-Process -Id $_.ProcessId).PriorityClass = 'High' } catch {} }
-& "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1" -Seconds $Seconds -NoCamera:$NoCamera -LowLag:$LowLag
+& "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1" -Seconds $Seconds -NoCamera:$NoCamera -LowLag:$LowLag -Video:$Video

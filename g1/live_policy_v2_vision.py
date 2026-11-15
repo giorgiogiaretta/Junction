@@ -73,6 +73,8 @@ def gpose(name, side, seen, rest):
     return None if g is None else (g[0] + seen, g[1], g[2] + seen)
 
 
+EGG_MAX_ABOVE_TABLE = 0.15   # m: a camera "egg" higher than this above the table is ignored (15/11 04:42: phantom egg at +28 cm = robot hand)
+PRESS_EGG_KPA = 5.0          # kPa fingertip pressure rise (Dex3 pads 1/3/5, g1/dex3_press.py): on the egg, stop closing further above this
 CAP_HARD = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: camera sees egg -> never above 0.60, can 0.90, ball 1.0
 LABELS = {"can": "can_empty", "ball": "stress_ball", "egg": "egg", "can_empty": "can_empty", "stress_ball": "stress_ball"}
 LIVE = os.path.join(ROOT, "data", "live")
@@ -159,6 +161,13 @@ class LivePolicyV2(Policy):
         # per episode rendered garbage after a runner reset in live_policy_v1); results of an older episode are dropped (self.ep)
         import concurrent.futures as cf
         self.worker = cf.ThreadPoolExecutor(max_workers=1, thread_name_prefix="perception"); self.ep = 0; self.ep_lock = threading.Lock()
+        self.press, self.press_c = None, {}            # Dex3 fingertip pressure (real robot only, read-only DDS): logged always,
+        if not replay and os.environ.get("G1_PRESS", "1") != "0" and os.environ.get("G1_IFACE"):   # limits the closure on the egg
+            try:
+                import dex3_press; self.press = dex3_press.Dex3Press(os.environ["G1_IFACE"], os.path.join(ROOT, "data", "live"))
+                print(f"[v2-vision] Dex3 pressure ON -> {self.press.path}", flush=True)
+            except Exception as e:
+                print(f"[v2-vision] Dex3 pressure not available ({e}): no pressure limit", flush=True)
         self.reset("")
 
     def reset(self, instruction, task=None, seed=None):
@@ -321,6 +330,7 @@ class LivePolicyV2(Policy):
             c = []
             for o in getattr(self, "objs", []):
                 if o["label"] not in CAP_HARD: continue
+                if o["label"] == "egg" and float(o["p"][2]) > D.COUNTER_Z + EGG_MAX_ABOVE_TABLE: continue   # phantom egg (not on the table)
                 seen = self.kin.base + o["p"]; g = gpose(o["label"], side, seen, self.rest)
                 if g is not None: c.append({"name": o["label"], "seen": seen, "grasp": g, "cap": CAP_HARD[o["label"]], "src": "camera"})
             fb = self.chains_fallback.get(side)
@@ -407,7 +417,16 @@ class LivePolicyV2(Policy):
                     reasons += why; info[side] = out["mode"] + (f" ev:{out['ev']}" if out["ev"] else "")
                     # each robot finger follows its own glove finger; the chain's limit (pre-shape 50 % while approaching,
                     # 0 while releasing) scales them all
-                    fingers[side] = CC.finger_cmd(ch.grasp[4], s[0], out["c"])
+                    c_out = out["c"]
+                    if self.press is not None:
+                        tip = self.press.tip(side); info[side + "_tip_kpa"] = None if tip is None else round(tip, 1)
+                        if c_out < 0.03: self.press.rebase(side); self.press_c.pop(side, None)
+                        if tip is not None and ch.grasp[3] == "egg":                    # egg: freeze the closure at firm contact
+                            if tip > PRESS_EGG_KPA and side not in self.press_c:
+                                self.press_c[side] = c_out; self._write({"event": "PRESS_LIMIT", "hand": side, "tip_kpa": round(tip, 1), "closure": round(c_out, 3)})
+                            elif tip < 0.5 * PRESS_EGG_KPA: self.press_c.pop(side, None)
+                        if side in self.press_c: c_out = min(c_out, self.press_c[side])
+                    fingers[side] = CC.finger_cmd(ch.grasp[4], s[0], c_out)
             qcmd = np.asarray(self.kin.a.arm_q())
             if any(v < LIM["arm_q"][i]["filter"][0] or v > LIM["arm_q"][i]["filter"][1] for i, v in enumerate(qcmd)): reasons.append("joint_filter")
             if np.any(np.abs(qcmd - self.last_cmd) > arm_ik.joint_steps(arm_ik.ARM_NAMES, JOINT_SPEED / RATE) + 1e-4): reasons.append("arm_speed")
