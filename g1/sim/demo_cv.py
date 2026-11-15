@@ -222,7 +222,9 @@ class Demo:
         hv = cv2.resize(head_img, (760, 570)); fr[90:660, 1140:1900] = hv
         cv2.rectangle(fr, (1140, 90), (1900, 660), (90, 90, 100), 1)
         put(fr, "G1 HEAD CAMERA (RGB-D)  +  object recognition", (1150, 682), 0.6, TXT, 1)
-        if rec is not None:
+        if state == "SCANNING":
+            put(fr, "recognising the objects on the table...", (1150, 708), 0.55, ACC, 2)
+        elif rec is not None:
             put(fr, f"seen: {NAME.get(rec['label'], rec['label'])}   max closure {rec['cap']:.2f}   why: {str(rec.get('why', ''))[:60]}", (1150, 708), 0.5, COL.get(rec["label"], TXT), 1)
         else:
             put(fr, "vision OFF: no closure limit (full force)", (1150, 708), 0.55, (80, 80, 255), 2)
@@ -235,7 +237,7 @@ class Demo:
         cv2.rectangle(fr, (600, 930), (1100, 970), (70, 70, 80), -1)
         cv2.rectangle(fr, (600, 930), (600 + int(500 * np.clip(c, 0, 1)), 970), (80, 170, 255), -1)
         xc = 600 + int(500 * np.clip(cap, 0, 1)); cv2.line(fr, (xc, 918), (xc, 982), (60, 60, 255), 3)
-        put(fr, f"command {c:.2f}   limit from vision {cap:.2f}", (600, 1010), 0.6, TXT, 1)
+        put(fr, "limit: waiting for the camera" if state == "SCANNING" else (f"command {c:.2f}   NO limit (vision off)" if rec is None else f"command {c:.2f}   limit from vision {cap:.2f}"), (600, 1010), 0.6, TXT, 1)
         put(fr, f"object lifted {max(lift, 0):4.1f} cm", (600, 1045), 0.6, TXT, 1)
         # force plot
         cv2.rectangle(fr, (1140, 730), (1900, 1060), PANEL, -1); put(fr, "HAND-OBJECT FORCE (N)", (1152, 756), 0.55, TXT, 1)
