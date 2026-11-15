@@ -1,6 +1,9 @@
 # Runner on the REAL G1 from Windows. Policy must already be listening on ws://localhost:8000.
 # Usage: & C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1 [-Seconds 120]
-param([int]$Seconds = 120, [switch]$NoCamera)
+param([int]$Seconds = 120, [switch]$NoCamera, [switch]$LowLag)
+# -LowLag: G1_LOWLAG=1 -> winshim/lowlag.py (bit-identical fast CRC for rt/lowcmd; the pure-Python CRC starved the DDS
+# receive thread and made every lowstate sample ~1 s old). Performance only, no safety rule changed. docs/ARM_DELAY.md
+if ($LowLag) { $env:G1_LOWLAG = "1"; Write-Host "LOW-LAG patches ON (fast CRC)" -ForegroundColor Yellow }
 # High priority: the runner process also runs the 250 Hz arm control thread (xr_teleoperate); under load its loop stretched
 # to ~100 ms and the robot lagged the commands by ~1 s (14/11 night logs). Children inherit the priority class.
 try { [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'High' } catch {}
