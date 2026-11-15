@@ -916,7 +916,7 @@
     },
     {
       "file": "docs/OBJECT_RECOGNITION_RESULTS.md",
-      "text": "`python -m ai.color_baseline imgs` (HSV masks + blob shape on the same 50 photos): ball 19/22, egg 12/20, can 7/8; two eggs called stress ball, 5 eggs \"other\". Colour is a useful hint but **not a guarantee**: white sleeves/lights, orange items in the scene, small objects in the fingers and the gold can next to orange break it. After the B3 shared cap (egg and ball both 0.70) an egg/ball confusion no longer drops or crushes the egg, so colour is only a cheap offline cross-check, not the safety mechanism.",
+      "text": "`python -m ai.color_baseline imgs` (HSV masks + blob shape on the same 50 photos): ball 19/22, egg 12/20, can 7/8; two eggs called stress ball, 5 eggs \"other\". Colour is a useful hint but **not reliable on its own**: white sleeves/lights, orange items in the scene, small objects in the fingers and the gold can next to orange break it. After the B3 shared cap (egg and ball both 0.70) an egg/ball confusion no longer drops or crushes the egg, so colour is only a cheap offline cross-check, not the safety mechanism.",
       "source": {
         "doc": "g1/sim/GRASP_REPORT.md"
       }
@@ -1111,7 +1111,7 @@
     },
     {
       "file": "docs/OBJECT_RECOGNITION_RESULTS.md",
-      "text": "**Three-model ensemble, fragile-first** (Nemotron API + Gemma-4 API + PaliGemma local, computed offline from the saved answers): **50/50, eggs 20/20, every ball confirmed by >= 2 models (22/22).** Cross-check PaliGemma vs Nemotron: agree 68/77; vs Gemma-4: 65/77; every single-model error on the labelled photos was flagged by a disagreement, none shared. Same caveats: 50 photos, one person/place/day, no held-out set.",
+      "text": "**Three-model ensemble, fragile-first** (Nemotron API + Gemma-4 API + PaliGemma local, computed offline from the saved answers): **50/50, eggs 20/20, every ball confirmed by >= 2 models (22/22).** Cross-check PaliGemma vs Nemotron: agree 68/77; vs Gemma-4: 65/77; every single-model error on the labelled photos was flagged by a disagreement, but one photo (egg-012) was missed by two models at once (Nemotron and PaliGemma; Gemma 4 got it right). Same caveats: 50 photos, one person/place/day, no held-out set.",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
@@ -1138,7 +1138,7 @@
         },
         {
           "metric": "triple.shared_errors",
-          "value": 0
+          "value": 1
         }
       ]
     },
@@ -1224,7 +1224,7 @@
     },
     {
       "file": "docs/STORY_MODELS.md",
-      "text": "PaliGemma 2 (Gemma family, 3B) runs on a Verda A100 behind an SSH tunnel: 49/50 on our photos with a 3-option question, median 0.21 s, and in a three-model vote (Nemotron + Gemma-4 + PaliGemma) every ball is confirmed by two models and no egg is missed (50/50 on the same photos: optimistic, one person/place/day). Honest note: the binary \"fragile or rigid?\" question does not work on it (it says \"fragile\" for everything).",
+      "text": "PaliGemma 2 (Gemma family, 3B) runs on a Verda A100 behind an SSH tunnel: 49/50 on our photos with a 3-option question, median 0.24 s, and in a three-model vote (Nemotron + Gemma-4 + PaliGemma) every ball is confirmed by two models and no egg is missed (50/50 on the same photos: optimistic, one person/place/day). Honest note: the binary \"fragile or rigid?\" question does not work on it (it says \"fragile\" for everything).",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
@@ -1239,7 +1239,7 @@
         },
         {
           "metric": "paligemma.median_latency_2dp",
-          "value": 0.21
+          "value": 0.24
         }
       ]
     },

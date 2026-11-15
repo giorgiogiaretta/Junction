@@ -42,5 +42,7 @@ Pitch line: "Hands made us human. Now we lend ours to robots, and give them eyes
 | 37/40 | "Learned path from 10 glove takes + scripted grip and homing: 37 of 40 legs, simulation" | PR #142, `ml/square_policy.py` |
 | 35 s | "Jury clip `media/g1_cv_demo.mp4`, simulation, grasp assist marked" | `docs/DELIVERY_G1.md` |
 
+Note on 22/22: it holds for the three-model vote (Nemotron + Gemma 4 + PaliGemma). With only Nemotron + Gemma 4 it is 21/22 balls confirmed (`verify/claims.json`, metric `pair.confirmed_balls`; Gemma said "other" for ball-016).
+
 ## Do not say
 Vision-guided grasping on the real G1; any force value; a percentage without "on our 50 photos"; "it generalises"; "it learns by itself"; "safe" without a qualifier.

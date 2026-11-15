@@ -17,7 +17,10 @@ TARGETS = ['README.md', 'deck/index.html', 'deck/notes.md',
 
 def targets(root):
     return TARGETS + [p.relative_to(root).as_posix()
-                      for p in sorted((root / 'docs/submission').glob('*.md'))]
+                      for p in sorted((root / 'docs/submission').glob('*.md'))] + [
+        p.relative_to(root).as_posix()
+        for p in sorted((root / 'docs/submission/final').glob('*'))
+        if p.suffix in ('.md', '.txt', '.srt')]
 
 
 class Prose(HTMLParser):
