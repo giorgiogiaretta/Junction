@@ -5,7 +5,7 @@ Pacchetto finale per la submission (15/11, scadenza 10:00). Fonte dei numeri: ta
 ## Assunzioni (10 righe)
 1. `main` a 7947365 (dopo #188 e #191): il codice del G1 vero (`start_g1.ps1`, `g1/arms_glove.py`, `g1/live_policy_v2_vision.py`, `tools/g1_windows_runner/`) è su `main`.
 2. Il prompt è stato eseguito da questa sessione ("Tommaso's Docs") e non da una chat esterna; i brief delle sei challenge sono quelli in `~/Downloads/*_brief.md`.
-3. Ci iscriviamo a: Rokoko (principale), NVIDIA Nemotron, Best Use of Gemma, Verda Compute Track. Gemini e Aaltonomous: vedi sotto, decisione dell'umano.
+3. **Due submission separate.** (1) **Rokoko** (priorità): challenge principale Rokoko, con collegate le challenge tecnologiche di cui usiamo la tecnologia: NVIDIA Nemotron, Best Use of Gemma, Verda Compute Track (Gemini opzionale). (2) **Aaltonomous** (secondaria, Giorgio, dopo): progetto indipendente, scheletro in `aaltonomous.md`.
 4. Il video da 2:00 usa `media/g1_cv_demo.mp4` (simulazione) più i video del G1 vero che ha Giorgio (non nel repo).
 5. "Due chiavi" = due **famiglie** di modelli: NVIDIA (Nemotron) e Google (Gemma 4 o PaliGemma, che contano come una sola chiave).
 6. Tutti i numeri di riconoscimento sono sulle stesse 50 foto (una persona, un luogo, un giorno), senza un set di prova separato.
@@ -30,9 +30,9 @@ Pacchetto finale per la submission (15/11, scadenza 10:00). Fonte dei numeri: ta
 
 ## DA VERIFICARE (lista unica di domande per Tommaso/Giorgio)
 1. **Campi esatti del form Junction** (questi testi seguono i campi chiesti nel prompt; confrontarli con il form vero).
-2. **Video del G1 vero** (Giorgio): durata, esistono riprese della mano che si chiude con i guanti? Si possono mostrare in pubblico?
-3. **V2 + visione sul robot vero** (`start_g1.ps1 -CoilVision`): è stata fatta una prova dopo le 01:00 del 15/11? Se sì, con quale esito. Oggi i testi dicono "provato su fotogrammi simulati".
+2. ~~Video del G1 vero~~ **Risposto (board 02:07): sì, la clip del G1 vero con i guanti si può usare nel video pubblico.**
+3. **Risposto (board 02:05): `-CoilVision` non è ancora stato provato sul robot** (dopo le 00:33 solo prove con il runner finto). I testi restano "provato su fotogrammi simulati"; aggiornarli solo se la prova avviene e viene registrata.
 4. **Gemini**: ci iscriviamo? Il ruolo è solo giudice asincrono, senza una misura di qualità (`SCORECARD.md`: 2-4/10). Consiglio: **no**, salvo che ci sia una tabella dal vivo entro le 08:00.
-5. **Aaltonomous**: Giorgio presenta un'immagine Docker per lo smistamento? Sul repo non c'è nessun risultato di smistamento. Consiglio: **non iscriversi** (o iscrivere solo con quello che c'è, in modo dichiarato).
+5. **Aaltonomous**: Giorgio vuole presentarla come submission **separata** se ci arriva (board 02:09); è secondaria, si fa dopo Rokoko. Scheletro in `aaltonomous.md`.
 6. **Verda**: confermare GPU usata (A100) e crediti spesi (non scritti nel repo).
 7. **Id esatto di Nemotron** sull'endpoint Verda (in `ai/llm.py` è marcato come non verificato).

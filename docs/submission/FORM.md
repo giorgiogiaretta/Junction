@@ -25,16 +25,30 @@ Rokoko Smartgloves make teaching a humanoid easy: put them on, move naturally, a
 
 *Why it matters.* The camera turns cheap, natural glove demonstrations into safer ones, and it labels every demonstration with the object being held: training data for robot policies.
 
-**Challenges entered**
-- Rokoko: The Robot Teleoperation Challenge (main)
-- NVIDIA: Best Use of Nemotron
-- Google DeepMind: Best Use of Gemma
-- Verda Compute Track
-- [DA VERIFICARE, human decision] Google DeepMind: Best Use of Gemini API (see `gemini.md`)
-- [DA VERIFICARE, human decision] Aaltonomous Humanoid (see `aaltonomous.md`)
+**Main challenge**
+- Rokoko: The Robot Teleoperation Challenge
 
-**Technologies used**
-Rokoko Smartgloves II, Rokoko Coil Pro, Rokoko Device SDK / Studio stream; Unitree G1 with Dex3 hands; the organisers' Aaltonomous runner and safety filter; NVIDIA Nemotron 3.5 Super VL (Verda-hosted endpoint); Google Gemma 4 26B A4B (Google API); PaliGemma 2 3B (self-hosted on a Verda A100); Google Gemini API (post-episode judge); MuJoCo; Python, NumPy, OpenCV; CycloneDDS; GitHub with a multi-agent workflow (Claude Code, Codex).
+**Linked technology challenges** (each one's technology is used in this project; pages in this folder)
+| Technology challenge | Linked? | What of theirs we used, and for what | Page |
+|---|---|---|---|
+| NVIDIA: Best Use of Nemotron | **Yes** | Nemotron 3.5 Super VL on the Verda-hosted endpoint: real-time object recognition before the grasp (runtime) and recognition evaluation on our photos | `nvidia.md` |
+| Google DeepMind: Best Use of Gemma | **Yes** | Gemma 4 26B A4B (Google API): second-family vote and voice router; PaliGemma 2 3B open weights: second-family vote on our own GPU | `gemma.md` |
+| Verda Compute Track | **Yes** | GPU instance (A100) serving PaliGemma 2 for the vote; NVIDIA Nemotron endpoint hosted by Verda | `verda.md` |
+| Google DeepMind: Best Use of Gemini API | Optional [human decision] | Gemini post-episode judge (labels recorded demonstrations); offline tests only | `gemini.md` |
+
+This submission is **independent** of our separate Aaltonomous submission: no results, text or video are shared between the two.
+
+**Technology stack, by use**
+| Use | Technology | Linked challenge |
+|---|---|---|
+| Capture (teacher) | Rokoko Smartgloves II, Rokoko Coil Pro, Rokoko Studio / Device SDK stream (`Rokoko/src/rgmp_client.py`) | Rokoko |
+| Robot (body) | Unitree G1 with Dex3 hands, the organisers' runner and safety filter on Windows (CycloneDDS) | (hardware provided at the venue) |
+| Perception at runtime | Nemotron 3.5 Super VL; Gemma 4; PaliGemma 2; colour rule; G1 head RGB-D (`ai/perceive.py`) | NVIDIA, Gemma |
+| Compute | Verda A100 instance (PaliGemma 2 server, SSH tunnel); Verda-hosted Nemotron endpoint | Verda |
+| Evaluation | Saved per-photo answers + offline checker (`verify/run.py`); MuJoCo G1 Dex3 simulation (`robot/e2e_g1.py`) | NVIDIA, Gemma |
+| Training (policy from demonstrations) | Behaviour cloning from 10 glove takes: NumPy k-nearest-neighbour policy and a small PyTorch MLP sweep, on a team laptop GPU (`ml/square_policy.py`, `tools/night_gpu.py`), evaluated in MuJoCo | (none: local compute) |
+| Labelling recorded demonstrations | Gemini judge (`ai/judge_gemini.py`) | Gemini (optional) |
+| Engineering | Python, NumPy, OpenCV, MuJoCo; GitHub with a multi-agent workflow (Claude Code, Codex) | — |
 
 **Links**
 - Code: https://github.com/giorgiogiaretta/Junction [DA VERIFICARE: public?]

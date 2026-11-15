@@ -1,12 +1,38 @@
-# Aaltonomous Humanoid (Aalto) — only what is documented
+# Submission 2 — Aaltonomous Humanoid (separate, independent)
 
-> **The Aaltonomous task is autonomous sorting** (cubes, cylinders, prisms into three boxes, 2 minutes, Docker policy server). **The repository contains no sorting policy and no sorting result.** Recommendation: do not enter this track unless Giorgio submits a sorting image [DA VERIFICARE]. What follows is what we did with the Aalto G1 as the body of the Rokoko project, usable as context only.
+**Owner: Giorgio.** This is a **separate project submission** for the Aaltonomous challenge (autonomous sorting with the Unitree G1). It must not reuse the text, numbers or video of the Rokoko submission, and the Rokoko submission does not mention it. The two only share parts of the robot code (see the end of this page).
 
-## What we did on the Aalto stack (documented)
-- **The organisers' runner on Windows, against the real G1** (`tools/g1_windows_runner/README.md`): CycloneDDS built from source, small shims for Pinocchio and turbojpeg checked against MuJoCo, start-up path accepted by the runner filter (`g1/start_path.py`).
-- **Real-robot runs:** gloves drove both arms and Dex3 hands, 2 runs of 120 s at 29.8 commands per second, 0 commands clipped by the safety filter (`g1/arms_simple.py`).
-- **Things learned on the real robot** (useful to any team): the rest pose has the wrists inside the counter keep-out, so the first move must go up; the resting left fingers sit past the URDF limits, so every target must be clamped; the arms followed commands with a 0.6-1.4 s delay under load while our policy took 4-8 ms per command (`docs/DELIVERY_G1.md`).
-- **Perception for the G1 head RGB-D** (`ai/perceive.py`, `g1/perception_v1.py`): every object on the table with label, position and cap, tested on simulated frames only (egg 24/24, can 23/24, `docs/G1_V1_RUN.md`).
+**Status (15/11 morning): the sorting policy is not in the repository yet.** Every field below marked [FILL] must be filled from Giorgio's actual work; anything not done stays out of the form.
 
-## Not done
-No autonomous sorting, no instruction parsing, no Isaac Sim run, no Docker submission, no Hugging Face dataset use.
+## Form fields
+- **Project name:** [FILL]
+- **Punchline:** [FILL]
+- **Short description (~120 words):** [FILL] What the policy does on the sorting task: which level (1 fixed sorting / 2 sort by instruction / 3 lid), how it sees the objects, how it picks and places.
+- **Challenge:** Aaltonomous Humanoid (Aalto University)
+- **Docker image submitted:** [FILL] name/tag, built on `aalto-sim:v1`, linux/amd64, policy server at 30 Hz
+- **Simulation result (gate for the Top 5 live run):** [FILL] objects sorted per episode, safety checks passed (no crashes, no joint/speed violations, >= 27 Hz)
+- **Video (public, max 2:00):** [FILL] its own video, not the Rokoko one
+- **Code link:** [FILL] path or branch with the sorting policy
+
+## Linked technology challenges (link only what was really used)
+| Technology challenge | Link if… | Evidence to cite [FILL] |
+|---|---|---|
+| **Verda Compute Track** | Isaac Sim ran on a Verda RTX-class instance (A100/H100 cannot render Isaac Sim), or a policy was trained/evaluated there | instance type, hours, what ran |
+| **NVIDIA: Best Use of Nemotron** | Nemotron parses the text instruction (level 2) or plans the sort | prompt, examples, how output was checked |
+| **Google DeepMind: Best Use of Gemma** | a Gemma model runs **inside the Docker image** (the evaluation machine may have no network) to parse instructions or classify objects | model id, size, latency |
+| Google DeepMind: Best Use of Gemini API | Gemini is used at runtime (unlikely: no network at evaluation) | — |
+
+Can one technology challenge be linked by both of our submissions? [DA VERIFICARE with the Junction rules or organisers].
+
+## Technology stack, by use [FILL]
+| Use | Technology |
+|---|---|
+| Simulation | Isaac Sim via `aalto-sim:v1`, starter repo `aaltonomous-humanoid` |
+| Perception | head RGB-D / wrist cameras → [FILL] |
+| Planning / control | [FILL] (classical baseline? learned?) |
+| Training data | Hugging Face datasets from the real robot? [FILL] |
+| Compute | [FILL] (Verda RTX instance?) |
+| Packaging | Docker linux/amd64, at most 40 GB, must fit 32 GB VRAM |
+
+## Shared robot code (the only overlap with the other submission)
+The organisers' runner on Windows (`tools/g1_windows_runner/`), the start-up path accepted by the safety filter (`g1/start_path.py`), and the Dex3 joint-limit clamping. Lessons from the real robot that apply to any policy (`docs/DELIVERY_G1.md`): the rest pose puts the wrists inside the counter keep-out, so the first move must go up; resting left fingers sit past the URDF limits, so every target must be clamped.

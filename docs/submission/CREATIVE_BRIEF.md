@@ -38,7 +38,7 @@ Dynamic graphics: animate diagram 2 step by step; number cards count up; one sli
 
 | Asset | Source | Status |
 |---|---|---|
-| Real G1 teleop clip (10-15 s) + operator hands | Giorgio's phone / G1 view (not in repo) | [DA VERIFICARE] availability and permission |
+| Real G1 teleop clip (10-15 s) + operator hands | Giorgio's phone / G1 view (not in repo) | Approved for the public video (Giorgio, 15/11 02:07); file to collect from Giorgio |
 | Cap ON / OFF egg clip | `media/g1_cv_demo.mp4` (35 s, simulation) | In repo |
 | Head-camera frame with the three objects | `docs/media/` or a G1 head frame from Giorgio | [DA VERIFICARE] |
 | 3D renders: Dex3 hand, G1, egg, stress ball, can | MuJoCo assets (`g1/sim/`, cached G1 meshes) or a simple render | To produce |
