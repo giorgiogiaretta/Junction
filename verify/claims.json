@@ -52,107 +52,148 @@
   "claims": [
     {
       "file": "deck/index.html",
-      "text": "Rokoko → object recognition → G1 Dex3 simulation",
+      "text": "Real robot teleoperation. Grasp limits tested in simulation.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "tools/g1_windows_runner/README.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "01 / 10",
+      "text": "docs/ARCHITECTURE.md · docs/SCORECARD.md · tools/g1_windows_runner/README.md",
+      "source": {
+        "doc": "docs/ARCHITECTURE.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "01 / 12",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "docs/submission/rokoko.md · docs/PITCH_AND_CHALLENGES_STORY.md · g1/sim/GRASP_REPORT.md",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "02 / 10",
+      "text": "02 / 12",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "docs/ARCHITECTURE.md · docs/ORCH_BACKLOG.md §1",
+      "text": "The gloves drove the real G1",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "tools/g1_windows_runner/README.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "03 / 10",
+      "text": "both arms and both Dex3 hands",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "2 runs × 120 s",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "29.8 Hz",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "0 safety clips",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "No vision and no object grasp demonstrated on the robot yet.",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Camera computer was off. Zero clips does not establish physical grasp safety.",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "tools/g1_windows_runner/README.md · docs/G1_GUIDE.md · docs/G1_LIVE.md",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "03 / 12",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "G1 Dex3",
+      "text": "The simple simulation bridge uses a label or one recogniser. It does not execute the ensemble path.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/CODE_TOUR.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "docs/ARCHITECTURE.md · docs/OBJECT_RECOGNITION_RESULTS.md · ai/object_profile.py · robot/e2e_g1.py",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "04 / 10",
+      "text": "04 / 12",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "Supplied MuJoCo comparison: cap 0.70 holds the egg intact; uncapped grasp exceeds the toy break threshold.",
+      "text": "Pre-grasp photo recognition, median 0.22 s.",
       "source": {
-        "doc": "g1/sim/GRASP_REPORT.md"
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "nemotron.median_latency_2dp",
+          "value": 0.22
+        }
+      ]
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Gemma 4 is a separate Google API run.",
+      "source": {
+        "doc": "docs/STORY_MODELS.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "python -m robot.e2e_g1 --label egg",
+      "text": "The two-key gate counts distinct model families. Gemma + PaliGemma count as one key. Self-hosted GPU still needs a network.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "ai/recognize.py"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "Supplied label: bypasses recognition. Requires local simulation dependencies and G1 assets.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "docs/media/g1_egg_cap_vs_nocap.jpg · robot/e2e_g1.py · g1/sim/GRASP_REPORT.md",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "05 / 10",
+      "text": "05 / 12",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/index.html",
-      "text": "48 of 50, in one run",
+      "text": "48/50",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
       "checks": [
         {
@@ -176,354 +217,592 @@
     },
     {
       "file": "deck/index.html",
-      "text": "22/22",
+      "text": "0.22 s",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
       "checks": [
         {
-          "metric": "nemotron.stress_ball",
-          "value": "22/22"
+          "metric": "nemotron.median_latency_2dp",
+          "value": 0.22
         }
       ]
     },
     {
       "file": "deck/index.html",
-      "text": "8/8",
+      "text": "Gemma 4 / Google API",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "49/50",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
       "checks": [
         {
-          "metric": "nemotron.can",
-          "value": "8/8"
+          "metric": "gemma.accuracy",
+          "value": "49/50"
+        },
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
         }
       ]
     },
     {
       "file": "deck/index.html",
-      "text": "48/50",
+      "text": "20/20",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       },
       "checks": [
+        {
+          "metric": "gemma.egg",
+          "value": "20/20"
+        }
+      ]
+    },
+    {
+      "file": "deck/index.html",
+      "text": "7.7 s",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "PaliGemma 2 / our A100",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "19/20",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "paligemma.egg",
+          "value": "19/20"
+        }
+      ]
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Nemotron reproduced its score in two runs.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "50 photos. One person, one place, one day. No held-out set. Original photos are outside git. PaliGemma tried several prompts on this set.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "06 / 12",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "0.90",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "at least 2 agreeing model families with mean confidence ≥ 0.9, or explicit operator selection.",
+      "source": {
+        "doc": "ai/recognize.py"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "the shared egg / ball cap is 0.70.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "07 / 12",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "47/50",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "nemotron+gemma.labelled_agreement",
+          "value": "47/50"
+        }
+      ]
+    },
+    {
+      "file": "deck/index.html",
+      "text": "3 disagreements flagged single-model errors.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "nemotron+gemma.disagreements",
+          "value": 3
+        },
+        {
+          "metric": "nemotron+gemma.flagged_errors",
+          "value": "3/3"
+        }
+      ]
+    },
+    {
+      "file": "deck/index.html",
+      "text": "0 shared wrong answers on that set.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "nemotron+gemma.shared_errors",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "file": "deck/index.html",
+      "text": "50/50",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "pair.accuracy",
+          "value": "50/50"
+        },
+        {
+          "metric": "triple.accuracy",
+          "value": "50/50"
+        }
+      ]
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Both the two-model vote and the three-model vote reached this score.",
+      "source": {
+        "doc": "docs/CODE_TOUR.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Three-model vote: Nemotron + Gemma 4 API + PaliGemma 2. Computed offline from saved answers. No held-out set, no live grasp claim. Gemini is the separate episode judge.",
+      "source": {
+        "doc": "docs/CODE_TOUR.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "08 / 12",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "python3 -m robot.e2e_g1 --label egg",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Supplied label bypasses recognition. Requires cached G1 assets and simulation dependencies. Egg and ball are supported in this path. Can holding remains unsupported in the shared profile.",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "09 / 12",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Initial look: 3 photos, plus a malformed-scene response that fell back conservatively.",
+      "source": {
+        "doc": "docs/ADVISOR.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Simulation-side extension. Model estimates are not measurements. No validated mass / fragility evaluation, unseen-object grasp proof, learned imitation or peeling demonstration.",
+      "source": {
+        "doc": "docs/ADVISOR.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "10 / 12",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "docs/SCORECARD.md · docs/ADVISOR.md · docs/G1_GUIDE.md",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "11 / 12",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Real G1 glove-driven arms + Dex3 hands",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "Vision or an object grasp on the physical G1",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "docs/SCORECARD.md · docs/CODE_TOUR.md · docs/ADVISOR.md · tools/g1_windows_runner/README.md",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/index.html",
+      "text": "12 / 12",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "Twelve slides. **Core** is the three-minute route: budget roughly fifteen seconds per slide. **Core + Detail** is the full twenty-to-twenty-five-second note, about four to five minutes overall. These are rehearsal targets, not measured delivery times. Do not read source paths aloud.",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 1 — Human motion. Object-aware grip limits.",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "**Core:** Rokoko gloves give us human motion. Our project adds object-aware closure limits: vision identifies what the hand is about to hold. We have real robot teleoperation evidence and a separate simulated grasp path.",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "Sources: `docs/ARCHITECTURE.md`, `docs/SCORECARD.md`, `tools/g1_windows_runner/README.md`.",
+      "source": {
+        "doc": "docs/ARCHITECTURE.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 2 — Gloves cannot feel the object",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "**Core:** The gloves report motion, but they cannot feel an egg. A recognition error can therefore select the wrong grip policy. We constrain finger closure according to the object and stay conservative when the models disagree.",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "Sources: `docs/ORCH_BACKLOG.md`, `docs/STORY_MODELS.md`, `docs/SCORECARD.md`.",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 3 — The gloves drove the real G1",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "**Core:** Giorgio drove both arms and both Dex3 hands on the real G1 with the gloves: two runs of one hundred and twenty seconds, twenty-nine point eight hertz, and zero commands clipped by the safety filter.",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "Sources: `tools/g1_windows_runner/README.md`, `docs/G1_GUIDE.md`, `docs/G1_LIVE.md`.",
+      "source": {
+        "doc": "tools/g1_windows_runner/README.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 4 — Motion and perception meet at the cap",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "**Core:** The operator supplies motion. Perception proposes an object label, and the policy turns that into a closure cap. Simulation lets us inspect held and broken outcomes before trying the full chain on hardware.",
+      "source": {
+        "doc": "docs/CODE_TOUR.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "Sources: `docs/ARCHITECTURE.md`, `docs/CODE_TOUR.md`.",
+      "source": {
+        "doc": "docs/CODE_TOUR.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 5 — Fast eyes, a second key, a slow judge",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "**Core:** Nemotron is our real-time pre-grasp eyes. The Gemma family supplies a second opinion: PaliGemma runs on our remote GPU, while Gemma four was tested through Google’s API. Gemini judges recorded episodes asynchronously, outside motion control.",
+      "source": {
+        "doc": "docs/STORY_MODELS.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "Sources: `docs/STORY_MODELS.md`, `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/SCORECARD.md`, `docs/VERDA_GEMMA.md`, `ai/recognize.py`.",
+      "source": {
+        "doc": "docs/STORY_MODELS.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 6 — The measured recognition results",
+      "source": {
+        "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "**Core:** On the same fifty labelled photos, Nemotron scored forty-eight, Gemma four forty-nine, and PaliGemma forty-nine. Nemotron reproduced its score in two runs. The errors matter: Nemotron called eggs balls, and PaliGemma called an egg a can.",
+      "source": {
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+      },
+      "checks": [
+        {
+          "metric": "labelled",
+          "value": 50
+        },
         {
           "metric": "nemotron.accuracy",
           "value": "48/50"
+        },
+        {
+          "metric": "gemma.accuracy",
+          "value": "49/50"
+        },
+        {
+          "metric": "paligemma.accuracy",
+          "value": "49/50"
         }
       ]
     },
     {
-      "file": "deck/index.html",
-      "text": "12/20",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "19/22",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "7/8",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "38/50",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "06 / 10",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "0.70",
-      "source": {
-        "doc": "g1/sim/GRASP_REPORT.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "First real G1 run: planned at 10% closure.",
-      "source": {
-        "doc": "docs/G1_LIVE.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "ai/object_profile.py · docs/OBJECT_RECOGNITION_RESULTS.md · docs/G1_LIVE.md · docs/ORCH_BACKLOG.md §1",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "07 / 10",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "Can held in this G1 grasp posture",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "Label → cap → G1 simulation command",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "Real G1 grasp performance or force calibration",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "docs/ORCH_BACKLOG.md §1 · robot/e2e_g1.py (newer bridge) · g1/sim/GRASP_REPORT.md",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "08 / 10",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "09 / 10",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "Capture, ML, vision & G1 simulation",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "Calibrate object limits; pass the mock gate before a supervised G1 trial.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "AGENTS.md · docs/ARCHITECTURE.md · docs/ORCH_BACKLOG.md B7–B9, B13",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/index.html",
-      "text": "10 / 10",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
       "file": "deck/notes.md",
-      "text": "Each full note is intended for 20–25 seconds at a measured speaking pace. Ten full notes take approximately 3½–4 minutes. For a strict three-minute pitch, deliver the **Core** paragraphs only, targeting 18 seconds per slide; use **Extra** for rehearsal or questions. Timing is a rehearsal target, not a measured result.",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "## 1 — Motion from gloves. Grip limits from vision.",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "## 2 — Gloves cannot feel",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "Sources: `docs/submission/rokoko.md`; `docs/PITCH_AND_CHALLENGES_STORY.md`; `g1/sim/GRASP_REPORT.md`.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "## 3 — See the object before closing",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "Sources: `docs/ARCHITECTURE.md`; `docs/ORCH_BACKLOG.md` §1, B7–B8.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "## 4 — An inspectable control path",
-      "source": {
-        "doc": "deck/notes.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "**Core:** Gloves and Coil provide motion for retargeting. Camera recognition supplies object context. Nemotron and colour have evaluation results; Gemini is an unverified live backup, and Gemma is planned. A proposed fragile-first vote feeds closure rules before commands reach the simulated Dex3 hand.",
+      "text": "Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/evidence/recognition/README.md`.",
       "source": {
         "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "Sources: `docs/ARCHITECTURE.md`; `docs/OBJECT_RECOGNITION_RESULTS.md`; `docs/submission/google.md`; `ai/object_profile.py`; `robot/e2e_g1.py`.",
-      "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
-      }
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "## 5 — Same egg. A closure limit changes the outcome.",
+      "text": "## 7 — Confidence does not separate right from wrong",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "**Core:** This is the supplied G1 Dex3 simulation comparison. With the cap, the egg is held intact; without it, the toy model marks it broken. The command shown supplies the egg label directly, so this demonstration does not test recognition.",
+      "text": "**Core:** Confidence does not separate right from wrong here: wrong answers and correct ones both scored point nine. Full ball closure needs agreeing model families plus a confidence gate, or explicit operator selection. Eligible egg votes take priority.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "Sources: `docs/media/g1_egg_cap_vs_nocap.jpg`; `g1/sim/GRASP_REPORT.md`; `robot/e2e_g1.py`. Command: `python -m robot.e2e_g1 --label egg`. Execution requires dependencies and local G1 assets; the still is repository evidence, not a new run by the deck author.",
+      "text": "Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/CODE_TOUR.md`, `docs/SCORECARD.md`.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "## 6 — 48 of 50, in one run",
+      "text": "## 8 — Agreement caught the observed errors",
       "source": {
         "doc": "deck/notes.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "**Core:** Nemotron and API Gemma agreed on forty-seven of fifty labelled photos. Their three disagreements flagged single-model errors. Fragile-first voting scored fifty out of fifty from the saved answers, including the later three-recogniser combination.",
+      "source": {
+        "doc": "docs/CODE_TOUR.md"
       },
       "checks": [
         {
-          "metric": "nemotron.accuracy",
-          "value": "48/50"
-        }
-      ]
-    },
-    {
-      "file": "deck/notes.md",
-      "text": "**Core:** Nemotron recognised forty-eight of fifty of our photos in one run. Both mistakes were eggs called stress balls, exactly the dangerous direction. The colour baseline got thirty-eight right. These are small, local experiments from one person, one place and one day.",
-      "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
-      },
-      "checks": [
+          "metric": "nemotron+gemma.labelled_agreement",
+          "value": "47/50"
+        },
         {
-          "metric": "nemotron.accuracy",
-          "value": "48/50"
+          "metric": "nemotron+gemma.disagreements",
+          "value": 3
+        },
+        {
+          "metric": "nemotron+gemma.flagged_errors",
+          "value": "3/3"
+        },
+        {
+          "metric": "pair.accuracy",
+          "value": "50/50"
+        },
+        {
+          "metric": "triple.accuracy",
+          "value": "50/50"
         }
       ]
     },
     {
       "file": "deck/notes.md",
-      "text": "## 7 — Design around the dangerous mistake",
+      "text": "Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/STORY_MODELS.md`, `docs/CODE_TOUR.md`.",
+      "source": {
+        "doc": "docs/CODE_TOUR.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 9 — The cap changes the simulated outcome",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "**Core:** Egg and ball share a closure cap of zero point seven in the simulation policy. Full ball closure requires operator confirmation or agreement and confidence checks. Unknown objects get a conservative fallback. The first real G1 trial is planned at ten percent closure.",
+      "text": "**Core:** The documented simulation holds the egg intact with the cap and breaks it without the cap. Sharing the egg and ball cap also handles the observed mistake of calling an egg a ball in that simulation.",
       "source": {
-        "doc": "g1/sim/GRASP_REPORT.md"
+        "doc": "docs/SCORECARD.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "Sources: `ai/object_profile.py` (`cap_for_votes`, `cap_for`); `docs/OBJECT_RECOGNITION_RESULTS.md` colour section; `docs/G1_LIVE.md`; `docs/ORCH_BACKLOG.md` §1/B13. Full closure means closure command, not a measured force. Current rule: confidence at least 0.9 plus at least two recognisers, or manual selection. This does not prove that two recognisers are independent or that agreement is safe.",
+      "text": "Sources: `docs/SCORECARD.md`, `docs/CODE_TOUR.md`, `docs/OBJECT_RECOGNITION_RESULTS.md`.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/SCORECARD.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "## 8 — Proven here / still to prove",
+      "text": "## 10 — Grasp Advisor for unfamiliar objects",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "**Core:** We have recognition results on our photos, simulated grasp evidence, and a label-to-simulation bridge. We have not demonstrated generalisation, a verified live photo-to-grasp chain, real head tracking, or real G1 grasp performance. The can is recognised but not held in this posture.",
+      "text": "**Core:** The experimental Grasp Advisor proposes fragility, mass, size and handling advice for an unfamiliar object. It can lower the cap or ask for confirmation, but it never unlocks full closure. Model estimates are not measurements.",
       "source": {
-        "doc": "docs/OBJECT_RECOGNITION_RESULTS.md"
+        "doc": "docs/ADVISOR.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "Sources: `docs/ORCH_BACKLOG.md` §1; `robot/e2e_g1.py`; `g1/sim/GRASP_REPORT.md`. The bridge code is newer than the backlog’s statement that no end-to-end command exists. Its presence does not prove a live vision run.",
+      "text": "Sources: `docs/ADVISOR.md`.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/ADVISOR.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "## 9 — Better demonstrations for robot-learning teams",
+      "text": "## 11 — What we need to test next",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "## 10 — Validate the grasp. Then collect better data.",
+      "text": "**Core:** The next evidence should come from new photos with frozen prompts, weighed objects for the Advisor, and physical grasp evaluation. The hardware work needs verified camera frames and calibration, coordinated with the robot owner and staff.",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "Sources: `docs/SCORECARD.md`, `docs/ADVISOR.md`, `docs/G1_GUIDE.md`.",
+      "source": {
+        "doc": "docs/SCORECARD.md"
+      }
+    },
+    {
+      "file": "deck/notes.md",
+      "text": "## 12 — What is proven / not proven",
       "source": {
         "doc": "deck/notes.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "**Core:** Giorgio’s side covers capture, learning, vision and G1 simulation; Tommaso’s covers robot integration, AI and the demo. Next we validate real camera frames, calibrate object limits, and pass the mock gate before a supervised hardware trial. Our goal is human motion with object-aware grasp limits.",
+      "text": "**Core:** We have documented real G1 teleoperation, small-set recognition evidence and simulated grasp limits. We have not demonstrated vision-assisted physical grasping, generalisation or real force calibration. The Advisor and slow judge still need quality evaluation.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "tools/g1_windows_runner/README.md"
       }
     },
     {
       "file": "deck/notes.md",
-      "text": "Sources: `AGENTS.md`; `docs/ARCHITECTURE.md` folder boundaries; `docs/ORCH_BACKLOG.md` B7–B9/B13.",
+      "text": "Sources: `docs/SCORECARD.md`, `docs/CODE_TOUR.md`, `docs/ADVISOR.md`, `tools/g1_windows_runner/README.md`.",
       "source": {
-        "doc": "docs/ORCH_BACKLOG.md"
+        "doc": "docs/SCORECARD.md"
       }
     },
     {
