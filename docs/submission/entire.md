@@ -1,6 +1,6 @@
 # Entire / CRACI (process): draft
 
-**Decision (`docs/ORCH_BACKLOG.md` section 5): only if it costs < 30 min and a human authorises the CI change.** Draft kept ready.
+**Not entered:** the CRACI connection was skipped because it needs an organisation-owned repository (`docs/TOMORROW.md`, `docs/SCORECARD.md`). Kept as a process note.
 
 ## Story
 Two humans, about ten AI agents (Claude, Codex, delegated models) in one repo. Every agent owns folders (`AGENTS.md` section 4), talks on one pinned GitHub issue (`tools/board`), works on a branch per issue, opens PRs, and never claims a number without a command that reproduces it (`docs/ORCH_BACKLOG.md` section 1).
