@@ -141,6 +141,20 @@ def smooth01(x): x = float(np.clip(x, 0, 1)); return x * x * (3 - 2 * x)
 # --- one hand ------------------------------------------------------------------------------------------------------------
 Q_NEUTRAL = {}       # side -> wxyz quaternion, filled by load_neutral() from the seated calibration
 UP_SIGN = {}         # side -> -1 when the calibration's last step found the up axis mirrored (Coil hemisphere flip), else +1
+ORIGIN = {}          # side -> raw Coil wrist position of the flat start AS REPORTED DURING THE CALIBRATION (its hemisphere)
+
+
+def hemi_fix(side, P):
+    """The Coil reports a glove either at its true position or mirrored through the source (-P, magnetic hemisphere ambiguity),
+    and which one CHANGES between sessions (15/11: right glove mirrored at the 03:19 calibration, not at the 04:12 run -> the whole
+    right arm inverted). The calibration (axes, up_sign) is valid in the hemisphere it was recorded in: bring every sample back to it.
+    P and -P are ~2 m apart (|P| ~ 1 m), hand motions are < 0.6 m: the nearer of the two to the calibration origin is unambiguous.
+    Returns (P in the calibration's hemisphere, True if this sample was mirrored)."""
+    O = ORIGIN.get(side)
+    if O is None or P is None: return P, False
+    P = np.asarray(P, float)
+    if np.linalg.norm(P + O) < np.linalg.norm(P - O): return -P, True
+    return P, False
 
 
 def load_neutral(path, sides):
@@ -150,6 +164,7 @@ def load_neutral(path, sides):
     for s in sides:
         if c.get(s, {}).get("q_neutral") is not None: Q_NEUTRAL[s] = np.array(c[s]["q_neutral"], float)
         if c.get(s, {}).get("up_sign") is not None: UP_SIGN[s] = int(c[s]["up_sign"])
+        if c.get(s, {}).get("origin") is not None: ORIGIN[s] = np.array(c[s]["origin"], float)
 
 
 class HandChain:
@@ -168,7 +183,7 @@ class HandChain:
         self.pf, self.qf = OneEuro(c.pos_cutoff, c.pos_beta), QuatEuro(c.rot_cutoff, c.rot_beta)
         self.leash, self.post = Leash(c.leash), HoldDeadband(c.post_deadband)
         self.P0 = self.Q0 = None; self.blend = np.zeros(3); self.blend0 = np.zeros(3); self.blend_t = 0.0; self.table_up = None
-        self.hist = []; self.still_used = False; self.reanchors = 0
+        self.hist = []; self.still_used = False; self.reanchors = 0; self.hemi_flipped = False
         self.grip = None; self.stage = None; self.w = 0.0; self.snap_n = 0; self.t_st = 0.0; self.lock = None; self.carry = np.zeros(3)
         self.frac = 0.0; self.ns = 1.0; self.last_raw = None; self.out_p, self.out_R = self.rest_p.copy(), self.rest_R.copy(); self.p_raw = self.rest_p.copy()
         self.p_tel = self.rest_p.copy(); self.p_filt = self.rest_p.copy(); self.first = True; self.t_last = None
@@ -212,9 +227,13 @@ class HandChain:
         """One tick. pinch_now / wrist_R_now: robot pinch point and wrist rotation from the last command (for assist/snap).
         near_egg(p) -> speed limit override or None; push_block(p_new, p_old) -> True to keep p_old. Returns dict."""
         c = self.cfg; pr = self.grasp[4] if self.grasp else None
+        P, flipped = hemi_fix(self.side, P); hemi_ev = None
+        if flipped != self.hemi_flipped:
+            self.hemi_flipped = flipped
+            hemi_ev = "Coil hemisphere differs from the calibration: position mirrored back" if flipped else "Coil hemisphere = calibration"
         g_raw = 0.5 * (F[1] + F[2]); dt = 1 / RATE if self.t_last is None else max(t - self.t_last, 1e-3); self.t_last = t
         self.grip = g_raw if self.grip is None else self.grip + (1 - np.exp(-dt / c.grip_tau)) * (g_raw - self.grip)
-        g = self.grip; ev = None
+        g = self.grip; ev = hemi_ev
         if c.legacy:
             if self.P0 is None: self.anchor(P, Q, t)
         else:
@@ -395,6 +414,8 @@ def seated_calib(readers, hands, path, move=0.15):
         f, _ = hold(f"scorri la mano {name} AVANTI di ~{100 * move:.0f} cm e FERMA")
         hold("torna al punto di partenza", 1.5)
         l, _ = hold(f"scorri la mano {name} a SINISTRA di ~{100 * move:.0f} cm e FERMA")
+        if min(np.linalg.norm(x - c) for x in (f, l)) > min(np.linalg.norm(x + c) for x in (f, l)):
+            raise SystemExit(f"[calib {h}] the Coil changed hemisphere DURING the calibration (glove reported at -P): run again (nothing saved)")
         f, l = f - c, l - c
         if min(np.linalg.norm(f), np.linalg.norm(l)) < 0.07: raise SystemExit(f"[calib {h}] movements too small (need ~{100 * move:.0f} cm): run again")
         fu, lu = f / np.linalg.norm(f), l / np.linalg.norm(l); ang = float(np.degrees(np.arccos(np.clip(fu @ lu, -1, 1))))

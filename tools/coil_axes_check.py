@@ -29,13 +29,16 @@ def moves():
             ("yaw 30 (fingers to the left)", [0, 0, 0], [0, 0, A])]
 
 
-def run(side, mirrored, prior=False, fast=False):
+def run(side, mirrored, prior=False, fast=False, cal_mirrored=None):
+    """mirrored: the Coil reports this glove at -P during the RUN; cal_mirrored: ... during the CALIBRATION (default = mirrored).
+    They differ when the Coil changes hemisphere between calibration and run (15/11 04:10, right glove): coil_chain.hemi_fix."""
+    cal_mirrored = mirrored if cal_mirrored is None else cal_mirrored
     Rh_true = rotz(np.radians(35)) @ axis_rot([1, 0, 0], np.radians(10))       # some Coil placement (coil frame -> operator rows below)
     Rh_true = Rh_true.T                                                          # rows = forward, left, up in Coil coordinates
     D_ = np.diag([-1.0, -1.0, 1.0])
-    CC.UP_SIGN.clear(); CC.Q_NEUTRAL.clear()
-    Rh_cal = D_ @ Rh_true if mirrored else Rh_true                               # what seated_calib measures from -P samples
-    if mirrored: CC.UP_SIGN[side] = -1                                           # what its last step (up check) finds
+    CC.UP_SIGN.clear(); CC.Q_NEUTRAL.clear(); CC.ORIGIN.clear()
+    Rh_cal = D_ @ Rh_true if cal_mirrored else Rh_true                           # what seated_calib measures from -P samples
+    if cal_mirrored: CC.UP_SIGN[side] = -1                                       # what its last step (up check) finds
     cfg = CC.Cfg()
     if fast: cfg.joint_speed, cfg.vmax, cfg.vfinal, cfg.wfinal = 1.8, 1.3, 1.2, np.radians(400)
     if fast: cfg.pos_cutoff, cfg.pos_beta, cfg.rot_cutoff, cfg.rot_beta = 2.5, 120.0, 2.5, 6.0
@@ -45,7 +48,9 @@ def run(side, mirrored, prior=False, fast=False):
     kin = D.Kin(); rest = CC.palm_down_rest(kin, D.COUNTER_Z)
     rest_pose = (kin.a.d.xpos[kin.a.ee[side]].copy(), kin.a.d.xmat[kin.a.ee[side]].reshape(3, 3).copy())
     ch = CC.HandChain(side, Rh_cal, rest_pose, None, cfg, kin.base[2] - 0.5)
-    P_c = np.array([0.3, -0.2, 0.25]); Q_flat = CC.m2q(axis_rot([0.2, 0.5, 0.8], 0.7))   # any flat-hand sensor orientation
+    P_c = np.array([0.6, -0.5, 0.45])                                          # flat start, ~0.9 m from the Coil source
+    CC.ORIGIN[side] = -P_c if cal_mirrored else P_c                              # the calibration's reported flat start
+    Q_flat = CC.m2q(axis_rot([0.2, 0.5, 0.8], 0.7))   # any flat-hand sensor orientation
     res = []; t = 0.0; F = np.zeros(5)
     def coil(d_op, rv_op):
         P = P_c + Rh_true.T @ np.asarray(d_op, float)
@@ -81,9 +86,11 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--prior", action="store_true"); ap.add_argument("--fast", action="store_true"); a = ap.parse_args()
     allok = True
     for side in ("right", "left"):
-        for mirrored in (False, True):
-            print(f"\n== {side} hand, Coil {'MIRRORED (-P)' if mirrored else 'normal'}{', prior' if a.prior else ''}{', fast' if a.fast else ''}")
-            for name, sign, gain, t90, ok in run(side, mirrored, a.prior, a.fast):
+        for cal_m, mirrored in ((False, False), (True, True), (True, False), (False, True)):
+            lab = lambda m: "MIRRORED (-P)" if m else "normal"
+            print(f"\n== {side} hand, Coil at calibration {lab(cal_m)}, during the run {lab(mirrored)}"
+                  f"{', prior' if a.prior else ''}{', fast' if a.fast else ''}")
+            for name, sign, gain, t90, ok in run(side, mirrored, a.prior, a.fast, cal_mirrored=cal_m):
                 allok &= ok
                 print(f"  {name:30s} sign {sign:+.2f}  gain {gain:4.2f}  t90 {t90:4.2f} s  {'PASS' if ok else 'FAIL'}")
     print("\nALL PASS" if allok else "\nSOME FAIL")
