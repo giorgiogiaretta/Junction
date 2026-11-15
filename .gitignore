@@ -17,3 +17,4 @@ STATUS.md
 # sims media: videos stay on disk only
 sims/**/media/*.mp4
 data/logs/
+data/e2e/*.png
