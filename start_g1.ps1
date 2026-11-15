@@ -14,11 +14,13 @@
 #   -Fast: staff-approved (15/11) faster limits: runner arm speed 2.0 rad/s, no counter keep-out (robot-vs-robot collision kept)
 #   -NoCamera: the runner does not read the camera streams (less load on this PC = the robot follows with less delay)
 #   -CoilVision: like -Coil but g1/live_policy_v2_vision.py (Codex+DeepSeek review: the head camera recognises the object; caps egg 0.50, can 0.90, ball 1.0)
-param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [int]$Seconds = 300, [string]$Closure = "0.6",
+#   -NoPrior: with -CoilVision, turn off the real-G1 posture prior (IK null-space from Tommaso's aalto data)
+param([switch]$NoPrior, [switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
 if ($CoilVision) { $Coil = [switch]$true }
+if ($NoPrior) { $env:G1_PRIOR = "0" } else { Remove-Item Env:G1_PRIOR -ErrorAction SilentlyContinue }
 if ($Fast) { $env:G1_FAST = "1"; Write-Host "FAST MODE (staff-approved): arms 2 rad/s, no table zone; robot self-collision check ON" -ForegroundColor Yellow } else { Remove-Item Env:G1_FAST -ErrorAction SilentlyContinue }
 $ErrorActionPreference = "Continue"
 

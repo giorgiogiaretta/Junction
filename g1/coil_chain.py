@@ -329,9 +329,14 @@ def palm_down_rest(kin, counter_z, sides=("left", "right"), iters=150):
     return dict(kin.a.q)
 
 
+PRIOR = None        # g1/arm_prior.RealArmPrior: real-G1 postures as the IK null-space target (set by the caller; None = old rest posture)
+NATURAL = {"left": [], "right": []}   # per-tick RMS joint distance to the real postures (filled when PRIOR is set)
+
+
 def solve_arm(kin, side, out, cfg, rest, unsafe, floor_z, palm_fn=None):
     """IK one hand toward out['p'], out['R'] within the joint-speed limit, then the safety check. Returns the block reason list ([] = ok).
     Raises the target over the counter keep-out only for a counter block (A8, new) or for any block (legacy)."""
+    if PRIOR is not None: rest = PRIOR.rest(kin, side, out["p"], out["R"], rest)
     q_prev = dict(kin.a.q); k = out["k_rest"]
     def go(p, R=None):
         kin.a.solve(side, p, out["R"] if R is None else R, q_rest=rest if k else None, k_rest=k or 0.1, uniform=cfg.uniform_step)

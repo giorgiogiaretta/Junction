@@ -26,6 +26,12 @@ for p in (ROOT, os.path.join(ROOT, "g1"), os.path.join(ROOT, "g1", "sim"), os.pa
 REPO = os.environ.get("AALTO_REPO", r"C:\Users\giorg\Desktop\aaltonomous-humanoid")
 if os.path.isdir(REPO): sys.path.insert(0, REPO)
 import arm_ik, demo_e2e as D, teleop_sim as T, coil_chain as CC
+# Real-G1 posture prior (Tommaso's aalto data, 19,371 real frames): IK null-space target = the postures the real robot used for that
+# wrist pose. Sim, recorded Coil takes: left arm delay 487 -> 157 ms, wrist error 5.8 -> 1.5 cm. G1_PRIOR=0 turns it off.
+if os.environ.get("G1_PRIOR", "1") != "0":
+    try:
+        import arm_prior; CC.PRIOR = arm_prior.RealArmPrior(); print("[v2-vision] real-G1 posture prior ON", flush=True)
+    except Exception as _e: print("[v2-vision] posture prior NOT loaded:", _e, flush=True)
 from robot.g1_dex3 import G1Dex3Retargeter
 
 CHUNK = int(os.environ.get("G1_CHUNK", "2"))   # targets per call. 3 = one glove reading per 100 ms (the 14/11 night delay); 1 = fresh every tick

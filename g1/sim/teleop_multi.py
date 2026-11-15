@@ -110,10 +110,14 @@ def main():
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
     ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--prior", action="store_true", help="real-G1 posture prior (Tommaso's aalto data) as the IK null-space target")
     ap.add_argument("--old-rest", action="store_true", help="previous robot rest pose (wrists rolled, palms sideways)")
     ap.add_argument("--slow", action="store_true", help="previous speed/filter settings (before the 14/11 evening latency tuning)")
     ap.add_argument("--metrics", help="write latency/jerk/blocked/grasp numbers to this JSON file")
     a = ap.parse_args(); hands = ["left", "right"] if a.hands == "both" else [a.hands]
+    global EVAL
+    import arm_prior; EVAL = arm_prior.RealArmPrior()            # always measured (naturalness), used only with --prior
+    if a.prior: CC.PRIOR = arm_prior.RealArmPrior()
     cfg = CC.Cfg.old() if a.legacy else (CC.Cfg.slow() if a.slow else CC.Cfg())
     cfg.gain = a.gain
     if a.zoff is not None: cfg.zoff = a.zoff
@@ -237,6 +241,7 @@ def main():
             near = near_egg_v(T.pinch(kin, h)) is not None
             step0 = arm_ik.ARM_STEP; arm_ik.ARM_STEP = (min(cfg.joint_speed, FRAGILE_JOINT) if near else cfg.joint_speed) / RATE
             why = CC.solve_arm(kin, h, out, cfg, rest, unsafe, floor, T.palm); arm_ik.ARM_STEP = step0
+            if EVAL is not None: CC.NATURAL[h].append(EVAL.naturalness(kin, h))
             mode = out["mode"]
             if why:
                 blocked[h] += 1; consec[h] += 1; max_consec = max(max_consec, consec[h]); mode += f" [BLOCKED: {why[0]}]"
@@ -334,6 +339,8 @@ def main():
         lift = o["zmax"] - o["p0"][2]
         res["objects"][n] = dict(lift_cm=round(100 * lift, 1), broken=o["broken"], crush_pct=round(100 * o["crush"]),
                                  grasp_success=bool(lift > 0.03 and not o["broken"]))
+    for h in hands:
+        if CC.NATURAL[h]: res["hands"][h]["natural_rms_rad"] = round(float(np.median(CC.NATURAL[h])), 3); res["hands"][h]["natural_p95_rad"] = round(float(np.percentile(CC.NATURAL[h], 95)), 3)
     print("[metrics] " + json.dumps(res["hands"]) + " " + json.dumps(res["objects"]) + f" blocked {blocked}", flush=True)
     if a.metrics: json.dump(res, open(a.metrics, "w"), indent=1, default=float)
 
