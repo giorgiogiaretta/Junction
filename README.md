@@ -6,7 +6,7 @@ Rokoko Smartgloves make teaching a humanoid easy: put them on, move naturally, a
 
 **Tactile-less HandOff:** Rokoko gloves teach a Unitree G1 humanoid, and a head camera with vision models sets how far each hand may close for the object it is about to hold (egg, stress ball, can).
 
-- **Video:** in the submission form · **Test videos:** [Videos](#videos) below · **Pitch deck (PDF):** `docs/submission/final/deck_text.txt` (text) and the PDF in the submission form
+- **Video:** in the submission form · **Test videos:** [Videos](#videos) below · **Technical pack (PDF):** [docs/submission/HandOff_technical_pack.pdf](docs/submission/HandOff_technical_pack.pdf) (Rokoko, NVIDIA, Google, Verda pages)
 - **Reproduce the numbers:** `python3 -m verify.run` recomputes every recognition number from the saved model answers in `docs/evidence/recognition/` (offline, no key). Tests: `python3 -m pytest tests -q`.
 - **Shown on the real G1:** the gloves drove both arms and both Dex3 hands: 2 runs of 120 s, 29.8 commands per second, 0 commands clipped by the safety filter. In later sessions (15 Nov) the Coil Pro also drove both wrists and the head camera set the per-object caps ([docs/G1_FINAL_RUN.md](docs/G1_FINAL_RUN.md)); its labels there were not yet reliable, so no vision-guided object grasp is claimed on the physical robot.
 - **Shown in simulation only:** the camera recognises the object, sets the closure limit, and the grasp is held intact with the limit and breaks without it (MuJoCo, grasp assist ON in the demo clips; closure limits and break thresholds are toy values until calibrated on hardware).
