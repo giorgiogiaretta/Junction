@@ -14,7 +14,7 @@ Riferimenti: `docs/ORCH_BACKLOG.md` (sez. 1, formule sicure), `docs/STORY_MODELS
 | A6 | Media | Imitazione (quadrato): 37/40 tratti in simulazione, ma la presa e l'avvicinamento finale sono **scriptati**. Formula: "percorso grezzo appreso + avvicinamento scriptato, simulazione". | board 16:13, PR #142 | - |
 | A7 | Media | PaliGemma con la domanda "fragile o rigido?" risponde "fragile" a 48/50: inutile come classificatore. Usare solo il prompt a 3 opzioni. | `docs/OBJECT_RECOGNITION_RESULTS.md` | - |
 | A8 | Bassa | CI copre solo una parte dei test; su Windows 5 fallimenti d'ambiente (sklearn, judge_gemini). | board 18:28 | B14, umano |
-| A9 | Bassa | Forze in Newton stampate da `robot.e2e_g1` e `grasp_physics` con soglie ipotizzate (uovo 20 N): mai nel pitch. | `robot/e2e_g1.py` docstring | - |
+| A9 | Bassa | Forze stampate da `robot.e2e_g1` e `grasp_physics` con soglie ipotizzate (uovo 20 N): mai nel pitch. | `robot/e2e_g1.py` docstring | - |
 
 ## B. Audit della documentazione
 
@@ -36,4 +36,4 @@ Riferimenti: `docs/ORCH_BACKLOG.md` (sez. 1, formule sicure), `docs/STORY_MODELS
 | Riconoscimento | "Sulle nostre 50 foto: Nemotron 48/50 in 0,22 s, Gemma 4 49/50 con tutte le uova, PaliGemma sulla nostra GPU 49/50 in 0,21 s; insieme, prima il fragile, 50/50 sulle stesse foto" | `docs/OBJECT_RECOGNITION_RESULTS.md` |
 | Due chiavi | "Sulle 50 foto le 3 discordanze Nemotron/Gemma sono esattamente i 3 errori dei singoli modelli; nessun errore in comune" | `docs/STORY_MODELS.md` |
 | Imitazione | "Percorso grezzo appreso + avvicinamento scriptato: 37/40 tratti, simulazione" | PR #142 |
-| Uovo | "In simulazione: con il limite l'uovo resta intero, senza si rompe" (mai Newton) | `python3 -m robot.e2e_g1 --label egg` |
+| Uovo | "In simulazione: con il limite l'uovo resta intero, senza si rompe" (mai unità di forza) | `python3 -m robot.e2e_g1 --label egg` |

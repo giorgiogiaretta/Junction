@@ -1,35 +1,33 @@
-# Rokoko track: draft
+# Rokoko — The Robot Teleoperation Challenge (main entry)
 
-## One line
-Smartgloves tell a robot hand how the fingers move but not how hard to squeeze; we add a head camera that recognises the object and caps the robot's grip per object, so an egg gets a gentle limit and a confirmed stress ball a firm one.
+**One line:** Rokoko Smartgloves are the teacher; a head camera adds the one sense gloves do not have, how hard to squeeze.
 
 ## The problem
-Smartgloves II have no force sensors. Retargeted to a robot hand, a confident human grip can crush a fragile object. The operator feels the egg; the robot does not.
+Teleoperation is the fastest way to teach a humanoid, for repetitive work (pick, place, sort) and delicate work (eggs, fruit). Smartgloves II capture finger motion and the Coil Pro gives precise wrist position, but there is no force sensing. A confident human fist becomes a crushed egg on a robot hand. Rokoko's judges asked for exactly this: precise manipulation of fragile objects and demonstration data for robot policies.
 
-## What we built
-1. **Glove capture**: Smartgloves II + Coil Pro streamed as `hand_state v1` over UDP (`Rokoko/src/rgmp_client.py`, `docs/contracts.md`), with raw recording and replay; glove on the head gives hand-in-head pose in the episodes.
-2. **Object recognition ensemble from a head camera**: Nemotron, Gemma 4, Gemini and a colour rule vote on one frame; any confident "egg" vote wins ("fragile first", `ai/recognize.py`).
-3. **Object -> closure cap** (`ai/object_profile.py`, `cap_for_votes`): egg and stress ball share a gentle cap; the ball gets full closure only if 2 recognisers agree or the operator sets it; unknown -> conservative cap.
-4. **Object position** from the G1 head RGB-D camera (`ai/locate.py`), tested on simulated renders.
-5. **G1 Dex3 hand in MuJoCo, end to end** (`python -m robot.e2e_g1`) and policies for the real G1 (`g1/live_policy*.py`, `g1/arms_simple.py`).
+## Rokoko at the centre
+```
+Smartgloves II (fingers) ─┐                        ┌─▶ Dex3 fingers (thumb→thumb, index→index, middle→middle)
+Coil Pro (wrist pose) ────┼─▶ rgmp_client (83 Hz) ─┼─▶ G1 arms (IK / glove open-close motions)
+glove on the head ────────┘                        └─▶ recorded episodes (training data)
+                                    camera vote ──▶ closure cap ──▶ limits the fingers
+```
 
-## Measured (with the command that produces it)
-- **Recognition, same 50 of our own head-camera photos** (`docs/OBJECT_RECOGNITION_RESULTS.md`): Nemotron 48/50 in two runs, median 0.22 s; Gemma 4 49/50 with eggs 20/20; ensemble Nemotron + Gemma 50/50, computed offline from the saved answers. `python -m ai.eval_objects imgs --backend nemotron --mix`.
-- **End to end in simulation**: egg with its cap held intact, without the cap broken; an egg mistaken for a stress ball is still held intact. `python3 -m robot.e2e_g1 --label egg`, `--true egg --label stress_ball`. Assumed gains and break thresholds: forces are model outputs, only closure levels transfer.
-- **Grip rule tests**: `python3 -m pytest tests/test_cap_for.py tests/test_live_policy_cap.py tests/test_picker_safety.py -q`.
-- **Object position**: median xy error 0.14-0.26 cm on simulated G1 head renders, with refusals for cut-off or occluded objects. `python -m ai.locate_bench`.
-- **Glove stream quality**: 89 takes, 83.3 Hz, 0 dropouts, max gap 12 ms (glove clock). `Rokoko/src/episode_quality.py`.
-- **Real G1 (14/11, branch `g1-real-working`, not on `main` yet): Rokoko gloves drove both arms and both Dex3 hands, 2 runs of 120 s, 29.8 commands/s, 0 commands clipped by the safety filter. The robot's camera computer was off, so vision did not run on the real robot and no object grasp outcome is recorded.**
-- **PaliGemma 2 on our GPU**: 49/50 at 0.21 s; three-model vote 50/50 on the same photos.
+1. **Capture.** `Rokoko/src/rgmp_client.py` decodes the Rokoko stream and publishes normalised finger closures and wrist pose (`hand_state v1`, UDP). Raw streams can be recorded and replayed (`Rokoko/src/replay_rgmp.py`).
+2. **Quality we measured.** 89 takes, glove stream at 83 Hz, 0 dropouts, max gap 12 ms (`Rokoko/src/episode_quality.py`, glove clock).
+3. **On the real Unitree G1** (organisers' runner and safety filter): the gloves drove both arms and both Dex3 hands. Open glove = arm up; closed = arm down, then fingers close; open again = release. **2 runs of 120 s, 29.8 commands per second, 0 commands clipped** (`g1/arms_simple.py`, `tools/g1_windows_runner/README.md`). Later versions: `g1/arms_glove.py` (both hands), `g1/live_policy_v2.py` (Coil Pro wrist teleoperation, both hands, seated calibration), one command `start_g1.ps1`.
+4. **Each finger follows its own glove finger** (`g1/finger_map.py`): the Dex3 has three fingers, so thumb, index and middle map one to one.
+5. **Smoother Coil teleoperation** (`g1/coil_chain.py`): on replayed takes, filter delay went from 197 ms to 20 ms (`docs/G1_V2_RUN.md`).
+6. **The missing sense.** A head camera and a two-family model vote set a per-object closure cap. In our G1 simulation, same egg, same glove grip: **held intact with the cap, broken without it** (`python3 -m robot.e2e_g1 --label egg`).
+7. **Demonstrations become data.** Recorded glove takes carry the object, the outcome (ok / dropped / crushed) and the head-to-hand pose. A nearest-neighbour policy learned from 10 glove takes reproduced a square pick-and-place path in simulation; with scripted grip and final homing it placed 37 of 40 legs (PR #142, `ml/square_policy.py`).
 
-## Caveats and not shown
-- Recognition: one person, one place, one day, 50 photos, no held-out set; confidence does not separate right from wrong answers.
-- Real G1: no vision on the robot yet, no grasp outcome recorded; evidence on a branch, not on `main`.
-- Two objects grasped in simulation (egg, stress ball); the can is recognised but not grasped.
-- `locate()` not wired into a grasp, not tested on real frames.
+## Proven / not proven
+| Proven | Not proven |
+|---|---|
+| Glove-driven arms and hands on the real G1, 0 safety clips | Vision-guided grasp on the real G1 (camera path ran there only as a capture test) |
+| Glove stream quality (83 Hz, 0 dropouts) | Real finger closures producing grasps in the older five-finger simulation (2/32) |
+| Cap vs no cap decides egg intact / broken in simulation | Real force: break thresholds and gains are assumed |
+| Recognition on our 50 photos (see `nvidia.md`, `gemma.md`) | Generalisation to other people, places and objects |
 
-## Why it matters
-Teleoperation data from gloves is cheap to collect but carries no force. Using vision to supply a per-object grip limit is a small, inspectable layer that makes glove-driven robot hands safer for fragile objects, and it can label Rokoko grasp datasets with the object being held.
-
-## Run it
-`python3 -m robot.e2e_g1 --label egg` (no key, no hardware); see the root `README.md`.
+## Criteria map
+Technical execution (35 %) → real G1 runs through the official safety filter, measured stream quality, simulation end to end. Originality (25 %) → vision as a replacement for missing touch, fragile-first across two model families. Usefulness (25 %) → safer demonstrations of delicate work plus automatic object labels for training data. Human-controlled robotics (15 %) → the operator just moves; the robot follows on real hardware.
