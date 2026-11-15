@@ -1,6 +1,6 @@
 """g1/live_policy_v2_vision.py: the head camera recognises every object; for each hand, the object NEAREST to the robot pinch (within
-SELECT_R) gives the finger cap and the assist target: egg 0.60, empty can 0.90, stress ball 1.0. Nothing recognised near the hand, or
-only the CLI fallback object: the careful cap 0.60."""
+SELECT_R) gives the finger cap and the assist target: egg 0.50, empty can 0.90, stress ball 1.0. Nothing recognised near the hand, or
+only the CLI fallback object: the careful cap 0.50."""
 import os, sys
 import numpy as np
 import pytest
@@ -35,7 +35,7 @@ SCENE = [("egg", (0.35, -0.15, 0.03)), ("can_empty", (0.35, 0.05, 0.08)), ("stre
 
 def test_nearest_object_sets_the_cap(V):
     p = policy(V, SCENE)
-    assert cap_at(p, (0.36, -0.14, 0.06)) == ("egg", pytest.approx(0.60))
+    assert cap_at(p, (0.36, -0.14, 0.06)) == ("egg", pytest.approx(0.50))
     assert cap_at(p, (0.35, 0.04, 0.10)) == ("can_empty", pytest.approx(0.90))
     assert cap_at(p, (0.44, -0.29, 0.07)) == ("stress_ball", pytest.approx(1.00))
 
@@ -47,14 +47,14 @@ def test_far_from_everything_is_careful(V):
 
 def test_no_camera_cli_object_is_careful(V):
     p = policy(V, [], cli="stress_ball")
-    assert cap_at(p, (0.35, -0.15, 0.06)) == ("stress_ball", pytest.approx(0.60))
+    assert cap_at(p, (0.35, -0.15, 0.06)) == ("stress_ball", pytest.approx(0.50))
 
 
 def test_no_switch_while_grasping(V):
     p = policy(V, SCENE); ch = p.chains["right"]
     cap_at(p, (0.36, -0.14, 0.06)); ch.stage = "hold"
-    assert cap_at(p, (0.35, 0.04, 0.10)) == ("egg", pytest.approx(0.60))      # holding the egg: stays egg / 0.60
+    assert cap_at(p, (0.35, 0.04, 0.10)) == ("egg", pytest.approx(0.50))      # holding the egg: stays egg / 0.50
 
 
 def test_hard_caps(V):
-    assert V.CAP_HARD == {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0} and V.CAP_DEFAULT == 0.60
+    assert V.CAP_HARD == {"egg": 0.50, "can_empty": 0.90, "stress_ball": 1.0} and V.CAP_DEFAULT == 0.50

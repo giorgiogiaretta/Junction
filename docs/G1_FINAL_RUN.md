@@ -1,8 +1,11 @@
 # Real G1, final runs 15/11 (gloves + Coil, -CoilVision)
 
 Command: `start_g1.ps1 -CoilVision -Fast -LowLag -Both -NoCalib -Video` (05:05 run; 04:42 run the same without `-Video`).
+
+Note: these runs used the egg cap 0.60; the submitted code uses 0.50 (g1/live_policy_v2_vision.py CAP_HARD).
+
 Operator: played with the empty can, both hands; "fairly smooth and fairly precise".
-Files (GitHub release `g1-real-20261115`, private repo): annotated video, raw head-camera video, data zip (runner npz,
+Files (GitHub release `g1-real-20261115`): annotated video, raw head-camera video, data zip (runner npz,
 policy log, Dex3 pressure, raw Coil/glove input).
 
 ## Numbers (tools/g1_windows_runner/lag_report.py, docs/ARM_DELAY.md)

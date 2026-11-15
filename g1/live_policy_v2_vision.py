@@ -60,7 +60,7 @@ VLM = tuple(v for v in os.environ.get("G1_VLM", "").split(",") if v)       # e.g
 LOG_FLUSH_S = 0.5                                                    # s for routine tick lines; events and blocked ticks flush at once
 # hard finger caps per object (the camera label can only LOWER the CLI object's cap): egg 0.70 never more; empty can = perception_v1's
 # rule (0.45, object_profiles.json); stress_ball keeps demo_e2e's 1.0 (cannot break, the real grip is weak: a lower cap only drops it)
-CAP_DEFAULT = 0.60     # no recognised object near the hand (or only the CLI fallback): the most careful cap
+CAP_DEFAULT = 0.50     # no recognised object near the hand (or only the CLI fallback): the most careful cap
 SELECT_R = 0.15        # m: the object nearest to the robot pinch within this radius gives the cap and the assist/snap target
 REDETECT_S = 3.0       # s: the head camera re-detects all objects in the background while no hand is grasping
 _GP = {}
@@ -75,7 +75,7 @@ def gpose(name, side, seen, rest):
 
 EGG_MAX_ABOVE_TABLE = 0.15   # m: a camera "egg" higher than this above the table is ignored (15/11 04:42: phantom egg at +28 cm = robot hand)
 PRESS_EGG_KPA = 5.0          # kPa fingertip pressure rise (Dex3 pads 1/3/5, g1/dex3_press.py): on the egg, stop closing further above this
-CAP_HARD = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: camera sees egg -> never above 0.60, can 0.90, ball 1.0
+CAP_HARD = {"egg": 0.50, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: camera sees egg -> never above 0.50, can 0.90, ball 1.0 (submission value)
 LABELS = {"can": "can_empty", "ball": "stress_ball", "egg": "egg", "can_empty": "can_empty", "stress_ball": "stress_ball"}
 LIVE = os.path.join(ROOT, "data", "live")
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))

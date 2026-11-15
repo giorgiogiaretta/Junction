@@ -165,7 +165,7 @@ def main():
         pos_c, R_c = PC.cam_pose(m, d); CAMT = np.eye(4); CAMT[:3, :3] = R_c @ np.diag([1, -1, -1]); CAMT[:3, 3] = pos_c - kin.base
         rgb_v, dep_v = PC.render_head(m, d); sm = robot_mask([kin.a.q[n] for n in arm_ik.ARM_NAMES], None, Ks, CAMT)(dep_v)
         t_v = time.time(); res_v = pv_perceive(rgb_v, dep_v, pinhole_pixel_to_pelvis(Ks, CAMT), self_mask=sm); t_v = time.time() - t_v
-        CAP_HARD = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: egg 0.60 (accepted risk: this sim breaks it from 0.53), can 0.90, ball 1.0
+        CAP_HARD = {"egg": 0.50, "can_empty": 0.90, "stress_ball": 1.0}   # egg 0.50 (this sim breaks it from 0.53), can 0.90, ball 1.0
         for name, o in O.items():
             best = None
             for r in res_v["objects"]:
@@ -265,7 +265,7 @@ def main():
                 pin = T.pinch(kin, h); cands = [(float(np.linalg.norm(pin - O[n]["seen"])), n) for n in O if O[n]["seen"] is not None and O[n]["G"].get(h)]
                 if cands:
                     dn, n = min(cands); gp, gR, pin_t = O[n]["G"][h]; prof = dict(D.PROFILE.get(n, D.PROFILE["unknown"]))
-                    prof["cap"] = VIS[n][1] if dn <= 0.15 else min(VIS[n][1], 0.60)
+                    prof["cap"] = VIS[n][1] if dn <= 0.15 else min(VIS[n][1], 0.50)
                     if not ch.grasp or ch.grasp[3] != n or abs(ch.grasp[4]["cap"] - prof["cap"]) > 1e-6:
                         events.append((round(t_now, 2), h, f"target {n} cap {prof['cap']:.2f} ({100 * dn:.0f} cm)"))
                     ch.grasp = (gp, gR, pin_t, n, prof); name = n
