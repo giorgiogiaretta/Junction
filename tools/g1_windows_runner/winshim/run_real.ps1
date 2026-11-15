@@ -25,5 +25,5 @@ if ($NoCamera) {   # runner's own options: no head RGB-D, image server on localh
     Write-Host "camera DISABLED (less load)" -ForegroundColor Yellow
     py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip 127.0.0.1 --no-head-rgbd --time-limit $Seconds
 } else {
-    py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip $cam --time-limit $Seconds
+    py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip $cam --time-limit $Seconds --video
 }
