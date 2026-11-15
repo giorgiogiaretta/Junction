@@ -1710,13 +1710,6 @@
       }
     },
     {
-      "file": "docs/submission/aaltonomous.md",
-      "text": "- **Real-robot runs:** gloves drove both arms and Dex3 hands, 2 runs of 120 s at 29.8 commands per second, 0 commands clipped by the safety filter (`g1/arms_simple.py`).",
-      "source": {
-        "doc": "tools/g1_windows_runner/README.md"
-      }
-    },
-    {
       "file": "docs/submission/verda.md",
       "text": "| **GPU instance (A100)** | **PaliGemma 2 3B, open weights, self-hosted**: the second model family; **49/50, median 0.24 s**, no quota, photos never leave our instance | The Google API free tier gave 20 requests per day per model and took seconds per call; on our own GPU there is no quota and we measure real latency (`docs/VERDA_GEMMA.md`) |",
       "source": {
