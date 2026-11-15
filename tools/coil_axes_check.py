@@ -38,6 +38,7 @@ def run(side, mirrored, prior=False, fast=False):
     if mirrored: CC.UP_SIGN[side] = -1                                           # what its last step (up check) finds
     cfg = CC.Cfg()
     if fast: cfg.joint_speed, cfg.vmax, cfg.vfinal, cfg.wfinal = 1.8, 1.3, 1.2, np.radians(400)
+    if fast: cfg.pos_cutoff, cfg.pos_beta, cfg.rot_cutoff, cfg.rot_beta = 2.5, 120.0, 2.5, 6.0
     CC.PRIOR = None
     if prior:
         import arm_prior; CC.PRIOR = arm_prior.RealArmPrior()

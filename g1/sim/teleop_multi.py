@@ -25,7 +25,7 @@ from live_sim import GloveLive
 import coil_chain as CC
 
 RATE = T.RATE
-FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3    # m, m/s, rad/s inside the camera-seen egg zone
+FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.08, 0.20, 0.9    # m, m/s, rad/s near the camera-seen egg (was 0.12, 0.06, 0.3: the right hand crawled; the finger cap 0.50 protects the egg)
 FRAGILE_CLOSE = 0.6      # closure units/s near the egg
 EGG_SAFE_N, PUSH_N = 12.0, 8.0   # hand force (0.1 s mean) above which the closure backs off / the arm may not push further
 
@@ -123,6 +123,7 @@ def main():
     if a.prior: CC.PRIOR = arm_prior.RealArmPrior()
     cfg = CC.Cfg.old() if a.legacy else (CC.Cfg.slow() if a.slow else CC.Cfg())
     if a.fast: cfg.joint_speed, cfg.vmax, cfg.vfinal, cfg.wfinal = 1.8, 1.3, 1.2, np.radians(400)   # = live_policy_v2 G1_FAST
+    if a.fast: cfg.pos_cutoff, cfg.pos_beta, cfg.rot_cutoff, cfg.rot_beta = 2.5, 120.0, 2.5, 6.0   # still hand: strong smoothing (Coil noise); moving: cutoff rises fast
     cfg.gain = a.gain
     if a.zoff is not None: cfg.zoff = a.zoff
     objs = [(n.split(":")[0], [float(v) for v in n.split(":")[1].split(",")]) for n in a.objs.split(";")]
@@ -320,6 +321,9 @@ def main():
                 viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, "teleop", line)])
             viewer.sync()
         if tick % (90 if a.replay else 15) == 0: print(line, flush=True)
+        if not a.replay and tick == int(2.0 * RATE):                       # automatic ALIGN 2 s after start (no keyboard needed)
+            for h in hands: chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], chains[h].grasp, cfg, floor)
+            print("[align] AUTO: put both hands FLAT and STILL on the table for 1 s", flush=True)
         if a.video:
             if "vw" not in locals():
                 m.vis.global_.offwidth, m.vis.global_.offheight = 1920, 1080

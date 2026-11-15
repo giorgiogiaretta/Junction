@@ -49,7 +49,7 @@ try:
     WS = _AS.WorkspaceChecker(_AS.JointSpec(), _AS.SafetyConfig(counter_keepout_min=None, counter_keepout_max=None) if FAST else _AS.SafetyConfig())
 except Exception as _e:
     print("[v2] organisers' workspace check NOT loaded:", _e); WS = None
-FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3
+FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.08, 0.20, 0.9   # was 0.12, 0.06, 0.3 (the egg hand crawled); finger cap 0.50 protects the egg
 try:
     import perception_v1 as PV           # CAP, robot_mask, perceive_with_ai, assign, pinhole_pixel_to_pelvis (one module identity)
 except Exception as _e:
