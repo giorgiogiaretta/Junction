@@ -90,6 +90,16 @@ allowlist. Stale exact text has been removed.
   They remain failures under the existing lint rule, not allegations of positive
   assertions. See the PR discrepancy list for semantic review findings.
 
+The refreshed twelve-slide deck and speaker notes use current exact wording.
+Recognition scores and labelled agreement retain saved-answer metric checks.
+The deck's two PaliGemma `0.21–0.24 s` units remain unregistered warnings:
+the recognition report mentions that range, but the saved run reproduces only
+the 0.24 s median, not the 0.21 s endpoint. Hardware run counts, duration,
+command rate and clipped commands trace to `tools/g1_windows_runner/README.md`
+as reported results, not recomputed telemetry. Gemma's displayed 7.7 s is the
+report's rounded timing (saved labelled median: 7.69 s). Advisor's three photos
+trace to `docs/ADVISOR.md`, not a saved quantitative evaluation.
+
 Documents outside `verify/` are deliberately left untouched. These checks do not
 rerun recognition, establish generalisation, measure real forces, or validate
 hardware. Grasp results remain simulation; closure/break thresholds remain toy
