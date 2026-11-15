@@ -110,6 +110,8 @@ def main():
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
     ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--sequence", help="ONE object at a time at --seq-spot, e.g. can_empty,egg,stress_ball: grasp, lift and drop it -> the next one appears")
+    ap.add_argument("--seq-spot", default="0.33,0.0", help="x,y (pelvis frame, m) of the single object in --sequence")
     ap.add_argument("--no-record", action="store_true", help="do not save the session (default: data/live/sim_<time>/ video.mp4 + ticks.jsonl + metrics.json)")
     ap.add_argument("--video", help="write a 1920x1080 mp4 (robot view + head camera with recognition + force plot)")
     ap.add_argument("--fast", action="store_true", help="same limits as the robot's -Fast: joints 1.8 rad/s, faster target, only robot self-collision blocks")
@@ -119,6 +121,8 @@ def main():
     ap.add_argument("--slow", action="store_true", help="previous speed/filter settings (before the 14/11 evening latency tuning)")
     ap.add_argument("--metrics", help="write latency/jerk/blocked/grasp numbers to this JSON file")
     a = ap.parse_args(); hands = ["left", "right"] if a.hands == "both" else [a.hands]
+    SEQ = [x for x in (a.sequence or "").split(",") if x]
+    if SEQ: a.objs = ";".join(f"{n}:{a.seq_spot}" for n in SEQ)
     global EVAL
     import arm_prior; EVAL = arm_prior.RealArmPrior()            # always measured (naturalness), used only with --prior
     if a.prior: CC.PRIOR = arm_prior.RealArmPrior()
@@ -150,15 +154,43 @@ def main():
         og = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, f"g_{name}")
         O[name] = dict(body=ob, adr=oa, dof=m.body_dofadr[ob], geom=og, p0=p, q0=D.obj_quat(name), r0=float(m.geom_size[og][0]), rgba0=np.array(D.OBJECTS[name]["rgba"], dtype=float),
                        crush=0.0, broken=False, zmax=float(p[2]))
+    PARK = {n: kin.base + np.array([-1.0, -0.6 + 0.6 * i, -0.65]) for i, n in enumerate(O)}     # behind the robot, on the floor
+    def place(active):
+        for n, o in O.items():
+            o["active"] = (n == active) if SEQ else True
+            if SEQ and n != active: d.qpos[o["adr"]:o["adr"] + 3] = PARK[n]
+            elif SEQ: d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = D.obj_quat(n)
+            d.qvel[o["dof"]:o["dof"] + 6] = 0
+        mujoco.mj_forward(m, d)
     mujoco.mj_forward(m, d)
     for name, o in O.items():                                   # head camera: where is each object?
+        if SEQ: place(name)
         rgb, dep, mk = PC.render_head(m, d, seg_geom=o["geom"])
         seen, _ = PC.locate(rgb, dep, PC.cam_pose(m, d), name, D.OBJECTS[name]["size"][0], z_plane=o["p0"][2], mask=mk)
         o["seen"] = seen
         print(f"[camera] {name}: " + ("NOT seen" if seen is None else f"seen, error {100 * np.linalg.norm((seen - o['p0'])[:2]):.1f} cm"), flush=True)
         o["G"] = {h: (T.grasp_pose(name, h, seen, rest) if seen is not None and D.best_grasp(name) else None) for h in hands}
     VIS = {}; CAMT = None
-    if a.vision:                                                 # same recognition as g1/live_policy_v2_vision.py (CAP_HARD caps)
+    if SEQ: place(SEQ[0])
+    def run_vision():
+        nonlocal_v = {}
+        from g1.perception_v1 import perceive as pv_perceive, pinhole_pixel_to_pelvis, robot_mask
+        Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
+        pos_c, R_c = PC.cam_pose(m, d); T4 = np.eye(4); T4[:3, :3] = R_c @ np.diag([1, -1, -1]); T4[:3, 3] = pos_c - kin.base
+        rgb_v, dep_v = PC.render_head(m, d); sm = robot_mask([kin.a.q[n] for n in arm_ik.ARM_NAMES], None, Ks, T4)(dep_v)
+        t_v = time.time(); res_v = pv_perceive(rgb_v, dep_v, pinhole_pixel_to_pelvis(Ks, T4), self_mask=sm); t_v = time.time() - t_v
+        CAPS = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}
+        for name, o in O.items():
+            if not o.get("active", True): continue
+            best = None
+            for r in res_v["objects"]:
+                dd = float(np.hypot(*(np.array(r["p_pelvis"][:2]) - (o["p0"] - kin.base)[:2])))
+                if dd < 0.06 and (best is None or dd < best[0]): best = (dd, r)
+            lab = best[1]["label"] if best else "unknown"; VIS[name] = (lab, CAPS.get(lab, 0.6))
+            print(f"[vision] {name}: recognised as {lab} -> finger cap {VIS[name][1]:.2f}  ({t_v:.2f} s)", flush=True)
+        return T4
+    if a.vision and SEQ: CAMT = run_vision()
+    if a.vision and not SEQ:                                     # same recognition as g1/live_policy_v2_vision.py (CAP_HARD caps)
         from g1.perception_v1 import perceive as pv_perceive, pinhole_pixel_to_pelvis, robot_mask
         Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
         pos_c, R_c = PC.cam_pose(m, d); CAMT = np.eye(4); CAMT[:3, :3] = R_c @ np.diag([1, -1, -1]); CAMT[:3, 3] = pos_c - kin.base
@@ -181,7 +213,10 @@ def main():
             rp, rR, rpin = right_pose
             O["can_empty"]["G"]["left"] = (M @ rp, M @ rR @ M, M @ rpin)
     floor = kin.base[2] + D.KEEP["z"] + 0.01
-    assigned = assign_objects(O, hands, kin, {"right": a.right_obj, "left": a.left_obj})
+    assigned = {h: SEQ[0] for h in hands} if SEQ else assign_objects(O, hands, kin, {"right": a.right_obj, "left": a.left_obj})
+    for n, o in O.items():                                        # remember the spot grasp; only the active object is a target
+        o["G_spot"], o["seen_spot"] = o["G"], o["seen"]
+        if SEQ and n != SEQ[0]: o["G"], o["seen"] = {}, None
     rest_pose = {h: (kin.a.d.xpos[kin.a.ee[h]].copy(), kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3).copy()) for h in hands}
     # operator axes: replay = the 14/11 session calibration; live = seated calibration (or the older table calibration)
     Rh = {h: (CC.TAKE64_R if a.replay else CC.load_axes(arm_ik.CALIB, h)) for h in hands}
@@ -214,6 +249,7 @@ def main():
         def read(h, i): return gl[h].read()
     rt = G1Dex3Retargeter(max_closure=float(os.environ.get("G1_MAX_CLOSURE", "1.0")))
     hist = {"left": [], "right": []}; blocked = {h: 0 for h in hands}; consec = {h: 0 for h in hands}; max_consec = 0
+    seq = {"k": 0, "lifted": False, "settle": 0.0}
     need_align = False; reset_park_until = 0.0; force_window = {h: [] for h in hands}; egg_grip_cap = {h: 0.70 for h in hands}; c_prev = {}
     log = {h: [] for h in hands}; events = []
     egg_force_mean = lambda h: float(np.mean([f for _, f in force_window[h]])) if force_window[h] else 0.0
@@ -295,7 +331,8 @@ def main():
                 egg_grip_cap[h] = cap_now; c = min(c, cap_now)
             if near: c = float(np.clip(c, c_prev.get(h, 0.0) - FRAGILE_CLOSE / RATE, c_prev.get(h, 0.0) + FRAGILE_CLOSE / RATE))
             c_prev[h] = c
-            fingers[h] = [c, c, c, 0, 0]; status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
+            tgt_s = f" | target {ch.grasp[3].upper().replace('_', ' ')} max {ch.grasp[4]['cap']:.2f}" if ch.grasp else ""
+            fingers[h] = [c, c, c, 0, 0]; status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}{tgt_s}")
             log[h].append(dict(t=t_now, engaged=ch.P0 is not None, p_raw=out["p_raw"], p_filt=out["p_filt"], p_tel=ch.p_tel.copy(), p_cmd=kin.a.d.xpos[kin.a.ee[h]].copy(),
                                q=[kin.a.q[n] for n in kin.a.arm[h]], mode=out["mode"], stage=ch.stage, blocked=bool(why),
                                pin_err=(T.pinch(kin, h) - ch.grasp[2]) if ch.grasp else np.zeros(3), tgt=out["p"].copy(), c=c,
@@ -334,8 +371,27 @@ def main():
             if n.startswith("can") and fo[n] > 15:
                 o["crush"] = min(1.0, o["crush"] + (fo[n] - 15) / 400.0); m.geom_size[o["geom"]][0] = o["r0"] * (1 - 0.35 * o["crush"])
                 m.geom_rgba[o["geom"]] = [0.85, 0.7 - 0.4 * o["crush"], 0.3 - 0.2 * o["crush"], 1]
-            if d.qpos[o["adr"] + 2] < kin.base[2] - 0.5:
+            if o.get("active", True) and d.qpos[o["adr"] + 2] < kin.base[2] - 0.5:
                 d.qpos[o["adr"]:o["adr"] + 3] = o["p0"]; d.qpos[o["adr"] + 3:o["adr"] + 7] = D.obj_quat(n); d.qvel[o["dof"]:o["dof"] + 6] = 0
+        if SEQ:                                                         # lifted >= 4 cm, then released (or dropped / broken): next object
+            cur = SEQ[seq["k"] % len(SEQ)]; o = O[cur]; zrel = float(d.qpos[o["adr"] + 2] - o["p0"][2])
+            if zrel > 0.04 and not seq["lifted"]: seq["lifted"] = True; events.append((round(tick / RATE, 2), "seq", f"{cur} lifted")); print(f"[sequence] {cur} lifted", flush=True)
+            idle = all(chains[h].stage is None for h in hands)
+            done = (seq["lifted"] or o["broken"] or zrel < -0.2) and idle and zrel < 0.03
+            seq["settle"] = seq["settle"] + 1 / RATE if done else 0.0
+            if seq["settle"] > 1.5:
+                seq["k"] += 1; nxt = SEQ[seq["k"] % len(SEQ)]; seq.update(lifted=False, settle=0.0)
+                for n2, o2 in O.items():
+                    if n2 == nxt: o2.update(G=o2["G_spot"], seen=o2["seen_spot"], broken=False, crush=0.0, zmax=float(o2["p0"][2])); m.geom_rgba[o2["geom"]] = o2["rgba0"]; m.geom_size[o2["geom"]][0] = o2["r0"]
+                    else: o2.update(G={}, seen=None)
+                place(nxt)
+                if a.vision: run_vision()
+                for h in hands:
+                    ch = chains[h]; g2 = O[nxt]["G"].get(h)
+                    ch.stage, ch.w, ch.lock, ch.carry = None, 0.0, None, np.zeros(3); egg_grip_cap[h] = 0.70
+                    if g2: prof = dict(D.PROFILE.get(nxt, D.PROFILE["unknown"])); prof["cap"] = VIS[nxt][1] if nxt in VIS else min(prof["cap"], 0.6); ch.grasp = (g2[0], g2[1], g2[2], nxt, prof)
+                events.append((round(tick / RATE, 2), "seq", f"next object: {nxt}")); print(f"[sequence] NEXT OBJECT: {nxt}", flush=True)
+            status.append(f"object {seq['k'] % len(SEQ) + 1}/{len(SEQ)}: {cur}" + (" (lifted - now release it)" if seq["lifted"] else " (grasp it and lift it)"))
         line = " | ".join(status) + f" | L {fh['left']:4.1f} N R {fh['right']:4.1f} N | " + " ".join(f"{n}:{'ROTTO' if o['broken'] else ('ammaccata %d%%' % (100 * o['crush']) if o['crush'] > 0 else 'ok')}" for n, o in O.items()) + f" | blocked {sum(blocked.values())}"
         if viewer is not None:
             with viewer.lock():
@@ -360,6 +416,7 @@ def main():
             if VIS and CAMT is not None:
                 Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
                 for name, o in O.items():
+                    if name not in VIS or not o.get("active", True): continue          # only recognised objects on the table
                     pc_ = CAMT[:3, :3].T @ (d.xpos[o["body"]] - kin.base - CAMT[:3, 3])
                     if pc_[2] <= 0.05: continue
                     u, v, w = Ks @ pc_; u, v = int(u / w), int(v / w); lab, capv = VIS[name]; txt = f"{lab.upper().replace('_', ' ')}  max {capv:.2f}"
@@ -396,6 +453,7 @@ def main():
                 if VIS and CAMT is not None:                         # recognised label + cap on each object, following it
                     Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
                     for name, o in O.items():
+                        if name not in VIS or not o.get("active", True): continue
                         pc = CAMT[:3, :3].T @ (d.xpos[o["body"]] - kin.base - CAMT[:3, 3])
                         if pc[2] <= 0.05: continue
                         u, v, w = Ks @ pc; u, v = int(u / w), int(v / w); lab, capv = VIS[name]; txt = f"{lab}  max {capv:.2f}"
