@@ -32,6 +32,16 @@ W, H = 1920, 1080
 BG, PANEL, TXT, ACC = (24, 22, 28), (38, 36, 44), (235, 235, 240), (60, 200, 120)
 
 
+LABEL_COL = (130, 30, 0)        # dark blue (BGR): readable on the white table and on the objects
+
+
+def tag(img, s, x, y, sc=0.5):
+    """object label: dark-blue bold text on a light box (readable on any background)"""
+    (tw, th_), bl = cv2.getTextSize(s, cv2.FONT_HERSHEY_SIMPLEX, sc, 2); x = max(0, min(x, img.shape[1] - tw - 6)); y = max(th_ + 6, y)
+    cv2.rectangle(img, (x - 3, y - th_ - 5), (x + tw + 3, y + bl), (245, 245, 245), -1)
+    cv2.putText(img, s, (x, y - 2), cv2.FONT_HERSHEY_SIMPLEX, sc, LABEL_COL, 2, cv2.LINE_AA)
+
+
 def put(img, s, xy, sc=0.6, col=TXT, th=1):
     cv2.putText(img, s, xy, cv2.FONT_HERSHEY_SIMPLEX, sc, col, th, cv2.LINE_AA)
 
@@ -196,8 +206,8 @@ class Demo:
             if uv is None: continue
             known = self.det.get(o)
             lab = known["label"] if known else "?"; col = COL.get(lab, COL["unknown"]); r = 34
-            cv2.rectangle(img, (uv[0] - r, uv[1] - r), (uv[0] + r, uv[1] + r), col, 2)
-            put(img, f"{NAME.get(lab, lab)}  max {known['cap']:.2f}" if known else "?", (uv[0] - r, uv[1] - r - 6), 0.45, col, 1)
+            cv2.rectangle(img, (uv[0] - r, uv[1] - r), (uv[0] + r, uv[1] + r), LABEL_COL, 2)
+            tag(img, f"{NAME.get(lab, lab)}  max {known['cap']:.2f}" if known else "?", uv[0] - r, uv[1] - r - 6, 0.45)
         return img
 
     def compose(self, title, sub, state, F, c, cap, force, brk, lift, broken, work, head_img, label, rec):
@@ -247,8 +257,8 @@ class Demo:
         for o in res["objects"]:
             if not o.get("bbox"): continue
             u0, v0, u1, v1 = o["bbox"]; col = COL.get(o["label"], COL["unknown"])
-            cv2.rectangle(img, (u0 - 4, v0 - 4), (u1 + 4, v1 + 4), col, 2)
-            put(img, f"{NAME.get(o['label'], o['label'])}  max {o['cap']:.2f}", (u0 - 4, v0 - 10), 0.5, col, 1)
+            cv2.rectangle(img, (u0 - 4, v0 - 4), (u1 + 4, v1 + 4), LABEL_COL, 2)
+            tag(img, f"{NAME.get(o['label'], o['label'])}  max {o['cap']:.2f}", u0 - 4, v0 - 10, 0.5)
         for i in range(int(secs * RATE)):
             fr = self.compose(title, sub, "SCANNING", np.zeros(5), 0.0, 1.0, 0.0, None, 0.0, False, None, img, None, None)
             y = 760 + 0 * i
