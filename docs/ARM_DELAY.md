@@ -23,6 +23,19 @@ rate-limited arm it is larger than the onset delay); `win` = lag_fit per 20 s wi
 Signature in the plots: the measured joints move in **steps of <= 0.12 rad about once per second**, or ramp at ~0.14 rad/s,
 while `arm_q` still changes on every tick, so the readings are old rather than frozen.
 
+**Same robot, organisers' Linux setup** (VR teleop drops 2+3, 19,371 frames, 63 episodes; Tommaso's
+`aalto/data/g1_wrist_arm_pairs.npz` on branch `aalto/spike`, read only, assuming 30 Hz frames). Their runner+arm
+controller is the same code, but on Linux the SDK uses its C CRC:
+
+| | lag_xc | lag_fit | median abs(cmd - q) |
+|---|---|---|---|
+| organisers, Linux | **0.067 s** (median, p90 also 0.067 = 2 frames) | 0.067 s | 0.010 rad all joints (Tommaso: 0.045 rad on moving frames) |
+| us, Windows (table above) | 0.6-1.3 s | 1.2-2.5 s | 0.05-0.14 rad |
+
+So the robot itself tracks in ~70 ms, and the lag comes from our Windows runner process. In those drops the commanded arms
+also exceed 1 rad/s on a median of 19 % of ticks: the hardware moves faster than our caps (the caps stay; `-Fast` = 2 rad/s
+is the staff-approved maximum).
+
 ## 2. Root cause
 
 1. On Windows, `unitree_sdk2py/utils/crc.py` computes the rt/lowcmd CRC with a **pure-Python bit loop** (`_crc_py`);
@@ -91,7 +104,8 @@ A/B: the same movement without `-LowLag` right before, to compare.
 
 ## 5. Still unverified / next options
 
-- Not run on the robot yet. The real robot's PD response (kp 80, kd 3) adds its own delay; it should be tens of ms.
+- Not run on the robot yet. The real robot's own response is ~70 ms (organisers' Linux drops, section 1), so after
+  the fix expect roughly 0.07-0.15 s.
 - If lag remains on the robot, the next steps by gain/risk are:
   (a) `-NoCamera` (less load);
   (b) `G1_LOWLAG_SWITCH=0.001`;
