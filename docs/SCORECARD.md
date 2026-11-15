@@ -41,7 +41,7 @@ Weighted editorial score: **5.55/10** = `(35*6 + 25*7 + 25*5 + 15*3)/100`. Do no
 | Meaningful use | 25% | `ai/eval_objects.py`; `ai/recognize.py`; `ai/object_profile.py` | 7 | Recognition affects closure decisions, but manual/offline alternatives exist | Demonstrate saved wrong-egg vote through the gate — Tommaso/Claude; 20 min |
 | Technical execution | 25% | `tests/test_recognize.py`; `tests/test_picker_safety.py`; `ai/recognize.py` | 6 | Transport fakes test failure paths; live availability not verified here | Repeat endpoint failure rehearsal when authorised, record elapsed time and fallback — Tommaso/Claude; 30 min |
 | Quality of output, including measured improvement | 25% | `docs/PROMPT_ITERATION.md`; `docs/evidence/recognition/nemotron_run2.json` | 6 | Prompt improvement used the evaluation images; no held-out claim | Freeze prompt and evaluate newly labelled photos; publish confusion and failed calls — Tommaso/Claude + Tommaso; 60 min |
-| Creativity and differentiation | 25% | `ai/recognize.py`; `ai/object_profile.py`; `ai/crosscheck.py` | 7 | Risk-aware fusion is a useful design, not a proven safety guarantee | Compare single model, shared cap, and vote on identical saved rows — Tommaso/Claude; 30 min |
+| Creativity and differentiation | 25% | `ai/recognize.py`; `ai/object_profile.py`; `ai/crosscheck.py` | 7 | Risk-aware fusion is a useful design, not a proven safety property | Compare single model, shared cap, and vote on identical saved rows — Tommaso/Claude; 30 min |
 
 Weighted editorial score: **6.50/10** = `(7+6+6+7)/4`.
 
@@ -114,7 +114,7 @@ Answers describe this snapshot. Evidence paths are relative to the repository ro
 10. **Do real fingers reproduce that improvement?** Not in that experiment: the report records only 2/32 cube lifts for calibrated real grips and does not establish the cushion benefit on them.
 11. **What is toy in the numbers?** Servo gains, contact/friction assumptions, object properties and break criteria are provisional; see `g1/sim/grasp_physics.py` and `robot/scene.py`.
 12. **Are forces measured on hardware?** No. Force outputs in these reports are simulation-model values, not physical sensor readings (`docs/ORCH_BACKLOG.md` §1).
-13. **Are closure values transferable as guarantees?** No. `g1/object_profiles.json` calls them provisional; hardware calibration remains required.
+13. **Are closure values transferable as safe limits?** No. `g1/object_profiles.json` calls them provisional; hardware calibration remains required.
 14. **How are the gloves mapped to Dex3?** Index/middle drive joint pairs; ring/little are ignored; thumb is coupled provisionally (`robot/g1_dex3.py`).
 15. **Is thumb tracking verified?** No; `robot/g1_dex3.py` explicitly marks the thumb assumption unverified.
 16. **What happens when vision fails?** The ensemble selects `other` and a conservative toy cap; the legacy picker returns `cup` (`ai/recognize.py`, `ai/profile_picker.py`). That is not universal physical safety.

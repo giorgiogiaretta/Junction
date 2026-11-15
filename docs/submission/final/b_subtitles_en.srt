@@ -1,0 +1,126 @@
+1
+00:00:00,200 --> 00:00:05,150
+Anaxagoras thought we are the wisest
+animals because we have hands.
+
+2
+00:00:05,200 --> 00:00:10,150
+Aristotle turned it round: we have hands
+because we are wise.
+
+3
+00:00:10,700 --> 00:00:12,525
+Robots finally have hands.
+
+4
+00:00:12,575 --> 00:00:18,150
+Teaching them should be easy, for
+repetitive work, and for delicate work.
+
+5
+00:00:18,700 --> 00:00:21,553
+With Rokoko Smartgloves you just move.
+
+6
+00:00:21,603 --> 00:00:27,844
+On a real Unitree G1, the gloves drove
+both arms and both hands:
+
+7
+00:00:27,894 --> 00:00:33,650
+two runs of 120 seconds, zero commands
+clipped by the safety filter.
+
+8
+00:00:34,200 --> 00:00:35,936
+But gloves cannot feel.
+
+9
+00:00:35,986 --> 00:00:39,954
+The operator feels the egg; the robot does
+not.
+
+10
+00:00:40,004 --> 00:00:46,650
+A confident fist on the human side is a
+crushed egg on the robot side.
+
+11
+00:00:47,200 --> 00:00:49,483
+So the robot looks first.
+
+12
+00:00:49,533 --> 00:00:52,750
+A head camera asks two model families.
+
+13
+00:00:52,800 --> 00:00:56,483
+NVIDIA Nemotron answers in a median 0.22
+seconds.
+
+14
+00:00:56,533 --> 00:01:02,550
+Google Gemma, and PaliGemma on our own
+Verda GPU, give the second key.
+
+15
+00:01:02,600 --> 00:01:08,150
+Fragile first: if one credible model says
+egg, it is an egg.
+
+16
+00:01:08,700 --> 00:01:13,014
+The object sets how far the fingers may
+close.
+
+17
+00:01:13,064 --> 00:01:17,862
+A stress ball closes fully only when both
+families agree.
+
+18
+00:01:17,912 --> 00:01:23,195
+In simulation, same egg, same fist: with
+the cap, held intact.
+
+19
+00:01:23,245 --> 00:01:24,650
+Without it, broken.
+
+20
+00:01:25,200 --> 00:01:29,928
+On our fifty photos, the vote got fifty of
+fifty,
+
+21
+00:01:29,978 --> 00:01:35,183
+and every disagreement between Nemotron
+and Gemma was one model's mistake.
+
+22
+00:01:35,233 --> 00:01:40,439
+One person, one place, one day: a start,
+not a proof.
+
+23
+00:01:40,489 --> 00:01:46,650
+Confidence never told right from wrong, so
+no single model unlocks full closure.
+
+24
+00:01:47,200 --> 00:01:49,650
+Repetitive work: the glove teaches.
+
+25
+00:01:49,700 --> 00:01:52,150
+Delicate work: the camera protects.
+
+26
+00:01:52,200 --> 00:01:57,150
+And every demonstration comes out labelled
+for the next robot.
+
+27
+00:01:57,200 --> 00:01:58,650
+Now it's easy.
+

@@ -1,0 +1,222 @@
+TA C T I L E - L E S S H A N D O F F
+
+
+
+
+Hands made us human
+    Anaxagoras                                                       Aristotle                      Giordano Bruno
+    We are the wisest animals because                                We have hands because we are   The hand is how the mind becomes
+    we have hands.                                                   wise.                          work.
+
+
+Paraphrased, not quoted.
+
+
+
+
+Now we lend ours to robots, and give them eyes so they don't break what they hold.
+
+Giorgio Giaretta · Tommaso Magelli
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                            1
+The easy way to teach a humanoid
+
+
+
+
+      Repetitive work                                                         Delicate work
+      Pick, place, sort. The glove teaches.                                   Eggs, fruit, glassware. The camera protects.
+
+
+
+
+Put the gloves on. Move. The robot follows.                                                                 Now it's easy.
+
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                  2
+Gloves teach: Rokoko drove the real G1
+
+2 × 120 s                                                 runs on the real Unitree G1,
+                                                          arms and Dex3 hands
+
+
+
+
+29.8                                                      commands per second
+                                                                                                REAL G1 STILL
+                                                                                         Insert one frame from Giorgio's clip here:
+                                                                                         robot beside the operator's gloved hands.
+                                                                                                     [DA VERIFICARE]
+
+
+
+0                                                         commands clipped
+                                                          by the safety filter
+
+
+
+         89 takes · 83 Hz glove stream · 0 dropouts · max gap 12 ms
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                           3
+But gloves cannot feel
+
+                                                                              The operator feels the
+                                                                              egg.
+                                                                              The robot does not.
+
+                                                                              A confident fist on the human side is a
+                                                                              crushed egg on the robot side.
+
+
+
+
+       simulation · grasp assist ON · vision OFF
+
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                             4
+The robot looks first: two families vote, fragile first
+
+                                                  NVIDIA key                          Any credible vote says
+                                                                                                                       EGG: gentle cap
+                                                                                      egg
+                                                  Nemotron · median 0.22 s per call
+
+
+
+                                                                                      Both families say stress ball      Full closure
+
+  One head-camera                                 Google key
+       frame                                      Gemma 4 or PaliGemma: two models
+                                                  = ONE key
+                                                                                      Some answer, no agreement       Shared egg/ball cap
+
+
+
+                                                  Colour rule
+                                                  veto only                           No answer or timeout             Conservative cap
+
+
+
+
+On our 50 photos: each Nemotron/Gemma disagreement was exactly one model's error (3 of 3).
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                                 5
+Same egg, same fist
+
+        CAP ON · held intact                                                    CAP OFF · broken
+
+
+
+
+     simulation                                                               simulation
+
+
+In simulation: with the cap held intact, without it broken.                                        Break thresholds are assumed.
+
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                   6
+Measured, honestly, on our 50 photos
+
+
+   48                  of 50
+                                               49                  of 50
+                                                                               49              of 50
+                                                                                                                     50/50
+   Nemotron                                    Gemma 4                         PaliGemma 2                           Together, fragile-first
+   48 of 50 in two runs                        all 20 eggs right               on our own Verda GPU                      50 of 50 on our photos
+   median 0.22 s per call                      median 7.7 s per call (API)     median 0.24 s                         (computed offline, same photos)
+
+                                                                                  Verda GPU
+
+
+
+
+                       Each Nemotron/Gemma                                    The one photo two models got
+                                                                                                                           Every stress ball confirmed by
+3 of 3                 disagreement was exactly one
+                       model's error
+                                                                 egg-012      wrong was saved by the third
+                                                                              model's egg vote
+                                                                                                             22/22         both model families
+
+
+
+
+   Limits. One person, one place, one day, no held-out set. Wrong answers had the same confidence as the lowest right
+   answers.
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                                             7
+Two safety layers
+
+    L AY E R 1 · S I M U L AT I O N                                                          L AY E R 2 · R E A L G 1
+
+
+    The models decide                                                                        The operator decides
+    •
+    •
+          Egg and stress ball share one cap
+          Full closure only if both model families agree,
+                                                                                             0.50              0.90                 1.0
+          or the operator sets it                                             same idea,     egg hard cap      empty can hard cap   ball hard cap
+                                                                               stricter on
+    •     No answer: conservative cap                                          hardware
+                                                                                             •   The camera can only lower them
+                                                                                             •   Organisers' safety filter on every command
+
+
+
+
+Vision-guided grasping is shown in simulation only. The camera-to-cap path for the real robot was tested on simulated frames.
+
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                                         8
+Sponsors in the loop
+
+                                                                                                                      Unitree G1 + Aalto
+          Rokoko                                  NVIDIA                           Google              Verda                runner
+
+
+
+   Motion in                              Fast eyes                           Second key         Our own             The body
+                                                                              + voice            GPU
+   Smartgloves II, Coil                   Nemotron 3.5 Super                  Gemma 4 and        PaliGemma 2 self-   Dex3 hands, safety
+   Pro, SDK stream                        VL, median 0.22 s                   PaliGemma 2: one   hosted; Nemotron    filter on every
+                                          per call                            key                endpoint            command
+
+
+
+
+                                             glove → camera → vote → cap → hand
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                                9
+Proven, and next
+    PROVEN                                                                    NEXT
+
+    •     Real G1: the gloves drove arms and hands, 2 runs of                 •   Vision-guided grasping on the real G1
+          120 s, 0 commands clipped by the safety filter
+                                                                              •   More people, places and days, with a held-out set
+    •     Simulation: same egg, same fist, intact with the cap,
+                                                                              •   Every demonstration labelled with its object: training
+          broken without it
+                                                                                  data
+    •     Recognition: 50 of 50 on our photos, fragile-first
+          (computed offline, same photos)
+
+
+
+
+The glove teaches. The camera protects. Now it's easy.
+github.com/giorgiogiaretta/Junction · Giorgio Giaretta, Tommaso Magelli
+
+
+
+Tactile-less HandOff · Junction 2026 · Rokoko Robot Teleoperation Challenge                                                                10
+

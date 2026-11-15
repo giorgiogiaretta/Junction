@@ -54,7 +54,7 @@ Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/evidence/recognition/README
 
 **Core:** Confidence does not separate right from wrong here: wrong answers and correct ones both scored point nine. Full ball closure needs agreeing model families plus a confidence gate, or explicit operator selection. Eligible egg votes take priority.
 
-**Detail:** Otherwise the shared egg and ball cap is point seven. These are toy thresholds. The egg preference has a confidence condition, and agreement cannot guarantee correctness or physical safety.
+**Detail:** Otherwise the shared egg and ball cap is point seven. These are toy thresholds. The egg preference has a confidence condition, and agreement does not prove correctness or physical safety.
 
 Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/CODE_TOUR.md`, `docs/SCORECARD.md`.
 
