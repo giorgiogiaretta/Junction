@@ -159,7 +159,10 @@ class HandChain:
     def __init__(self, side, Rh, rest, grasp, cfg, floor_z):
         self.side, self.Rh, self.cfg, self.floor = side, np.asarray(Rh, float), cfg, floor_z
         self.Rp = self.Rh.copy()                                   # axes for POSITIONS (orientation keeps Rh, a proper rotation)
-        if UP_SIGN.get(side, 1) < 0: self.Rp[2] *= -1.0            # Coil hemisphere flip: the glove is reported at -P
+        self.Ro = self.Rh.copy()                                   # axes for ORIENTATION (proper rotation)
+        if UP_SIGN.get(side, 1) < 0:                               # Coil hemisphere flip: the glove is reported at -P, so the calibration
+            self.Rp[2] *= -1.0                                     # learnt forward/left negated: positions need the up row mirrored,
+            self.Ro = np.diag([-1.0, -1.0, 1.0]) @ self.Rh         # orientation the true rotation (else pitch and roll come out inverted)
         self.rest_p, self.rest_R = np.array(rest[0], float), np.array(rest[1], float)
         self.grasp = grasp; c = cfg
         self.pf, self.qf = OneEuro(c.pos_cutoff, c.pos_beta), QuatEuro(c.rot_cutoff, c.rot_beta)
@@ -245,7 +248,7 @@ class HandChain:
         if c.legacy and self.first: self.p_tel = p_tel.copy()                 # old: the first mapped target is taken as is (A7 jump)
         self.first = False
         # orientation: operator rotation relative to his flat hand, expressed in the robot frame, applied to the base (rest) rotation
-        Qf = self.qf(Q, t); R_rel = self.Rh @ q2m(Qf) @ q2m(self.Q0).T @ self.Rh.T
+        Qf = self.qf(Q, t); R_rel = self.Ro @ q2m(Qf) @ q2m(self.Q0).T @ self.Ro.T
         rv = rotvec(R_rel); n = np.linalg.norm(rv)
         if n > np.radians(WRIST_MAX_DEG): R_rel = from_rotvec(rv * np.radians(WRIST_MAX_DEG) / n)
         # new: the neutral (flat-hand) orientation turns from the rest rotation to the grasp rotation as the hand reaches the object
@@ -319,15 +322,21 @@ class HandChain:
 # the palm faces +y of the right wrist frame and -y of the left one; fingers point along wrist +x.
 PALM_DOWN_R = {"right": np.array([[1.0, 0, 0], [0, 0, 1.0], [0, -1.0, 0]]),     # columns: x fwd, y (palm) down, z
                "left": np.array([[1.0, 0, 0], [0, 0, -1.0], [0, 1.0, 0]])}
-REST_XYZ = (0.27, 0.20, 0.12)        # pelvis frame: 27 cm forward, 20 cm to the side, 12 cm above the counter
+REST_XYZ = (0.20, 0.18, 0.16)        # pelvis frame: 20 cm forward, 18 cm to the side, 16 cm above the counter (room to move >= 12 cm in every direction; 0.27 forward was near full reach)
 
 
 def palm_down_rest(kin, counter_z, sides=("left", "right"), iters=150):
     """Solve the arms (in place) to the palm-down front rest pose; returns the joint dict. Errors are printed, never hidden."""
     x, y, z = REST_XYZ
+    try:                                       # seed + null-space = the posture the REAL G1 used for this wrist pose (aalto drops):
+        import arm_prior; pri = arm_prior.RealArmPrior()     # bent elbow, arm in front, wrist joints mid-range (an IK from the home
+    except Exception: pri = None                             # pose ended with a straight, abducted arm and the wrist near its limit)
     for s in sides:
-        p = kin.base + np.array([x, y if s == "left" else -y, counter_z + z])
-        for _ in range(iters): kin.a.solve(s, p, PALM_DOWN_R[s])
+        p = kin.base + np.array([x, y if s == "left" else -y, counter_z + z]); q_rest = None
+        if pri is not None:
+            q7, _ = pri.target(s, p - kin.base, PALM_DOWN_R[s]); q_rest = dict(kin.a.q); q_rest.update({n: float(v) for n, v in zip(pri.names[s], q7)})
+            kin.a.q.update({n: float(v) for n, v in zip(pri.names[s], q7)}); kin.a.apply()
+        for _ in range(iters): kin.a.solve(s, p, PALM_DOWN_R[s], q_rest=q_rest, k_rest=0.2)
         e = np.linalg.norm(kin.a.d.xpos[kin.a.ee[s]] - p); r = np.degrees(np.linalg.norm(arm_ik.rot_err(PALM_DOWN_R[s], kin.a.d.xmat[kin.a.ee[s]].reshape(3, 3))))
         print(f"[rest] {s}: palm-down front pose, error {100 * e:.1f} cm / {r:.0f} deg", flush=True)
     return dict(kin.a.q)

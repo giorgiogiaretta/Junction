@@ -78,15 +78,15 @@ def build_multi(objs):
 
 def force_plot(hist, W=640, H=220):
     img = np.full((H, W, 3), 250, np.uint8); fmax = 60.0
-    for thr, lab, col in ((20, "uovo si rompe ~20 N (ipotesi)", (0, 0, 220)), (15, "lattina si ammacca ~15 N (ipotesi)", (0, 140, 255))):
+    for thr, lab, col in ((20, "egg breaks ~20 N (assumed)", (0, 0, 220)), (15, "can dents ~15 N (assumed)", (0, 140, 255))):
         y = int(H - 20 - (H - 40) * thr / fmax); cv2.line(img, (40, y), (W - 10, y), col, 1); cv2.putText(img, lab, (W - 260, y - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, col, 1)
     for h, col in (("left", (200, 90, 30)), ("right", (40, 160, 40))):
         v = hist[h][-300:]
         if len(v) > 1:
             pts = [(int(40 + (W - 50) * i / 299), int(H - 20 - (H - 40) * min(f, fmax) / fmax)) for i, f in enumerate(v)]
             cv2.polylines(img, [np.array(pts, np.int32)], False, col, 2, cv2.LINE_AA)
-        cv2.putText(img, f"{'sinistra' if h == 'left' else 'destra'}: {v[-1] if v else 0:5.1f} N", (50 if h == "left" else 250, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.55, col, 2)
-    cv2.putText(img, "forza mano-oggetto, ultimi 10 s (0-60 N)", (40, H - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
+        cv2.putText(img, f"{'left' if h == 'left' else 'right'}: {v[-1] if v else 0:5.1f} N", (50 if h == "left" else 250, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.55, col, 2)
+    cv2.putText(img, "hand-object force, last 10 s (0-60 N)", (40, H - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
     return img
 
 
@@ -110,6 +110,7 @@ def main():
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
     ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--video", help="write a 1920x1080 mp4 (robot view + head camera with recognition + force plot)")
     ap.add_argument("--fast", action="store_true", help="same limits as the robot's -Fast: joints 1.8 rad/s, faster target, only robot self-collision blocks")
     ap.add_argument("--vision", action="store_true", help="head camera recognises each object (g1/perception_v1, as the robot code) and sets its finger cap (egg 0.50, can 0.90, ball 1.0)")
     ap.add_argument("--prior", action="store_true", help="real-G1 posture prior (Tommaso's aalto data) as the IK null-space target")
@@ -319,6 +320,37 @@ def main():
                 viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, "teleop", line)])
             viewer.sync()
         if tick % (90 if a.replay else 15) == 0: print(line, flush=True)
+        if a.video:
+            if "vw" not in locals():
+                m.vis.global_.offwidth, m.vis.global_.offheight = 1920, 1080
+                vrend = mujoco.Renderer(m, 760, 1100); hrend = mujoco.Renderer(m, 480, 640); vcam = mujoco.MjvCamera()
+                vcam.lookat[:] = [0.28, 0.0, D.PELVIS_Z + 0.05]; vcam.distance, vcam.azimuth, vcam.elevation = 1.5, 200, -24
+                vw = cv2.VideoWriter(a.video, cv2.VideoWriter_fourcc(*"mp4v"), 30, (1920, 1080))
+            fr = np.full((1080, 1920, 3), (28, 24, 22), np.uint8)
+            cv2.rectangle(fr, (0, 0), (1920, 70), (44, 36, 38), -1)
+            cv2.putText(fr, "G1  x  ROKOKO GLOVES + COIL PRO  x  COMPUTER VISION", (28, 46), cv2.FONT_HERSHEY_SIMPLEX, 1.05, (240, 235, 235), 2, cv2.LINE_AA)
+            vrend.update_scene(d, vcam); fr[90:850, 20:1120] = vrend.render()[:, :, ::-1]
+            hrend.update_scene(d, "head_cam"); himg = hrend.render()[:, :, ::-1].copy()
+            if VIS and CAMT is not None:
+                Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
+                for name, o in O.items():
+                    pc_ = CAMT[:3, :3].T @ (d.xpos[o["body"]] - kin.base - CAMT[:3, 3])
+                    if pc_[2] <= 0.05: continue
+                    u, v, w = Ks @ pc_; u, v = int(u / w), int(v / w); lab, capv = VIS[name]; txt = f"{lab.upper().replace('_', ' ')}  max {capv:.2f}"
+                    cv2.rectangle(himg, (u - 34, v - 34), (u + 34, v + 34), (130, 30, 0), 2)
+                    (tw, th_), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                    cv2.rectangle(himg, (u - 37, v - 40 - th_), (u - 31 + tw, v - 36), (245, 245, 245), -1)
+                    cv2.putText(himg, txt, (u - 34, v - 38), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 30, 0), 2, cv2.LINE_AA)
+            fr[90:660, 1140:1900] = cv2.resize(himg, (760, 570))
+            cv2.putText(fr, "G1 HEAD CAMERA + object recognition", (1150, 685), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (235, 235, 240), 1, cv2.LINE_AA)
+            fp = cv2.resize(force_plot(hist), (760, 260)); fr[720:980, 1140:1900] = fp
+            for i, (h, st) in enumerate(zip(hands, status)):
+                cv2.putText(fr, st[:95], (28, 900 + 40 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (235, 235, 240), 1, cv2.LINE_AA)
+            cv2.putText(fr, f"t {tick / RATE:5.1f} s   blocked {sum(blocked.values())}   " + " ".join(f"{n}: {'BROKEN' if o['broken'] else 'ok'}" for n, o in O.items()),
+                        (28, 1000), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (120, 220, 140), 1, cv2.LINE_AA)
+            cv2.putText(fr, "MuJoCo simulation - operator's recorded glove + Coil takes" if a.replay else "MuJoCo simulation - live gloves + Coil",
+                        (24, 1070), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 140, 150), 1, cv2.LINE_AA)
+            vw.write(fr)
         if not a.headless and tick % 3 == 0:
             cv2.imshow("forze", force_plot(hist))
             if rend is not None:
@@ -375,6 +407,7 @@ def main():
         if CC.NATURAL[h]: res["hands"][h]["natural_rms_rad"] = round(float(np.median(CC.NATURAL[h])), 3); res["hands"][h]["natural_p95_rad"] = round(float(np.percentile(CC.NATURAL[h], 95)), 3)
     print("[metrics] " + json.dumps(res["hands"]) + " " + json.dumps(res["objects"]) + f" blocked {blocked}", flush=True)
     if a.metrics: json.dump(res, open(a.metrics, "w"), indent=1, default=float)
+    if a.video and "vw" in locals(): vw.release(); print("video:", a.video, flush=True)
 
 
 if __name__ == "__main__":
