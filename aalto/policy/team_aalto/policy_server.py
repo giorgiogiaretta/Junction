@@ -9,6 +9,7 @@ the instruction names, so orange/red or purple/blue never compete, and colours w
 from __future__ import annotations
 
 import logging
+import os
 import time
 
 from aaltonomous.baselines.classical.policy_server import ClassicalServerPolicy
@@ -25,9 +26,9 @@ log = logging.getLogger("team_aalto")
 #   S 143, bin walls H 11 S 167, bin floor H 16 S 114, mat S < 5. Ranges cover sim + real; flat table / mat blobs
 #   that slip through are rejected by the planner's depth height check (height_range), bins by their 3D hulls.
 HSV = {
-    "yellow": [[[18, 45, 110], [55, 255, 255]]],
+    "yellow": [[[24, 45, 110], [55, 255, 255]]],   # real H 44-47, sim H 28: must NOT reach orange (sim H 20)
     "purple": [[[100, 30, 70], [140, 255, 255]]],
-    "orange": [[[8, 110, 100], [24, 255, 255]]],
+    "orange": [[[7, 110, 115], [23, 255, 255]]],   # real H 12-14, sim H ~15-20; real bins H 4-6 / V < 110
     "red":    [[[0, 70, 70], [8, 255, 255]], [[170, 70, 70], [180, 255, 255]]],
     "blue":   [[[100, 70, 50], [130, 255, 255]]],
 }
@@ -35,6 +36,12 @@ HSV = {
 
 class TeamPolicy(ClassicalServerPolicy):
     name = "team-aalto-classical-lang"
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        # Objects start >= 8 cm apart; a failed claw grasp pushes the object a few cm. With the default 3 cm the
+        # pushed object looked new and was retried up to 7 times (sim seed 1001): count it as the same object.
+        self.pol.cfg["policy"]["same_object_radius"] = 0.06
 
     def reset(self, instruction, task=None, seed=None):
         job, t0 = self.pol._job, time.monotonic()
@@ -49,4 +56,4 @@ class TeamPolicy(ClassicalServerPolicy):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    serve(TeamPolicy(), port=8000)
+    serve(TeamPolicy(), port=int(os.environ.get("TEAM_POLICY_PORT", "8000")))

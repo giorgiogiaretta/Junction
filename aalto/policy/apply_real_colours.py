@@ -35,7 +35,7 @@ edit("interface/tasks.py", [
 ])
 edit("scene/scene.yaml", [
     ("    red: [200, 30, 30]\n    yellow: [235, 200, 20]\n    blue: [30, 70, 200]",
-     "    yellow: [235, 215, 60]\n    purple: [105, 95, 225]\n    orange: [245, 125, 35]"),
+     "    yellow: [235, 215, 60]\n    purple: [105, 95, 225]\n    orange: [240, 90, 30]"),
     ("  rgb: [230, 110, 30]                         # (default) orange",
      "  rgb: [225, 70, 30]                          # real venue boxes (H ~5), redder than orange objects"),
 ])
