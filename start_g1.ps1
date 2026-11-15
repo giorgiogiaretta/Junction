@@ -23,6 +23,8 @@ param([switch]$NoPrior, [switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
 if ($CoilVision) { $Coil = [switch]$true }
+# with -CoilVision the per-object caps (egg 0.60, can 0.90, ball 1.0) are the real limits: G1_MAX_CLOSURE would multiply them, so 1.0 unless given
+if ($CoilVision -and -not $PSBoundParameters.ContainsKey("Closure")) { $Closure = "1.0" }
 if ($NoPrior) { $env:G1_PRIOR = "0" } else { Remove-Item Env:G1_PRIOR -ErrorAction SilentlyContinue }
 if ($Fast) { $env:G1_FAST = "1"; Write-Host "FAST MODE (staff-approved): arms 2 rad/s, no table zone; robot self-collision check ON" -ForegroundColor Yellow } else { Remove-Item Env:G1_FAST -ErrorAction SilentlyContinue }
 if ($LowLag) { $env:G1_LOWLAG = "1" } else { Remove-Item Env:G1_LOWLAG -ErrorAction SilentlyContinue }

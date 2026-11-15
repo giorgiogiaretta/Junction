@@ -60,7 +60,7 @@ VLM = tuple(v for v in os.environ.get("G1_VLM", "").split(",") if v)       # e.g
 LOG_FLUSH_S = 0.5                                                    # s for routine tick lines; events and blocked ticks flush at once
 # hard finger caps per object (the camera label can only LOWER the CLI object's cap): egg 0.70 never more; empty can = perception_v1's
 # rule (0.45, object_profiles.json); stress_ball keeps demo_e2e's 1.0 (cannot break, the real grip is weak: a lower cap only drops it)
-CAP_HARD = {"egg": 0.52, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: egg light (0.50 -> 0.52, a bit firmer; the Coil sim breaks it from 0.53), ball 1.0, can 0.9
+CAP_HARD = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: camera sees egg -> never above 0.60, can 0.90, ball 1.0
 LABELS = {"can": "can_empty", "ball": "stress_ball", "egg": "egg", "can_empty": "can_empty", "stress_ball": "stress_ball"}
 LIVE = os.path.join(ROOT, "data", "live")
 LIM = json.load(open(os.path.join(ROOT, "docs", "g1_dex3_limits.json")))

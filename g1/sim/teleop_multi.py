@@ -156,7 +156,7 @@ def main():
         pos_c, R_c = PC.cam_pose(m, d); CAMT = np.eye(4); CAMT[:3, :3] = R_c @ np.diag([1, -1, -1]); CAMT[:3, 3] = pos_c - kin.base
         rgb_v, dep_v = PC.render_head(m, d); sm = robot_mask([kin.a.q[n] for n in arm_ik.ARM_NAMES], None, Ks, CAMT)(dep_v)
         t_v = time.time(); res_v = pv_perceive(rgb_v, dep_v, pinhole_pixel_to_pelvis(Ks, CAMT), self_mask=sm); t_v = time.time() - t_v
-        CAP_HARD = {"egg": 0.52, "can_empty": 0.90, "stress_ball": 1.0}   # egg 0.52: highest grip that does not break it in this sim (0.53+ breaks)
+        CAP_HARD = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: egg 0.60 (accepted risk: this sim breaks it from 0.53), can 0.90, ball 1.0
         for name, o in O.items():
             best = None
             for r in res_v["objects"]:
