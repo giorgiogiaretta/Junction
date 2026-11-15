@@ -2,6 +2,18 @@
 
 Rokoko Smartgloves make teaching a humanoid easy: put them on, move naturally, and a Unitree G1's arms and Dex3 hands follow. But gloves cannot feel force, and a confident human fist crushes an egg. So the robot looks first: a head camera asks two model families (NVIDIA Nemotron, Google Gemma / PaliGemma), the fragile answer always wins, and the object sets a **closure cap** the fingers cannot exceed.
 
+## Junction 2026 submission (Rokoko challenge)
+
+**Tactile-less HandOff:** Rokoko gloves teach a Unitree G1 humanoid, and a head camera with vision models sets how far each hand may close for the object it is about to hold (egg, stress ball, can).
+
+- **Video (2 min):** *link added at submission* · **Pitch deck (PDF):** `docs/submission/final/deck_text.txt` (text) and the PDF in the submission form
+- **Reproduce the numbers:** `python3 -m verify.run` recomputes every recognition number from the saved model answers in `docs/evidence/recognition/` (offline, no key). Tests: `python3 -m pytest tests -q`.
+- **Shown on the real G1:** the gloves drove both arms and both Dex3 hands: 2 runs of 120 s, 29.8 commands per second, 0 commands clipped by the safety filter. No vision-guided object grasp is claimed on the physical robot.
+- **Shown in simulation only:** the camera recognises the object, sets the closure limit, and the grasp is held intact with the limit and breaks without it (MuJoCo, grasp assist ON in the demo clips; closure limits and break thresholds are toy values until calibrated on hardware).
+- **Limit of the recognition numbers:** 50 labelled photos from one person, one place, one day, with no held-out set.
+- **Final texts:** `docs/submission/final/` (form, video script, subtitles, jury cheat sheet) · all claims: `docs/submission/STORY.md`.
+
+
 ```
 Smartgloves II + Coil Pro ──▶ rgmp_client (83 Hz) ──────────────────────────────▶ G1 arms + Dex3 fingers
 head camera ──▶ Nemotron (NVIDIA) + Gemma/PaliGemma (Google) + colour ──fragile-first──▶ closure cap ──┘
