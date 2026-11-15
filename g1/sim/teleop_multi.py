@@ -110,6 +110,7 @@ def main():
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
     ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--vision", action="store_true", help="head camera recognises each object (g1/perception_v1, as the robot code) and sets its finger cap (egg 0.50, can 0.90, ball 1.0)")
     ap.add_argument("--prior", action="store_true", help="real-G1 posture prior (Tommaso's aalto data) as the IK null-space target")
     ap.add_argument("--old-rest", action="store_true", help="previous robot rest pose (wrists rolled, palms sideways)")
     ap.add_argument("--slow", action="store_true", help="previous speed/filter settings (before the 14/11 evening latency tuning)")
@@ -144,6 +145,21 @@ def main():
         o["seen"] = seen
         print(f"[camera] {name}: " + ("NOT seen" if seen is None else f"seen, error {100 * np.linalg.norm((seen - o['p0'])[:2]):.1f} cm"), flush=True)
         o["G"] = {h: (T.grasp_pose(name, h, seen, rest) if seen is not None and D.best_grasp(name) else None) for h in hands}
+    VIS = {}; CAMT = None
+    if a.vision:                                                 # same recognition as g1/live_policy_v2_vision.py (CAP_HARD caps)
+        from g1.perception_v1 import perceive as pv_perceive, pinhole_pixel_to_pelvis, robot_mask
+        Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
+        pos_c, R_c = PC.cam_pose(m, d); CAMT = np.eye(4); CAMT[:3, :3] = R_c @ np.diag([1, -1, -1]); CAMT[:3, 3] = pos_c - kin.base
+        rgb_v, dep_v = PC.render_head(m, d); sm = robot_mask([kin.a.q[n] for n in arm_ik.ARM_NAMES], None, Ks, CAMT)(dep_v)
+        t_v = time.time(); res_v = pv_perceive(rgb_v, dep_v, pinhole_pixel_to_pelvis(Ks, CAMT), self_mask=sm); t_v = time.time() - t_v
+        CAP_HARD = {"egg": 0.50, "can_empty": 0.90, "stress_ball": 1.0}
+        for name, o in O.items():
+            best = None
+            for r in res_v["objects"]:
+                dd = float(np.hypot(*(np.array(r["p_pelvis"][:2]) - (o["p0"] - kin.base)[:2])))
+                if dd < 0.06 and (best is None or dd < best[0]): best = (dd, r)
+            lab = best[1]["label"] if best else "unknown"; VIS[name] = (lab, CAP_HARD.get(lab, 0.5))
+            print(f"[vision] {name}: recognised as {lab} -> finger cap {VIS[name][1]:.2f}  ({t_v:.2f} s)", flush=True)
     # Mirror the right-hand Cartesian can grasp across the sagittal plane, then solve it on the left.
     if "can_empty" in O and "left" in hands and O["can_empty"]["G"].get("left") is not None:
         M = np.diag([1.0, -1.0, 1.0])
@@ -163,7 +179,10 @@ def main():
     if not a.replay: CC.load_neutral(arm_ik.CALIB, hands)
     for h in hands:
         n = assigned[h]; gr = None
-        if n is not None and O[n]["G"].get(h): gp, gR, pin_t = O[n]["G"][h]; gr = (gp, gR, pin_t, n, D.PROFILE.get(n, D.PROFILE["unknown"]))
+        if n is not None and O[n]["G"].get(h):
+            gp, gR, pin_t = O[n]["G"][h]; prof = dict(D.PROFILE.get(n, D.PROFILE["unknown"]))
+            if n in VIS: prof["cap"] = min(prof["cap"], VIS[n][1])          # vision: cap of the RECOGNISED object
+            gr = (gp, gR, pin_t, n, prof)
         chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], gr, cfg, floor)
         print(f"[map] {h} hand -> {n}; start pose = robot rest pose (hand flat on your table)", flush=True)
     # input: live gloves or scripted replay (sim time, deterministic)
@@ -190,7 +209,7 @@ def main():
     if not a.headless:
         from mujoco import viewer as mjv
         viewer = mjv.launch_passive(m, d)
-    rend = mujoco.Renderer(m, 240, 320) if a.cam and not a.headless else None
+    rend = mujoco.Renderer(m, 480, 640) if a.cam and not a.headless else None
     spt = int(round(1 / RATE / m.opt.timestep)); f6 = np.zeros(6); t0 = time.time(); tick = 0
     hand_bodies = {h: {b for b in range(m.nbody) if (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "").startswith(f"{h}_hand_")} for h in ("left", "right")}
 
@@ -301,7 +320,18 @@ def main():
         if not a.headless and tick % 3 == 0:
             cv2.imshow("forze", force_plot(hist))
             if rend is not None:
-                rend.update_scene(d, "head_cam"); cv2.imshow("camera in testa G1", rend.render()[:, :, ::-1].copy())
+                rend.update_scene(d, "head_cam"); cimg = rend.render()[:, :, ::-1].copy()
+                if VIS and CAMT is not None:                         # recognised label + cap on each object, following it
+                    Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
+                    for name, o in O.items():
+                        pc = CAMT[:3, :3].T @ (d.xpos[o["body"]] - kin.base - CAMT[:3, 3])
+                        if pc[2] <= 0.05: continue
+                        u, v, w = Ks @ pc; u, v = int(u / w), int(v / w); lab, capv = VIS[name]; txt = f"{lab}  max {capv:.2f}"
+                        cv2.rectangle(cimg, (u - 34, v - 34), (u + 34, v + 34), (130, 30, 0), 2)
+                        (tw, th_), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                        cv2.rectangle(cimg, (u - 37, v - 40 - th_), (u - 31 + tw, v - 36), (245, 245, 245), -1)
+                        cv2.putText(cimg, txt, (u - 34, v - 38), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 30, 0), 2, cv2.LINE_AA)
+                cv2.imshow("G1 head camera", cimg)
             k = cv2.waitKey(1) & 0xFF
             if k != 255: print(f"[key] {chr(k) if 32 <= k < 127 else k}", flush=True)
             if k in (ord("a"), ord("A"), ord("c"), ord("C")):             # manual re-anchor: hands flat + still on the table for 1 s
