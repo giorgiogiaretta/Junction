@@ -29,7 +29,7 @@ def moves():
             ("yaw 30 (fingers to the left)", [0, 0, 0], [0, 0, A])]
 
 
-def run(side, mirrored, prior=False, fast=False, cal_mirrored=None):
+def run(side, mirrored, prior=False, fast=False, cal_mirrored=None, ramp=0.3):
     """mirrored: the Coil reports this glove at -P during the RUN; cal_mirrored: ... during the CALIBRATION (default = mirrored).
     They differ when the Coil changes hemisphere between calibration and run (15/11 04:10, right glove): coil_chain.hemi_fix."""
     cal_mirrored = mirrored if cal_mirrored is None else cal_mirrored
@@ -40,8 +40,8 @@ def run(side, mirrored, prior=False, fast=False, cal_mirrored=None):
     Rh_cal = D_ @ Rh_true if cal_mirrored else Rh_true                           # what seated_calib measures from -P samples
     if cal_mirrored: CC.UP_SIGN[side] = -1                                       # what its last step (up check) finds
     cfg = CC.Cfg()
-    if fast: cfg.joint_speed, cfg.vmax, cfg.vfinal, cfg.wfinal = 1.8, 1.3, 1.2, np.radians(400)
-    if fast: cfg.pos_cutoff, cfg.pos_beta, cfg.rot_cutoff, cfg.rot_beta = 2.5, 120.0, 2.5, 6.0
+    if fast: cfg.fast()                                                          # = robot -Fast / simulator --fast
+    cfg.manual_grasp()                                                           # 15/11 operator setting (no snap)
     CC.PRIOR = None
     if prior:
         import arm_prior; CC.PRIOR = arm_prior.RealArmPrior()
@@ -67,7 +67,7 @@ def run(side, mirrored, prior=False, fast=False, cal_mirrored=None):
     for name, d_op, rv_op in moves():
         traj = []
         for i in range(int(1.6 * RATE)):                                    # 0.3 s ramp to the pose, then hold
-            s = min(1.0, (i + 1) / (0.3 * RATE)); p, R = step(np.array(d_op) * s, np.array(rv_op) * s); traj.append((p, R))
+            s = min(1.0, (i + 1) / (ramp * RATE)); p, R = step(np.array(d_op) * s, np.array(rv_op) * s); traj.append((p, R))
         pf, Rf = traj[-1]
         if np.linalg.norm(d_op) > 0:
             v = pf - p0; ref = np.array(d_op, float); amp = np.array([np.linalg.norm(x[0] - p0) for x in traj])

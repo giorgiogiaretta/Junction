@@ -18,7 +18,7 @@
 #   -LowLag: runner process with the bit-identical fast CRC (winshim/lowlag.py): fixes the ~1 s stale robot state that made
 #            the arms lag and move in steps (docs/ARM_DELAY.md). Performance only, no safety rule changed. Off by default
 #            until confirmed on the robot.
-param([switch]$NoPrior, [switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [switch]$LowLag, [int]$Seconds = 300, [string]$Closure = "0.6",
+param([switch]$NoPrior, [switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [switch]$LowLag, [switch]$Assist, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
@@ -27,6 +27,7 @@ if ($CoilVision) { $Coil = [switch]$true }
 if ($CoilVision -and -not $PSBoundParameters.ContainsKey("Closure")) { $Closure = "1.0" }
 if ($NoPrior) { $env:G1_PRIOR = "0" } else { Remove-Item Env:G1_PRIOR -ErrorAction SilentlyContinue }
 if ($Fast) { $env:G1_FAST = "1"; Write-Host "FAST MODE (staff-approved): arms 2 rad/s, no table zone; robot self-collision check ON" -ForegroundColor Yellow } else { Remove-Item Env:G1_FAST -ErrorAction SilentlyContinue }
+if ($Assist) { $env:G1_ASSIST = "1" } else { Remove-Item Env:G1_ASSIST -ErrorAction SilentlyContinue }   # -CoilVision: old strong assist + snap grasp (default since 15/11: manual grasp)
 if ($LowLag) { $env:G1_LOWLAG = "1" } else { Remove-Item Env:G1_LOWLAG -ErrorAction SilentlyContinue }
 # the runner loads its shims from the organisers' folder: keep them in sync with this checkout's copy
 Copy-Item -Force "$PSScriptRoot\tools\g1_windows_runner\winshim\*.py", "$PSScriptRoot\tools\g1_windows_runner\winshim\run_real.ps1" "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\" -ErrorAction SilentlyContinue

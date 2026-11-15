@@ -145,8 +145,10 @@ class LivePolicyV2(Policy):
         self.floor = self.kin.base[2] + (D.KEEP["z"] - 0.25 if FAST else D.KEEP["z"] + 0.01)
         # FAST = the settings tested in the Coil simulator (teleop_multi --fast, 15/11): fast targets, strong smoothing only while the hand
         # is still (Coil noise), cutoff rising quickly with speed, easier assist (9 cm) and snap (6 cm)
-        self.cfg = CC.Cfg(joint_speed=JOINT_SPEED, **(dict(vmax=1.3, vfinal=1.2, wfinal=np.radians(400), pos_cutoff=2.5, pos_beta=120.0,
-                                                          rot_cutoff=2.5, rot_beta=6.0, assist_r=0.09, snap_xy=0.06) if FAST else {}))
+        self.cfg = CC.Cfg(joint_speed=JOINT_SPEED)
+        if FAST: self.cfg.fast()                                               # = simulator --fast (coil_chain.Cfg.fast)
+        arm_ik.WRIST_GAIN, arm_ik.W_ROT = 1.08, 0.4                         # operator 15/11: wrist slightly faster (runner cap still respected)
+        if os.environ.get("G1_ASSIST") != "1": self.cfg.manual_grasp()        # operator 15/11: manual grasp (start_g1 -Assist = old assist + snap)
         replay = source.startswith("replay:")
         self.Rh = {h: (CC.TAKE64_R if replay else CC.load_axes(arm_ik.CALIB, h)) for h in objs}
         miss = [h for h in objs if self.Rh[h] is None]
@@ -405,12 +407,10 @@ class LivePolicyV2(Policy):
                     reasons += why; info[side] = out["mode"] + (f" ev:{out['ev']}" if out["ev"] else "")
                     # each robot finger follows its own glove finger; the chain's limit (pre-shape 50 % while approaching,
                     # 0 while releasing) scales them all
-                    pr = ch.grasp[4]; F = np.asarray(s[0], float); g = 0.5 * (F[1] + F[2])
-                    full = pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1)); k = 0.0 if full < 1e-6 else min(1.0, out["c"] / full)
-                    fingers[side] = [k * pr["cap"] * float(np.clip(F[i] / pr["g_ref"], 0, 1)) for i in range(3)] + [0.0, 0.0]
+                    fingers[side] = CC.finger_cmd(ch.grasp[4], s[0], out["c"])
             qcmd = np.asarray(self.kin.a.arm_q())
             if any(v < LIM["arm_q"][i]["filter"][0] or v > LIM["arm_q"][i]["filter"][1] for i, v in enumerate(qcmd)): reasons.append("joint_filter")
-            if np.any(np.abs(qcmd - self.last_cmd) > JOINT_SPEED / RATE + 1e-4): reasons.append("arm_speed")
+            if np.any(np.abs(qcmd - self.last_cmd) > arm_ik.joint_steps(arm_ik.ARM_NAMES, JOINT_SPEED / RATE) + 1e-4): reasons.append("arm_speed")
             if reasons:
                 self.kin.a.q.update(prev); self.kin.a.apply(); self.blocked += 1; self.consec += 1
                 fingers = {"left": None, "right": None}

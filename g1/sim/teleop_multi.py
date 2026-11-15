@@ -114,6 +114,7 @@ def main():
     ap.add_argument("--video", help="write a 1920x1080 mp4 (robot view + head camera with recognition + force plot)")
     ap.add_argument("--fast", action="store_true", help="same limits as the robot's -Fast: joints 1.8 rad/s, faster target, only robot self-collision blocks")
     ap.add_argument("--vision", action="store_true", help="head camera recognises each object (g1/perception_v1, as the robot code) and sets its finger cap (egg 0.50, can 0.90, ball 1.0)")
+    ap.add_argument("--assist", action="store_true", help="previous strong grasp assist + snap grasp (default since 15/11: manual grasp)")
     ap.add_argument("--prior", action="store_true", help="real-G1 posture prior (Tommaso's aalto data) as the IK null-space target")
     ap.add_argument("--old-rest", action="store_true", help="previous robot rest pose (wrists rolled, palms sideways)")
     ap.add_argument("--slow", action="store_true", help="previous speed/filter settings (before the 14/11 evening latency tuning)")
@@ -123,15 +124,15 @@ def main():
     import arm_prior; EVAL = arm_prior.RealArmPrior()            # always measured (naturalness), used only with --prior
     if a.prior: CC.PRIOR = arm_prior.RealArmPrior()
     cfg = CC.Cfg.old() if a.legacy else (CC.Cfg.slow() if a.slow else CC.Cfg())
-    if a.fast: cfg.joint_speed, cfg.vmax, cfg.vfinal, cfg.wfinal = 1.8, 1.3, 1.2, np.radians(400)   # = live_policy_v2 G1_FAST
-    if a.fast: cfg.assist_r, cfg.snap_xy = 0.09, 0.06                     # easier grasp (assist from 9 cm, snap within 6 cm)
+    if a.fast: cfg.fast()                                                 # = robot -Fast (coil_chain.Cfg.fast, same values)
+    if not a.legacy and not a.slow: arm_ik.WRIST_GAIN, arm_ik.W_ROT = 1.08, 0.4   # = the -CoilVision robot policy (wrist slightly faster)
+    if not a.assist and not a.legacy: cfg.manual_grasp()                  # operator 15/11: manual grasp (no snap, light pull); --assist = old
     REC = None
     if not a.no_record and not a.replay:                                  # every live session is saved: video + all data per tick
         REC = os.path.join(ROOT, "data", "live", time.strftime("sim_%Y%m%d_%H%M%S")); os.makedirs(REC, exist_ok=True)
         a.video = a.video or os.path.join(REC, "video.mp4"); a.metrics = a.metrics or os.path.join(REC, "metrics.json")
         rec_f = open(os.path.join(REC, "ticks.jsonl"), "w"); print(f"[record] saving to {REC}", flush=True)
     raw_in = {}
-    if a.fast: cfg.pos_cutoff, cfg.pos_beta, cfg.rot_cutoff, cfg.rot_beta = 2.5, 120.0, 2.5, 6.0   # still hand: strong smoothing (Coil noise); moving: cutoff rises fast
     cfg.gain = a.gain
     if a.zoff is not None: cfg.zoff = a.zoff
     objs = [(n.split(":")[0], [float(v) for v in n.split(":")[1].split(",")]) for n in a.objs.split(";")]
@@ -295,7 +296,8 @@ def main():
                 egg_grip_cap[h] = cap_now; c = min(c, cap_now)
             if near: c = float(np.clip(c, c_prev.get(h, 0.0) - FRAGILE_CLOSE / RATE, c_prev.get(h, 0.0) + FRAGILE_CLOSE / RATE))
             c_prev[h] = c
-            fingers[h] = [c, c, c, 0, 0]; status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
+            fingers[h] = CC.finger_cmd(ch.grasp[4] if ch.grasp else None, F, c) if not cfg.legacy else [c, c, c, 0, 0]   # thumb/index/middle independent
+            status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
             log[h].append(dict(t=t_now, engaged=ch.P0 is not None, p_raw=out["p_raw"], p_filt=out["p_filt"], p_tel=ch.p_tel.copy(), p_cmd=kin.a.d.xpos[kin.a.ee[h]].copy(),
                                q=[kin.a.q[n] for n in kin.a.arm[h]], mode=out["mode"], stage=ch.stage, blocked=bool(why),
                                pin_err=(T.pinch(kin, h) - ch.grasp[2]) if ch.grasp else np.zeros(3), tgt=out["p"].copy(), c=c,

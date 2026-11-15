@@ -43,6 +43,9 @@ class Cfg:
         self.vfinal, self.wfinal = 0.70, np.radians(260)  # final target limiter (m/s, rad/s)  (was 0.30, 150; 0.55, 220)
         self.assist_r, self.snap_xy, self.snap_z, self.snap_deg, self.snap_ticks = 0.06, 0.04, 0.05, 60.0, 2
         self.w_rate = 1 / 0.4                            # assist weight change per second
+        self.assist_wmax = 1.0                           # max pull of the soft assist toward the grasp pose (1 = all the way)
+        self.snap = True                                 # snap grasp (close -> hold -> retreat, the chain takes over the wrist)
+        self.preshape = True                             # fingers only 50 % of the cap while the assist pulls and the wrist is not there
         self.ns_fade = 0.5                               # s, null-space fade
         self.fixed_target = True
         self.raise_only_counter = True
@@ -51,6 +54,20 @@ class Cfg:
         self.still_s, self.still_tol, self.table_tol, self.reanchor_xy = 1.0, 0.008, 0.025, 0.06
         self.reanchor = True
         for k, v in kw.items(): setattr(self, k, v)
+
+    def fast(self):
+        """Robot -Fast (G1_FAST, staff-approved 15/11) = simulator --fast: higher joint/target limits, filters tuned for the Coil.
+        15/11 04:30 operator: wrist rotation slightly faster (rot_cutoff 2.5 -> 3.5 Hz, rot_beta 6 -> 9, wfinal 400 -> 500 deg/s)."""
+        self.joint_speed, self.vmax, self.vfinal, self.wfinal = 1.8, 1.3, 1.2, np.radians(500)
+        self.pos_cutoff, self.pos_beta, self.rot_cutoff, self.rot_beta = 2.5, 120.0, 3.5, 9.0
+        self.assist_r, self.snap_xy = 0.09, 0.06
+        return self
+
+    def manual_grasp(self):
+        """15/11 04:30 operator: "I grasp manually": no snap grasp (the chain never takes over the wrist, no auto hold / lift), only a
+        light pull (max 35 %) within 5 cm, fingers never pre-shape-limited. Finger caps (camera: egg) stay."""
+        self.snap, self.preshape, self.assist_r, self.assist_wmax = False, False, 0.05, 0.35
+        return self
 
     @classmethod
     def slow(cls, **kw):
@@ -295,11 +312,11 @@ class HandChain:
             else:
                 if st is None:
                     # new: assist/snap measured on the WRIST (the mapped quantity), not on the pinch (that depends on the hand rotation)
-                    dw = wrist_p_now - gp; ok = np.hypot(dw[0], dw[1]) < c.snap_xy and abs(dw[2]) < c.snap_z and r_e < c.snap_deg and g > 0.3 * pr["g_ref"]
+                    dw = wrist_p_now - gp; ok = c.snap and np.hypot(dw[0], dw[1]) < c.snap_xy and abs(dw[2]) < c.snap_z and r_e < c.snap_deg and g > 0.3 * pr["g_ref"]
                     dv = p_tel + self.carry - gp; dxy = float(np.hypot(dv[0], dv[1]))
                     self.snap_n = self.snap_n + 1 if ok else 0
                     if self.snap_n >= c.snap_ticks: st, self.t_st, self.snap_n = "close", t, 0
-                    w_goal = smooth01((c.assist_r - dxy) / (c.assist_r - 0.02)) if (-0.04 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]) else 0.0
+                    w_goal = c.assist_wmax * smooth01((c.assist_r - dxy) / (c.assist_r - 0.02)) if (-0.04 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]) else 0.0
                 else: w_goal = 1.0 if st == "close" else self.w
                 self.w = float(np.clip(w_goal, self.w - c.w_rate * dt, self.w + c.w_rate * dt))
                 if st is None and self.w > 0:
@@ -332,7 +349,7 @@ class HandChain:
         else: k_rest = 0.1 if self.stage is None else None
         cl = 0.0
         if pr is not None and not hold_f: cl = pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))
-        if pr is not None and not c.legacy and (self.w > 0 or self.stage == "close") and self.stage != "hold" and not conv:
+        if pr is not None and not c.legacy and c.preshape and (self.w > 0 or self.stage == "close") and self.stage != "hold" and not conv:
             cl = min(cl, 0.5 * pr["cap"])      # approaching: fingers only pre-shaped (as in the grasp search) until the wrist is at the grasp pose
         return dict(p=tgt_p, R=tgt_R, c=cl, g=g, mode=mode, k_rest=k_rest, ev=ev, p_raw=self.p_raw.copy(), p_filt=self.p_filt.copy())
 
@@ -342,6 +359,15 @@ class HandChain:
 PALM_DOWN_R = {"right": np.array([[1.0, 0, 0], [0, 0, 1.0], [0, -1.0, 0]]),     # columns: x fwd, y (palm) down, z
                "left": np.array([[1.0, 0, 0], [0, 0, -1.0], [0, 1.0, 0]])}
 REST_XYZ = (0.20, 0.18, 0.16)        # pelvis frame: 20 cm forward, 18 cm to the side, 16 cm above the counter (room to move >= 12 cm in every direction; 0.27 forward was near full reach)
+
+
+def finger_cmd(pr, F, c_out):
+    """Robot Dex3 thumb / index / middle, EACH from its own glove finger (F[0..2], 0..1) scaled to the object's cap; the chain's closure
+    c_out (limiters: egg force, pre-shape, release) scales all three by the same factor, so they stay independent."""
+    if pr is None: return [0.0] * 5
+    F = np.asarray(F, float); g = 0.5 * (F[1] + F[2])
+    full = pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1)); k = 0.0 if full < 1e-6 else min(1.0, c_out / full)
+    return [k * pr["cap"] * float(np.clip(F[i] / pr["g_ref"], 0, 1)) for i in range(3)] + [0.0, 0.0]
 
 
 def palm_down_rest(kin, counter_z, sides=("left", "right"), iters=150):
