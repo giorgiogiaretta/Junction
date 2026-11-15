@@ -110,6 +110,7 @@ def main():
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
     ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--fast", action="store_true", help="same limits as the robot's -Fast: joints 1.8 rad/s, faster target, only robot self-collision blocks")
     ap.add_argument("--vision", action="store_true", help="head camera recognises each object (g1/perception_v1, as the robot code) and sets its finger cap (egg 0.50, can 0.90, ball 1.0)")
     ap.add_argument("--prior", action="store_true", help="real-G1 posture prior (Tommaso's aalto data) as the IK null-space target")
     ap.add_argument("--old-rest", action="store_true", help="previous robot rest pose (wrists rolled, palms sideways)")
@@ -120,6 +121,7 @@ def main():
     import arm_prior; EVAL = arm_prior.RealArmPrior()            # always measured (naturalness), used only with --prior
     if a.prior: CC.PRIOR = arm_prior.RealArmPrior()
     cfg = CC.Cfg.old() if a.legacy else (CC.Cfg.slow() if a.slow else CC.Cfg())
+    if a.fast: cfg.joint_speed, cfg.vmax, cfg.vfinal, cfg.wfinal = 1.8, 1.3, 1.2, np.radians(400)   # = live_policy_v2 G1_FAST
     cfg.gain = a.gain
     if a.zoff is not None: cfg.zoff = a.zoff
     objs = [(n.split(":")[0], [float(v) for v in n.split(":")[1].split(",")]) for n in a.objs.split(";")]
@@ -259,7 +261,7 @@ def main():
             if out["ev"]: events.append((round(t_now, 2), h, out["ev"])); print(f"[{h}] {out['ev']}", flush=True)
             near = near_egg_v(T.pinch(kin, h)) is not None
             step0 = arm_ik.ARM_STEP; arm_ik.ARM_STEP = (min(cfg.joint_speed, FRAGILE_JOINT) if near else cfg.joint_speed) / RATE
-            why = CC.solve_arm(kin, h, out, cfg, rest, unsafe, floor, T.palm); arm_ik.ARM_STEP = step0
+            why = CC.solve_arm(kin, h, out, cfg, rest, (lambda k_: [x for x in unsafe(k_) if x.startswith("self")]) if a.fast else unsafe, floor, T.palm); arm_ik.ARM_STEP = step0
             if EVAL is not None: CC.NATURAL[h].append(EVAL.naturalness(kin, h))
             mode = out["mode"]
             if why:

@@ -140,6 +140,7 @@ def smooth01(x): x = float(np.clip(x, 0, 1)); return x * x * (3 - 2 * x)
 
 # --- one hand ------------------------------------------------------------------------------------------------------------
 Q_NEUTRAL = {}       # side -> wxyz quaternion, filled by load_neutral() from the seated calibration
+UP_SIGN = {}         # side -> -1 when the calibration's last step found the up axis mirrored (Coil hemisphere flip), else +1
 
 
 def load_neutral(path, sides):
@@ -148,6 +149,7 @@ def load_neutral(path, sides):
     c = json.load(open(path)).get("seated", {})
     for s in sides:
         if c.get(s, {}).get("q_neutral") is not None: Q_NEUTRAL[s] = np.array(c[s]["q_neutral"], float)
+        if c.get(s, {}).get("up_sign") is not None: UP_SIGN[s] = int(c[s]["up_sign"])
 
 
 class HandChain:
@@ -156,6 +158,8 @@ class HandChain:
 
     def __init__(self, side, Rh, rest, grasp, cfg, floor_z):
         self.side, self.Rh, self.cfg, self.floor = side, np.asarray(Rh, float), cfg, floor_z
+        self.Rp = self.Rh.copy()                                   # axes for POSITIONS (orientation keeps Rh, a proper rotation)
+        if UP_SIGN.get(side, 1) < 0: self.Rp[2] *= -1.0            # Coil hemisphere flip: the glove is reported at -P
         self.rest_p, self.rest_R = np.array(rest[0], float), np.array(rest[1], float)
         self.grasp = grasp; c = cfg
         self.pf, self.qf = OneEuro(c.pos_cutoff, c.pos_beta), QuatEuro(c.rot_cutoff, c.rot_beta)
@@ -187,7 +191,7 @@ class HandChain:
         d = robot_p - self.rest_p; d[2] -= self.drop * smooth01(float(d[:2] @ self.reach_u) / self.reach); return d / c.gain
 
     def anchor(self, P, Q, t):
-        self.P0 = np.array(P, float); self.table_up = float(self.Rh[2] @ P)
+        self.P0 = np.array(P, float); self.table_up = float(self.Rp[2] @ P)
         qn = Q_NEUTRAL.get(self.side)        # operator's "open, palm down, in front" orientation (calibration's last step) = robot rest pose
         self.Q0 = np.array(qn if qn is not None else Q, float)
         self.pf.reset(); self.qf.reset(); self.leash.reset(); self.post.reset()
@@ -215,13 +219,13 @@ class HandChain:
             if st is not None and self.P0 is None:
                 self.anchor(st[0], st[1], t); ev = "anchored"
             elif st is not None and c.reanchor and not self.still_used and self.stage is None:
-                self.still_used = True; d = self.Rh @ (st[0] - self.P0)
-                if abs(float(self.Rh[2] @ st[0]) - self.table_up) < c.table_tol:          # resting ON the table
+                self.still_used = True; d = self.Rp @ (st[0] - self.P0)
+                if abs(float(self.Rp[2] @ st[0]) - self.table_up) < c.table_tol:          # resting ON the table
                     shift = np.array([0.0, 0.0, d[2]])
                     if np.linalg.norm(d[:2]) < c.reanchor_xy: shift[:2] = d[:2]          # back at the start spot: full re-anchor
                     if np.linalg.norm(shift) > 0.002:
                         # new anchor; the old->new difference is blended out over 1 s instead of jumping
-                        self.blend0 = self.blend + c.gain * shift; self.blend = self.blend0.copy(); self.P0 = self.P0 + self.Rh.T @ shift; self.blend_t = t; self.reanchors += 1
+                        self.blend0 = self.blend + c.gain * shift; self.blend = self.blend0.copy(); self.P0 = self.P0 + self.Rp.T @ shift; self.blend_t = t; self.reanchors += 1
                         ev = f"re-anchored {100 * np.linalg.norm(shift):.1f} cm"
                     if np.linalg.norm(d[:2]) < c.reanchor_xy and Q_NEUTRAL.get(self.side) is None: self.Q0 = np.array(st[1], float)
         if self.P0 is None:                                                   # not engaged yet: hold the rest pose
@@ -231,12 +235,12 @@ class HandChain:
             self.blend = self.blend0 * max(0.0, 1.0 - (t - self.blend_t) / 1.0)
             if t - self.blend_t >= 1.0: self.blend0 = np.zeros(3); self.blend = np.zeros(3)
         # position: raw leash -> One Euro -> (legacy hold deadband) -> mapping
-        rel_raw = self.Rh @ (np.asarray(P, float) - self.P0)
+        rel_raw = self.Rp @ (np.asarray(P, float) - self.P0)
         self.p_raw = self.map_rel(rel_raw)                                   # unfiltered reference (for the latency measurement)
         x = self.post(self.pf(self.leash(P), t))
         if c.lead and not c.legacy:                                              # prediction: compensate the pipeline delay
             x = x + np.clip(self.pf.dx * c.lead, -0.03, 0.03)                   # (filtered velocity x lead time, max 3 cm)
-        p_tel = self.map_rel(self.Rh @ (x - self.P0)) + (self.blend if not c.legacy else 0)
+        p_tel = self.map_rel(self.Rp @ (x - self.P0)) + (self.blend if not c.legacy else 0)
         self.p_filt = p_tel.copy()
         if c.legacy and self.first: self.p_tel = p_tel.copy()                 # old: the first mapped target is taken as is (A7 jump)
         self.first = False
@@ -391,13 +395,20 @@ def seated_calib(readers, hands, path, move=0.15):
                   "measured_cm": round(100 * float(np.mean([np.linalg.norm(f), np.linalg.norm(l)])), 1)}
         print(f"[calib {h}] ok: forward-left {ang:.0f} deg", flush=True); beep(1200)
     # FINAL step (14/11 evening): the neutral pose = robot rest pose (hands open, palm down, in front of the robot)
-    print("[calib] ULTIMO PASSO: mani APERTE, PALMO VERSO IL BASSO, davanti a te sopra il tavolo (circa 10 cm), FERME", flush=True); beep(); time.sleep(1.5)
+    print("[calib] ULTIMO PASSO: mani APERTE, PALMO VERSO IL BASSO, davanti a te, SOLLEVATE 10-15 cm sopra il tavolo, FERME", flush=True); beep(); time.sleep(1.5)
     for h in hands:
-        Qs = []; t0 = time.time()
+        Qs, Ps = [], []; t0 = time.time()
         while time.time() - t0 < 1.5:
             s = readers[h]()
             if s and s[2] is not None and not np.isnan(s[2]).any(): Qs.append(np.asarray(s[2], float))
+            if s and s[1] is not None and not np.isnan(s[1]).any(): Ps.append(np.asarray(s[1], float))
             time.sleep(1 / RATE)
+        if len(Ps) >= 10:            # up check: the neutral pose is ABOVE the flat start; a mirrored up axis = Coil hemisphere flip
+            up = float(np.array(out[h]["R"])[2] @ (np.median(np.array(Ps), 0) - np.array(out[h]["origin"])))
+            out[h]["up_check_cm"] = round(100 * up, 1)
+            if up < -0.03: out[h]["up_sign"] = -1; print(f"[calib {h}] up axis MIRRORED (Coil hemisphere flip, {100 * up:.0f} cm): corrected", flush=True)
+            elif up > 0.03: out[h]["up_sign"] = 1; print(f"[calib {h}] up axis ok ({100 * up:.0f} cm above the start)", flush=True)
+            else: out[h]["up_sign"] = 1; print(f"[calib {h}] up check unclear ({100 * up:.0f} cm): lift the hands ~10-15 cm in the last step next time", flush=True)
         if len(Qs) >= 10:
             qn = Qs[-1]; out[h]["q_neutral"] = qn.round(5).tolist()
             d = np.degrees(np.linalg.norm(rotvec(q2m(qn) @ q2m(out[h]["q_flat"]).T)))
