@@ -1,73 +1,99 @@
-# Speaker notes — Tactile-Less HandOff
+# Deck speaker notes
 
-Each full note is intended for 20–25 seconds at a measured speaking pace. Ten full notes take approximately 3½–4 minutes. For a strict three-minute pitch, deliver the **Core** paragraphs only, targeting 18 seconds per slide; use **Extra** for rehearsal or questions. Timing is a rehearsal target, not a measured result.
+Twelve slides. **Core** is the three-minute route: budget roughly fifteen seconds per slide. **Core + Detail** is the full twenty-to-twenty-five-second note, about four to five minutes overall. These are rehearsal targets, not measured delivery times. Do not read source paths aloud.
 
-## 1 — Motion from gloves. Grip limits from vision.
-**Core:** We are building Tactile-Less HandOff. Rokoko gloves provide human motion, and a head camera identifies the object. That label selects a closure limit for a simulated robot hand. Our prototype explores object-aware grasping in MuJoCo.
+## 1 — Human motion. Object-aware grip limits.
 
-**Extra:** Today’s evidence is simulation and a small recognition experiment, with hardware validation still ahead.
+**Core:** Rokoko gloves give us human motion. Our project adds object-aware closure limits: vision identifies what the hand is about to hold. We have real robot teleoperation evidence and a separate simulated grasp path.
 
-Sources: `README.md`; `docs/PITCH_AND_CHALLENGES_STORY.md`; `AGENTS.md`.
+**Detail:** Those are distinct results. We have not demonstrated vision-guided object grasping on the physical robot. The rest of this pitch keeps that boundary visible.
 
-## 2 — Gloves cannot feel
-**Core:** Smartgloves capture movement but have no force sensors. An operator can close confidently while the robot crushes a fragile object. Our simulation illustrates that gap. For robot-learning teams, the opportunity is more useful demonstrations with less dependence on careful manual gripping.
+Sources: `docs/ARCHITECTURE.md`, `docs/SCORECARD.md`, `tools/g1_windows_runner/README.md`.
 
-**Extra:** Data scarcity is our motivation; we have not measured market demand or a reduction in collection effort.
+## 2 — Gloves cannot feel the object
 
-Sources: `docs/submission/rokoko.md`; `docs/PITCH_AND_CHALLENGES_STORY.md`; `g1/sim/GRASP_REPORT.md`.
+**Core:** The gloves report motion, but they cannot feel an egg. A recognition error can therefore select the wrong grip policy. We constrain finger closure according to the object and stay conservative when the models disagree.
 
-## 3 — See the object before closing
-**Core:** The idea is to use the head camera to choose grasp behaviour before closing. A Rokoko sensor on the head would locate the hand relative to the camera, helping focus recognition. Real head-to-hand tracking is a next step, not demonstrated evidence.
+**Detail:** This is a software limit, not measured contact force. The cap and break thresholds remain toy assumptions tuned in simulation, so they require physical calibration before any hardware protection claim.
 
-**Extra:** Camera intrinsics are assumed, and the crop has not been validated on real frames.
+Sources: `docs/ORCH_BACKLOG.md`, `docs/STORY_MODELS.md`, `docs/SCORECARD.md`.
 
-Sources: `docs/ARCHITECTURE.md`; `docs/ORCH_BACKLOG.md` §1, B7–B8.
+## 3 — The gloves drove the real G1
 
-## 4 — An inspectable control path
-**Core:** Gloves and Coil provide motion for retargeting. Camera recognition supplies object context. Nemotron and colour have evaluation results; Gemini is an unverified live backup, and Gemma is planned. A proposed fragile-first vote feeds closure rules before commands reach the simulated Dex3 hand.
+**Core:** Giorgio drove both arms and both Dex3 hands on the real G1 with the gloves: two runs of one hundred and twenty seconds, twenty-nine point eight hertz, and zero commands clipped by the safety filter.
 
-**Extra:** Agreement checks exist in the cap policy; a complete live ensemble is not proven.
+**Detail:** The camera computer was off. There was no vision and no demonstrated object grasp. The box is a video placeholder, not evidence of a clip already attached or a grasp result.
 
-Sources: `docs/ARCHITECTURE.md`; `docs/OBJECT_RECOGNITION_RESULTS.md`; `docs/submission/google.md`; `ai/object_profile.py`; `robot/e2e_g1.py`.
+Sources: `tools/g1_windows_runner/README.md`, `docs/G1_GUIDE.md`, `docs/G1_LIVE.md`.
 
-## 5 — Same egg. A closure limit changes the outcome.
-**Core:** This is the supplied G1 Dex3 simulation comparison. With the cap, the egg is held intact; without it, the toy model marks it broken. The command shown supplies the egg label directly, so this demonstration does not test recognition.
+## 4 — Motion and perception meet at the cap
 
-**Extra:** The image’s force annotations are model outputs, not physical measurements. Gains and break thresholds are assumed.
+**Core:** The operator supplies motion. Perception proposes an object label, and the policy turns that into a closure cap. Simulation lets us inspect held and broken outcomes before trying the full chain on hardware.
 
-Sources: `docs/media/g1_egg_cap_vs_nocap.jpg`; `g1/sim/GRASP_REPORT.md`; `robot/e2e_g1.py`. Command: `python -m robot.e2e_g1 --label egg`. Execution requires dependencies and local G1 assets; the still is repository evidence, not a new run by the deck author.
+**Detail:** There are several code paths. The simple simulation bridge accepts a label or a single recogniser. Its existence must not be presented as a verified live ensemble-to-robot grasp demonstration.
 
-## 6 — 48 of 50, in one run
-**Core:** Nemotron recognised forty-eight of fifty of our photos in one run. Both mistakes were eggs called stress balls, exactly the dangerous direction. The colour baseline got thirty-eight right. These are small, local experiments from one person, one place and one day.
+Sources: `docs/ARCHITECTURE.md`, `docs/CODE_TOUR.md`.
 
-**Extra:** The photos are not in git, and the endpoint stopped responding after the run.
+## 5 — Fast eyes, a second key, a slow judge
 
-Source: `docs/OBJECT_RECOGNITION_RESULTS.md`. Every table count comes from that file. `docs/CV_RESULTS.md` is a separate YOLO-World baseline, not an updated Nemotron run, and does not supersede this table.
+**Core:** Nemotron is our real-time pre-grasp eyes. The Gemma family supplies a second opinion: PaliGemma runs on our remote GPU, while Gemma four was tested through Google’s API. Gemini judges recorded episodes asynchronously, outside motion control.
 
-## 7 — Design around the dangerous mistake
-**Core:** Egg and ball share a closure cap of zero point seven in the simulation policy. Full ball closure requires operator confirmation or agreement and confidence checks. Unknown objects get a conservative fallback. The first real G1 trial is planned at ten percent closure.
+**Detail:** The current two-key gate counts distinct model families. Gemma and PaliGemma count as one key. Self-hosting still needs connectivity. Nemotron is not our only fast recogniser.
 
-**Extra:** These thresholds are hand-picked toy rules, not calibrated hardware safety guarantees.
+Sources: `docs/STORY_MODELS.md`, `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/SCORECARD.md`, `docs/VERDA_GEMMA.md`, `ai/recognize.py`.
 
-Sources: `ai/object_profile.py` (`cap_for_votes`, `cap_for`); `docs/OBJECT_RECOGNITION_RESULTS.md` colour section; `docs/G1_LIVE.md`; `docs/ORCH_BACKLOG.md` §1/B13. Full closure means closure command, not a measured force. Current rule: confidence at least 0.9 plus at least two recognisers, or manual selection. This does not prove that two recognisers are independent or that agreement is safe.
+## 6 — The measured recognition results
 
-## 8 — Proven here / still to prove
-**Core:** We have recognition results on our photos, simulated grasp evidence, and a label-to-simulation bridge. We have not demonstrated generalisation, a verified live photo-to-grasp chain, real head tracking, or real G1 grasp performance. The can is recognised but not held in this posture.
+**Core:** On the same fifty labelled photos, Nemotron scored forty-eight, Gemma four forty-nine, and PaliGemma forty-nine. Nemotron reproduced its score in two runs. The errors matter: Nemotron called eggs balls, and PaliGemma called an egg a can.
 
-**Extra:** We keep those boundaries visible so the next experiments test the missing links directly.
+**Detail:** These photos come from one person, one place and one day. The originals are outside git. Multiple prompts were tried on the same set, and there is no held-out generalisation result.
 
-Sources: `docs/ORCH_BACKLOG.md` §1; `robot/e2e_g1.py`; `g1/sim/GRASP_REPORT.md`. The bridge code is newer than the backlog’s statement that no end-to-end command exists. Its presence does not prove a live vision run.
+Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/evidence/recognition/README.md`.
 
-## 9 — Better demonstrations for robot-learning teams
-**Core:** Our proposed customer is a team training robot manipulation policies. We would offer teleoperation support and data-quality tooling, charging for curated demonstration hours and a supervision subscription. The next business test is whether object-aware limits improve the demonstrations those teams can actually use.
+## 7 — Confidence does not separate right from wrong
 
-**Extra:** This is a business hypothesis; we are not claiming customers, revenue, or measured learning gains.
+**Core:** Confidence does not separate right from wrong here: wrong answers and correct ones both scored point nine. Full ball closure needs agreeing model families plus a confidence gate, or explicit operator selection. Eligible egg votes take priority.
 
-Source: `docs/PITCH_AND_CHALLENGES_STORY.md`, business model and planned record/judge workflow.
+**Detail:** Otherwise the shared egg and ball cap is point seven. These are toy thresholds. The egg preference has a confidence condition, and agreement cannot guarantee correctness or physical safety.
 
-## 10 — Validate the grasp. Then collect better data.
-**Core:** Giorgio’s side covers capture, learning, vision and G1 simulation; Tommaso’s covers robot integration, AI and the demo. Next we validate real camera frames, calibrate object limits, and pass the mock gate before a supervised hardware trial. Our goal is human motion with object-aware grasp limits.
+Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/CODE_TOUR.md`, `docs/SCORECARD.md`.
 
-**Extra:** Better demonstrations are the next outcome to measure, not an improvement we have already established.
+## 8 — Agreement caught the observed errors
 
-Sources: `AGENTS.md`; `docs/ARCHITECTURE.md` folder boundaries; `docs/ORCH_BACKLOG.md` B7–B9/B13.
+**Core:** Nemotron and API Gemma agreed on forty-seven of fifty labelled photos. Their three disagreements flagged single-model errors. Fragile-first voting scored fifty out of fifty from the saved answers, including the later three-recogniser combination.
+
+**Detail:** That combination adds PaliGemma, not Gemini. Gemini remains the episode judge. These are offline computations on the same photos, without a held-out set or evidence of a live robot grasp.
+
+Sources: `docs/OBJECT_RECOGNITION_RESULTS.md`, `docs/STORY_MODELS.md`, `docs/CODE_TOUR.md`.
+
+## 9 — The cap changes the simulated outcome
+
+**Core:** The documented simulation holds the egg intact with the cap and breaks it without the cap. Sharing the egg and ball cap also handles the observed mistake of calling an egg a ball in that simulation.
+
+**Detail:** The command shown bypasses recognition and requires local assets. The physics and break thresholds are toy assumptions. Can holding remains unsupported in the shared profile, and none of these outcomes establishes a physical grasp.
+
+Sources: `docs/SCORECARD.md`, `docs/CODE_TOUR.md`, `docs/OBJECT_RECOGNITION_RESULTS.md`.
+
+## 10 — Grasp Advisor for unfamiliar objects
+
+**Core:** The experimental Grasp Advisor proposes fragility, mass, size and handling advice for an unfamiliar object. It can lower the cap or ask for confirmation, but it never unlocks full closure. Model estimates are not measurements.
+
+**Detail:** The first look covers three photos, with an additional complex scene falling back after malformed output. That is not an evaluation. General object manipulation, learned imitation and peeling remain outside the demonstrated result.
+
+Sources: `docs/ADVISOR.md`.
+
+## 11 — What we need to test next
+
+**Core:** The next evidence should come from new photos with frozen prompts, weighed objects for the Advisor, and physical grasp evaluation. The hardware work needs verified camera frames and calibration, coordinated with the robot owner and staff.
+
+**Detail:** These are proposed experiments, not completed results. We still need to measure physical damage reduction and whether the resulting demonstrations improve robot learning. The teleoperation result gives us a starting point.
+
+Sources: `docs/SCORECARD.md`, `docs/ADVISOR.md`, `docs/G1_GUIDE.md`.
+
+## 12 — What is proven / not proven
+
+**Core:** We have documented real G1 teleoperation, small-set recognition evidence and simulated grasp limits. We have not demonstrated vision-assisted physical grasping, generalisation or real force calibration. The Advisor and slow judge still need quality evaluation.
+
+**Detail:** The scorecard predates Giorgio’s hardware report. That report updates teleoperation only. It does not establish physical object handling or remove the scorecard’s remaining boundaries. Our claim is progress with explicit evidence, not a completed autonomous manipulation system.
+
+Sources: `docs/SCORECARD.md`, `docs/CODE_TOUR.md`, `docs/ADVISOR.md`, `tools/g1_windows_runner/README.md`.
