@@ -14,12 +14,23 @@
 #   -Fast: staff-approved (15/11) faster limits: runner arm speed 2.0 rad/s, no counter keep-out (robot-vs-robot collision kept)
 #   -NoCamera: the runner does not read the camera streams (less load on this PC = the robot follows with less delay)
 #   -CoilVision: like -Coil but g1/live_policy_v2_vision.py (Codex+DeepSeek review: the head camera recognises the object; caps egg 0.50, can 0.90, ball 1.0)
-param([switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [int]$Seconds = 300, [string]$Closure = "0.6",
+#   -NoPrior: with -CoilVision, turn off the real-G1 posture prior (IK null-space from Tommaso's aalto data)
+#   -LowLag: runner process with the bit-identical fast CRC (winshim/lowlag.py): fixes the ~1 s stale robot state that made
+#            the arms lag and move in steps (docs/ARM_DELAY.md). Performance only, no safety rule changed. Off by default
+#            until confirmed on the robot.
+param([switch]$NoPrior, [switch]$Safe, [switch]$Vision, [switch]$Coil, [switch]$CoilVision, [switch]$Both, [switch]$NoCalib, [switch]$NoConsole, [switch]$NoCamera, [switch]$Fast, [switch]$LowLag, [switch]$Assist, [switch]$Video, [int]$Seconds = 300, [string]$Closure = "0.6",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Right = "stress_ball",
       [ValidateSet("stress_ball", "can_empty", "egg")][string]$Left = "stress_ball")
 $J = "C:\Users\giorg\Desktop\Junction"
 if ($CoilVision) { $Coil = [switch]$true }
+# with -CoilVision the per-object caps (egg 0.60, can 0.90, ball 1.0) are the real limits: G1_MAX_CLOSURE would multiply them, so 1.0 unless given
+if ($CoilVision -and -not $PSBoundParameters.ContainsKey("Closure")) { $Closure = "1.0" }
+if ($NoPrior) { $env:G1_PRIOR = "0" } else { Remove-Item Env:G1_PRIOR -ErrorAction SilentlyContinue }
 if ($Fast) { $env:G1_FAST = "1"; Write-Host "FAST MODE (staff-approved): arms 2 rad/s, no table zone; robot self-collision check ON" -ForegroundColor Yellow } else { Remove-Item Env:G1_FAST -ErrorAction SilentlyContinue }
+if ($Assist) { $env:G1_ASSIST = "1" } else { Remove-Item Env:G1_ASSIST -ErrorAction SilentlyContinue }   # -CoilVision: old strong assist + snap grasp (default since 15/11: manual grasp)
+if ($LowLag) { $env:G1_LOWLAG = "1" } else { Remove-Item Env:G1_LOWLAG -ErrorAction SilentlyContinue }
+# the runner loads its shims from the organisers' folder: keep them in sync with this checkout's copy
+Copy-Item -Force "$PSScriptRoot\tools\g1_windows_runner\winshim\*.py", "$PSScriptRoot\tools\g1_windows_runner\winshim\run_real.ps1" "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\" -ErrorAction SilentlyContinue
 $ErrorActionPreference = "Continue"
 
 Write-Host "== 1/5 robot network" -ForegroundColor Cyan
@@ -76,4 +87,4 @@ Write-Host "policy ready ($pol, max closure $Closure)"
 Write-Host "== 5/5 runner on the robot: GLOVES OPEN, emergency stop in hand, then Enter at 'Place the cubes'" -ForegroundColor Yellow
 try { [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'High' } catch {}
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'live_policy|arms_glove|arms_simple|rgmp_client' -and $_.Name -match 'python' } | ForEach-Object { try { (Get-Process -Id $_.ProcessId).PriorityClass = 'High' } catch {} }
-& "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1" -Seconds $Seconds -NoCamera:$NoCamera
+& "C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1" -Seconds $Seconds -NoCamera:$NoCamera -LowLag:$LowLag -Video:$Video

@@ -1,6 +1,10 @@
 # Runner on the REAL G1 from Windows. Policy must already be listening on ws://localhost:8000.
 # Usage: & C:\Users\giorg\Desktop\aaltonomous-humanoid\winshim\run_real.ps1 [-Seconds 120]
-param([int]$Seconds = 120, [switch]$NoCamera)
+param([int]$Seconds = 120, [switch]$NoCamera, [switch]$LowLag, [switch]$Video)
+# -Video: the runner also writes the head-camera mp4 (encoded in the arm-control process: extra load, so opt-in since 15/11 05:00)
+# -LowLag: G1_LOWLAG=1 -> winshim/lowlag.py (bit-identical fast CRC for rt/lowcmd; the pure-Python CRC starved the DDS
+# receive thread and made every lowstate sample ~1 s old). Performance only, no safety rule changed. docs/ARM_DELAY.md
+if ($LowLag) { $env:G1_LOWLAG = "1"; Write-Host "LOW-LAG patches ON (fast CRC)" -ForegroundColor Yellow }
 # High priority: the runner process also runs the 250 Hz arm control thread (xr_teleoperate); under load its loop stretched
 # to ~100 ms and the robot lagged the commands by ~1 s (14/11 night logs). Children inherit the priority class.
 try { [System.Diagnostics.Process]::GetCurrentProcess().PriorityClass = 'High' } catch {}
@@ -18,9 +22,10 @@ foreach ($h in @($env:G1_CAM_IP, "192.168.123.164", "192.168.123.254") | Where-O
     if (Test-NetConnection $h -Port 55560 -InformationLevel Quiet -WarningAction SilentlyContinue) { $cam = $h; break }
 }
 if ($cam) { Write-Host "camera (PC2) at: $cam" -ForegroundColor Green } else { Write-Host "camera (PC2) NOT found (.164/.254 :55560): no image" -ForegroundColor Yellow; $cam = "192.168.123.164" }
+$vid = @(); if ($Video) { $vid += "--video" }
 if ($NoCamera) {   # runner's own options: no head RGB-D, image server on localhost (nothing there) = no image decoding at all
     Write-Host "camera DISABLED (less load)" -ForegroundColor Yellow
     py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip 127.0.0.1 --no-head-rgbd --time-limit $Seconds
 } else {
-    py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip $cam --time-limit $Seconds
+    py -3.11 -m aaltonomous.deploy.runner --backend real --policy ws://localhost:8000 --team giorgio --episodes 1 --network-interface "$iface" --img-server-ip $cam --time-limit $Seconds @vid
 }

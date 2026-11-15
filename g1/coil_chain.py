@@ -43,6 +43,9 @@ class Cfg:
         self.vfinal, self.wfinal = 0.70, np.radians(260)  # final target limiter (m/s, rad/s)  (was 0.30, 150; 0.55, 220)
         self.assist_r, self.snap_xy, self.snap_z, self.snap_deg, self.snap_ticks = 0.06, 0.04, 0.05, 60.0, 2
         self.w_rate = 1 / 0.4                            # assist weight change per second
+        self.assist_wmax = 1.0                           # max pull of the soft assist toward the grasp pose (1 = all the way)
+        self.snap = True                                 # snap grasp (close -> hold -> retreat, the chain takes over the wrist)
+        self.preshape = True                             # fingers only 50 % of the cap while the assist pulls and the wrist is not there
         self.ns_fade = 0.5                               # s, null-space fade
         self.fixed_target = True
         self.raise_only_counter = True
@@ -51,6 +54,20 @@ class Cfg:
         self.still_s, self.still_tol, self.table_tol, self.reanchor_xy = 1.0, 0.008, 0.025, 0.06
         self.reanchor = True
         for k, v in kw.items(): setattr(self, k, v)
+
+    def fast(self):
+        """Robot -Fast (G1_FAST, staff-approved 15/11) = simulator --fast: higher joint/target limits, filters tuned for the Coil.
+        15/11 04:30 operator: wrist rotation slightly faster (rot_cutoff 2.5 -> 3.5 Hz, rot_beta 6 -> 9, wfinal 400 -> 500 deg/s)."""
+        self.joint_speed, self.vmax, self.vfinal, self.wfinal = 1.8, 1.3, 1.2, np.radians(500)
+        self.pos_cutoff, self.pos_beta, self.rot_cutoff, self.rot_beta = 2.5, 120.0, 3.5, 9.0
+        self.assist_r, self.snap_xy = 0.09, 0.06
+        return self
+
+    def manual_grasp(self):
+        """15/11 04:30 operator: "I grasp manually": no snap grasp (the chain never takes over the wrist, no auto hold / lift), only a
+        light pull (max 35 %) within 5 cm, fingers never pre-shape-limited. Finger caps (camera: egg) stay."""
+        self.snap, self.preshape, self.assist_r, self.assist_wmax = False, False, 0.05, 0.35
+        return self
 
     @classmethod
     def slow(cls, **kw):
@@ -140,6 +157,21 @@ def smooth01(x): x = float(np.clip(x, 0, 1)); return x * x * (3 - 2 * x)
 
 # --- one hand ------------------------------------------------------------------------------------------------------------
 Q_NEUTRAL = {}       # side -> wxyz quaternion, filled by load_neutral() from the seated calibration
+UP_SIGN = {}         # side -> -1 when the calibration's last step found the up axis mirrored (Coil hemisphere flip), else +1
+ORIGIN = {}          # side -> raw Coil wrist position of the flat start AS REPORTED DURING THE CALIBRATION (its hemisphere)
+
+
+def hemi_fix(side, P):
+    """The Coil reports a glove either at its true position or mirrored through the source (-P, magnetic hemisphere ambiguity),
+    and which one CHANGES between sessions (15/11: right glove mirrored at the 03:19 calibration, not at the 04:12 run -> the whole
+    right arm inverted). The calibration (axes, up_sign) is valid in the hemisphere it was recorded in: bring every sample back to it.
+    P and -P are ~2 m apart (|P| ~ 1 m), hand motions are < 0.6 m: the nearer of the two to the calibration origin is unambiguous.
+    Returns (P in the calibration's hemisphere, True if this sample was mirrored)."""
+    O = ORIGIN.get(side)
+    if O is None or P is None: return P, False
+    P = np.asarray(P, float)
+    if np.linalg.norm(P + O) < np.linalg.norm(P - O): return -P, True
+    return P, False
 
 
 def load_neutral(path, sides):
@@ -148,6 +180,8 @@ def load_neutral(path, sides):
     c = json.load(open(path)).get("seated", {})
     for s in sides:
         if c.get(s, {}).get("q_neutral") is not None: Q_NEUTRAL[s] = np.array(c[s]["q_neutral"], float)
+        if c.get(s, {}).get("up_sign") is not None: UP_SIGN[s] = int(c[s]["up_sign"])
+        if c.get(s, {}).get("origin") is not None: ORIGIN[s] = np.array(c[s]["origin"], float)
 
 
 class HandChain:
@@ -156,12 +190,17 @@ class HandChain:
 
     def __init__(self, side, Rh, rest, grasp, cfg, floor_z):
         self.side, self.Rh, self.cfg, self.floor = side, np.asarray(Rh, float), cfg, floor_z
+        self.Rp = self.Rh.copy()                                   # axes for POSITIONS (orientation keeps Rh, a proper rotation)
+        self.Ro = self.Rh.copy()                                   # axes for ORIENTATION (proper rotation)
+        if UP_SIGN.get(side, 1) < 0:                               # Coil hemisphere flip: the glove is reported at -P, so the calibration
+            self.Rp[2] *= -1.0                                     # learnt forward/left negated: positions need the up row mirrored,
+            self.Ro = np.diag([-1.0, -1.0, 1.0]) @ self.Rh         # orientation the true rotation (else pitch and roll come out inverted)
         self.rest_p, self.rest_R = np.array(rest[0], float), np.array(rest[1], float)
         self.grasp = grasp; c = cfg
         self.pf, self.qf = OneEuro(c.pos_cutoff, c.pos_beta), QuatEuro(c.rot_cutoff, c.rot_beta)
         self.leash, self.post = Leash(c.leash), HoldDeadband(c.post_deadband)
         self.P0 = self.Q0 = None; self.blend = np.zeros(3); self.blend0 = np.zeros(3); self.blend_t = 0.0; self.table_up = None
-        self.hist = []; self.still_used = False; self.reanchors = 0
+        self.hist = []; self.still_used = False; self.reanchors = 0; self.hemi_flipped = False
         self.grip = None; self.stage = None; self.w = 0.0; self.snap_n = 0; self.t_st = 0.0; self.lock = None; self.carry = np.zeros(3)
         self.frac = 0.0; self.ns = 1.0; self.last_raw = None; self.out_p, self.out_R = self.rest_p.copy(), self.rest_R.copy(); self.p_raw = self.rest_p.copy()
         self.p_tel = self.rest_p.copy(); self.p_filt = self.rest_p.copy(); self.first = True; self.t_last = None
@@ -187,7 +226,7 @@ class HandChain:
         d = robot_p - self.rest_p; d[2] -= self.drop * smooth01(float(d[:2] @ self.reach_u) / self.reach); return d / c.gain
 
     def anchor(self, P, Q, t):
-        self.P0 = np.array(P, float); self.table_up = float(self.Rh[2] @ P)
+        self.P0 = np.array(P, float); self.table_up = float(self.Rp[2] @ P)
         qn = Q_NEUTRAL.get(self.side)        # operator's "open, palm down, in front" orientation (calibration's last step) = robot rest pose
         self.Q0 = np.array(qn if qn is not None else Q, float)
         self.pf.reset(); self.qf.reset(); self.leash.reset(); self.post.reset()
@@ -205,9 +244,13 @@ class HandChain:
         """One tick. pinch_now / wrist_R_now: robot pinch point and wrist rotation from the last command (for assist/snap).
         near_egg(p) -> speed limit override or None; push_block(p_new, p_old) -> True to keep p_old. Returns dict."""
         c = self.cfg; pr = self.grasp[4] if self.grasp else None
+        P, flipped = hemi_fix(self.side, P); hemi_ev = None
+        if flipped != self.hemi_flipped:
+            self.hemi_flipped = flipped
+            hemi_ev = "Coil hemisphere differs from the calibration: position mirrored back" if flipped else "Coil hemisphere = calibration"
         g_raw = 0.5 * (F[1] + F[2]); dt = 1 / RATE if self.t_last is None else max(t - self.t_last, 1e-3); self.t_last = t
         self.grip = g_raw if self.grip is None else self.grip + (1 - np.exp(-dt / c.grip_tau)) * (g_raw - self.grip)
-        g = self.grip; ev = None
+        g = self.grip; ev = hemi_ev
         if c.legacy:
             if self.P0 is None: self.anchor(P, Q, t)
         else:
@@ -215,13 +258,13 @@ class HandChain:
             if st is not None and self.P0 is None:
                 self.anchor(st[0], st[1], t); ev = "anchored"
             elif st is not None and c.reanchor and not self.still_used and self.stage is None:
-                self.still_used = True; d = self.Rh @ (st[0] - self.P0)
-                if abs(float(self.Rh[2] @ st[0]) - self.table_up) < c.table_tol:          # resting ON the table
+                self.still_used = True; d = self.Rp @ (st[0] - self.P0)
+                if abs(float(self.Rp[2] @ st[0]) - self.table_up) < c.table_tol:          # resting ON the table
                     shift = np.array([0.0, 0.0, d[2]])
                     if np.linalg.norm(d[:2]) < c.reanchor_xy: shift[:2] = d[:2]          # back at the start spot: full re-anchor
                     if np.linalg.norm(shift) > 0.002:
                         # new anchor; the old->new difference is blended out over 1 s instead of jumping
-                        self.blend0 = self.blend + c.gain * shift; self.blend = self.blend0.copy(); self.P0 = self.P0 + self.Rh.T @ shift; self.blend_t = t; self.reanchors += 1
+                        self.blend0 = self.blend + c.gain * shift; self.blend = self.blend0.copy(); self.P0 = self.P0 + self.Rp.T @ shift; self.blend_t = t; self.reanchors += 1
                         ev = f"re-anchored {100 * np.linalg.norm(shift):.1f} cm"
                     if np.linalg.norm(d[:2]) < c.reanchor_xy and Q_NEUTRAL.get(self.side) is None: self.Q0 = np.array(st[1], float)
         if self.P0 is None:                                                   # not engaged yet: hold the rest pose
@@ -231,17 +274,17 @@ class HandChain:
             self.blend = self.blend0 * max(0.0, 1.0 - (t - self.blend_t) / 1.0)
             if t - self.blend_t >= 1.0: self.blend0 = np.zeros(3); self.blend = np.zeros(3)
         # position: raw leash -> One Euro -> (legacy hold deadband) -> mapping
-        rel_raw = self.Rh @ (np.asarray(P, float) - self.P0)
+        rel_raw = self.Rp @ (np.asarray(P, float) - self.P0)
         self.p_raw = self.map_rel(rel_raw)                                   # unfiltered reference (for the latency measurement)
         x = self.post(self.pf(self.leash(P), t))
         if c.lead and not c.legacy:                                              # prediction: compensate the pipeline delay
             x = x + np.clip(self.pf.dx * c.lead, -0.03, 0.03)                   # (filtered velocity x lead time, max 3 cm)
-        p_tel = self.map_rel(self.Rh @ (x - self.P0)) + (self.blend if not c.legacy else 0)
+        p_tel = self.map_rel(self.Rp @ (x - self.P0)) + (self.blend if not c.legacy else 0)
         self.p_filt = p_tel.copy()
         if c.legacy and self.first: self.p_tel = p_tel.copy()                 # old: the first mapped target is taken as is (A7 jump)
         self.first = False
         # orientation: operator rotation relative to his flat hand, expressed in the robot frame, applied to the base (rest) rotation
-        Qf = self.qf(Q, t); R_rel = self.Rh @ q2m(Qf) @ q2m(self.Q0).T @ self.Rh.T
+        Qf = self.qf(Q, t); R_rel = self.Ro @ q2m(Qf) @ q2m(self.Q0).T @ self.Ro.T
         rv = rotvec(R_rel); n = np.linalg.norm(rv)
         if n > np.radians(WRIST_MAX_DEG): R_rel = from_rotvec(rv * np.radians(WRIST_MAX_DEG) / n)
         # new: the neutral (flat-hand) orientation turns from the rest rotation to the grasp rotation as the hand reaches the object
@@ -269,11 +312,11 @@ class HandChain:
             else:
                 if st is None:
                     # new: assist/snap measured on the WRIST (the mapped quantity), not on the pinch (that depends on the hand rotation)
-                    dw = wrist_p_now - gp; ok = np.hypot(dw[0], dw[1]) < c.snap_xy and abs(dw[2]) < c.snap_z and r_e < c.snap_deg and g > 0.3 * pr["g_ref"]
+                    dw = wrist_p_now - gp; ok = c.snap and np.hypot(dw[0], dw[1]) < c.snap_xy and abs(dw[2]) < c.snap_z and r_e < c.snap_deg and g > 0.3 * pr["g_ref"]
                     dv = p_tel + self.carry - gp; dxy = float(np.hypot(dv[0], dv[1]))
                     self.snap_n = self.snap_n + 1 if ok else 0
                     if self.snap_n >= c.snap_ticks: st, self.t_st, self.snap_n = "close", t, 0
-                    w_goal = smooth01((c.assist_r - dxy) / (c.assist_r - 0.02)) if (-0.04 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]) else 0.0
+                    w_goal = c.assist_wmax * smooth01((c.assist_r - dxy) / (c.assist_r - 0.02)) if (-0.04 < dv[2] < 0.08 and g > 0.2 * pr["g_ref"]) else 0.0
                 else: w_goal = 1.0 if st == "close" else self.w
                 self.w = float(np.clip(w_goal, self.w - c.w_rate * dt, self.w + c.w_rate * dt))
                 if st is None and self.w > 0:
@@ -306,7 +349,7 @@ class HandChain:
         else: k_rest = 0.1 if self.stage is None else None
         cl = 0.0
         if pr is not None and not hold_f: cl = pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1))
-        if pr is not None and not c.legacy and (self.w > 0 or self.stage == "close") and self.stage != "hold" and not conv:
+        if pr is not None and not c.legacy and c.preshape and (self.w > 0 or self.stage == "close") and self.stage != "hold" and not conv:
             cl = min(cl, 0.5 * pr["cap"])      # approaching: fingers only pre-shaped (as in the grasp search) until the wrist is at the grasp pose
         return dict(p=tgt_p, R=tgt_R, c=cl, g=g, mode=mode, k_rest=k_rest, ev=ev, p_raw=self.p_raw.copy(), p_filt=self.p_filt.copy())
 
@@ -315,23 +358,43 @@ class HandChain:
 # the palm faces +y of the right wrist frame and -y of the left one; fingers point along wrist +x.
 PALM_DOWN_R = {"right": np.array([[1.0, 0, 0], [0, 0, 1.0], [0, -1.0, 0]]),     # columns: x fwd, y (palm) down, z
                "left": np.array([[1.0, 0, 0], [0, 0, -1.0], [0, 1.0, 0]])}
-REST_XYZ = (0.27, 0.20, 0.12)        # pelvis frame: 27 cm forward, 20 cm to the side, 12 cm above the counter
+REST_XYZ = (0.20, 0.18, 0.16)        # pelvis frame: 20 cm forward, 18 cm to the side, 16 cm above the counter (room to move >= 12 cm in every direction; 0.27 forward was near full reach)
+
+
+def finger_cmd(pr, F, c_out):
+    """Robot Dex3 thumb / index / middle, EACH from its own glove finger (F[0..2], 0..1) scaled to the object's cap; the chain's closure
+    c_out (limiters: egg force, pre-shape, release) scales all three by the same factor, so they stay independent."""
+    if pr is None: return [0.0] * 5
+    F = np.asarray(F, float); g = 0.5 * (F[1] + F[2])
+    full = pr["cap"] * float(np.clip(g / pr["g_ref"], 0, 1)); k = 0.0 if full < 1e-6 else min(1.0, c_out / full)
+    return [k * pr["cap"] * float(np.clip(F[i] / pr["g_ref"], 0, 1)) for i in range(3)] + [0.0, 0.0]
 
 
 def palm_down_rest(kin, counter_z, sides=("left", "right"), iters=150):
     """Solve the arms (in place) to the palm-down front rest pose; returns the joint dict. Errors are printed, never hidden."""
     x, y, z = REST_XYZ
+    try:                                       # seed + null-space = the posture the REAL G1 used for this wrist pose (aalto drops):
+        import arm_prior; pri = arm_prior.RealArmPrior()     # bent elbow, arm in front, wrist joints mid-range (an IK from the home
+    except Exception: pri = None                             # pose ended with a straight, abducted arm and the wrist near its limit)
     for s in sides:
-        p = kin.base + np.array([x, y if s == "left" else -y, counter_z + z])
-        for _ in range(iters): kin.a.solve(s, p, PALM_DOWN_R[s])
+        p = kin.base + np.array([x, y if s == "left" else -y, counter_z + z]); q_rest = None
+        if pri is not None:
+            q7, _ = pri.target(s, p - kin.base, PALM_DOWN_R[s]); q_rest = dict(kin.a.q); q_rest.update({n: float(v) for n, v in zip(pri.names[s], q7)})
+            kin.a.q.update({n: float(v) for n, v in zip(pri.names[s], q7)}); kin.a.apply()
+        for _ in range(iters): kin.a.solve(s, p, PALM_DOWN_R[s], q_rest=q_rest, k_rest=0.2)
         e = np.linalg.norm(kin.a.d.xpos[kin.a.ee[s]] - p); r = np.degrees(np.linalg.norm(arm_ik.rot_err(PALM_DOWN_R[s], kin.a.d.xmat[kin.a.ee[s]].reshape(3, 3))))
         print(f"[rest] {s}: palm-down front pose, error {100 * e:.1f} cm / {r:.0f} deg", flush=True)
     return dict(kin.a.q)
 
 
+PRIOR = None        # g1/arm_prior.RealArmPrior: real-G1 postures as the IK null-space target (set by the caller; None = old rest posture)
+NATURAL = {"left": [], "right": []}   # per-tick RMS joint distance to the real postures (filled when PRIOR is set)
+
+
 def solve_arm(kin, side, out, cfg, rest, unsafe, floor_z, palm_fn=None):
     """IK one hand toward out['p'], out['R'] within the joint-speed limit, then the safety check. Returns the block reason list ([] = ok).
     Raises the target over the counter keep-out only for a counter block (A8, new) or for any block (legacy)."""
+    if PRIOR is not None: rest = PRIOR.rest(kin, side, out["p"], out["R"], rest)
     q_prev = dict(kin.a.q); k = out["k_rest"]
     def go(p, R=None):
         kin.a.solve(side, p, out["R"] if R is None else R, q_rest=rest if k else None, k_rest=k or 0.1, uniform=cfg.uniform_step)
@@ -377,6 +440,8 @@ def seated_calib(readers, hands, path, move=0.15):
         f, _ = hold(f"scorri la mano {name} AVANTI di ~{100 * move:.0f} cm e FERMA")
         hold("torna al punto di partenza", 1.5)
         l, _ = hold(f"scorri la mano {name} a SINISTRA di ~{100 * move:.0f} cm e FERMA")
+        if min(np.linalg.norm(x - c) for x in (f, l)) > min(np.linalg.norm(x + c) for x in (f, l)):
+            raise SystemExit(f"[calib {h}] the Coil changed hemisphere DURING the calibration (glove reported at -P): run again (nothing saved)")
         f, l = f - c, l - c
         if min(np.linalg.norm(f), np.linalg.norm(l)) < 0.07: raise SystemExit(f"[calib {h}] movements too small (need ~{100 * move:.0f} cm): run again")
         fu, lu = f / np.linalg.norm(f), l / np.linalg.norm(l); ang = float(np.degrees(np.arccos(np.clip(fu @ lu, -1, 1))))
@@ -386,13 +451,20 @@ def seated_calib(readers, hands, path, move=0.15):
                   "measured_cm": round(100 * float(np.mean([np.linalg.norm(f), np.linalg.norm(l)])), 1)}
         print(f"[calib {h}] ok: forward-left {ang:.0f} deg", flush=True); beep(1200)
     # FINAL step (14/11 evening): the neutral pose = robot rest pose (hands open, palm down, in front of the robot)
-    print("[calib] ULTIMO PASSO: mani APERTE, PALMO VERSO IL BASSO, davanti a te sopra il tavolo (circa 10 cm), FERME", flush=True); beep(); time.sleep(1.5)
+    print("[calib] ULTIMO PASSO: mani APERTE, PALMO VERSO IL BASSO, davanti a te, SOLLEVATE 10-15 cm sopra il tavolo, FERME", flush=True); beep(); time.sleep(1.5)
     for h in hands:
-        Qs = []; t0 = time.time()
+        Qs, Ps = [], []; t0 = time.time()
         while time.time() - t0 < 1.5:
             s = readers[h]()
             if s and s[2] is not None and not np.isnan(s[2]).any(): Qs.append(np.asarray(s[2], float))
+            if s and s[1] is not None and not np.isnan(s[1]).any(): Ps.append(np.asarray(s[1], float))
             time.sleep(1 / RATE)
+        if len(Ps) >= 10:            # up check: the neutral pose is ABOVE the flat start; a mirrored up axis = Coil hemisphere flip
+            up = float(np.array(out[h]["R"])[2] @ (np.median(np.array(Ps), 0) - np.array(out[h]["origin"])))
+            out[h]["up_check_cm"] = round(100 * up, 1)
+            if up < -0.03: out[h]["up_sign"] = -1; print(f"[calib {h}] up axis MIRRORED (Coil hemisphere flip, {100 * up:.0f} cm): corrected", flush=True)
+            elif up > 0.03: out[h]["up_sign"] = 1; print(f"[calib {h}] up axis ok ({100 * up:.0f} cm above the start)", flush=True)
+            else: out[h]["up_sign"] = 1; print(f"[calib {h}] up check unclear ({100 * up:.0f} cm): lift the hands ~10-15 cm in the last step next time", flush=True)
         if len(Qs) >= 10:
             qn = Qs[-1]; out[h]["q_neutral"] = qn.round(5).tolist()
             d = np.degrees(np.linalg.norm(rotvec(q2m(qn) @ q2m(out[h]["q_flat"]).T)))

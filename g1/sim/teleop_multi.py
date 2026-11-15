@@ -25,9 +25,9 @@ from live_sim import GloveLive
 import coil_chain as CC
 
 RATE = T.RATE
-FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.12, 0.06, 0.3    # m, m/s, rad/s inside the camera-seen egg zone
+FRAGILE_R, FRAGILE_V, FRAGILE_JOINT = 0.08, 0.20, 0.9    # m, m/s, rad/s near the camera-seen egg (was 0.12, 0.06, 0.3: the right hand crawled; the finger cap 0.50 protects the egg)
 FRAGILE_CLOSE = 0.6      # closure units/s near the egg
-EGG_SAFE_N, PUSH_N = 12.0, 8.0   # hand force (0.1 s mean) above which the closure backs off / the arm may not push further
+EGG_SAFE_N, PUSH_N = 17.0, 8.0   # (was 12: the limiter cut the grip to 0.40 and the egg was never lifted; it breaks at a sustained 20 N)   # hand force (0.1 s mean) above which the closure backs off / the arm may not push further
 
 
 def slerp_mat(R0, R1, weight):
@@ -78,15 +78,15 @@ def build_multi(objs):
 
 def force_plot(hist, W=640, H=220):
     img = np.full((H, W, 3), 250, np.uint8); fmax = 60.0
-    for thr, lab, col in ((20, "uovo si rompe ~20 N (ipotesi)", (0, 0, 220)), (15, "lattina si ammacca ~15 N (ipotesi)", (0, 140, 255))):
+    for thr, lab, col in ((20, "egg breaks ~20 N (assumed)", (0, 0, 220)), (15, "can dents ~15 N (assumed)", (0, 140, 255))):
         y = int(H - 20 - (H - 40) * thr / fmax); cv2.line(img, (40, y), (W - 10, y), col, 1); cv2.putText(img, lab, (W - 260, y - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, col, 1)
     for h, col in (("left", (200, 90, 30)), ("right", (40, 160, 40))):
         v = hist[h][-300:]
         if len(v) > 1:
             pts = [(int(40 + (W - 50) * i / 299), int(H - 20 - (H - 40) * min(f, fmax) / fmax)) for i, f in enumerate(v)]
             cv2.polylines(img, [np.array(pts, np.int32)], False, col, 2, cv2.LINE_AA)
-        cv2.putText(img, f"{'sinistra' if h == 'left' else 'destra'}: {v[-1] if v else 0:5.1f} N", (50 if h == "left" else 250, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.55, col, 2)
-    cv2.putText(img, "forza mano-oggetto, ultimi 10 s (0-60 N)", (40, H - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
+        cv2.putText(img, f"{'left' if h == 'left' else 'right'}: {v[-1] if v else 0:5.1f} N", (50 if h == "left" else 250, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.55, col, 2)
+    cv2.putText(img, "hand-object force, last 10 s (0-60 N)", (40, H - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
     return img
 
 
@@ -110,11 +110,29 @@ def main():
     ap.add_argument("--headless", action="store_true")
     ap.add_argument("--replay", help="scripted replay instead of the live gloves: <right take>[,<left take>] (e.g. 77 or 77,86); runs in sim time")
     ap.add_argument("--legacy", action="store_true", help="the OLD chain (before the A1-A8 fixes), for before/after numbers")
+    ap.add_argument("--no-record", action="store_true", help="do not save the session (default: data/live/sim_<time>/ video.mp4 + ticks.jsonl + metrics.json)")
+    ap.add_argument("--video", help="write a 1920x1080 mp4 (robot view + head camera with recognition + force plot)")
+    ap.add_argument("--fast", action="store_true", help="same limits as the robot's -Fast: joints 1.8 rad/s, faster target, only robot self-collision blocks")
+    ap.add_argument("--vision", action="store_true", help="head camera recognises each object (g1/perception_v1, as the robot code) and sets its finger cap (egg 0.50, can 0.90, ball 1.0)")
+    ap.add_argument("--assist", action="store_true", help="previous strong grasp assist + snap grasp (default since 15/11: manual grasp)")
+    ap.add_argument("--prior", action="store_true", help="real-G1 posture prior (Tommaso's aalto data) as the IK null-space target")
     ap.add_argument("--old-rest", action="store_true", help="previous robot rest pose (wrists rolled, palms sideways)")
     ap.add_argument("--slow", action="store_true", help="previous speed/filter settings (before the 14/11 evening latency tuning)")
     ap.add_argument("--metrics", help="write latency/jerk/blocked/grasp numbers to this JSON file")
     a = ap.parse_args(); hands = ["left", "right"] if a.hands == "both" else [a.hands]
+    global EVAL
+    import arm_prior; EVAL = arm_prior.RealArmPrior()            # always measured (naturalness), used only with --prior
+    if a.prior: CC.PRIOR = arm_prior.RealArmPrior()
     cfg = CC.Cfg.old() if a.legacy else (CC.Cfg.slow() if a.slow else CC.Cfg())
+    if a.fast: cfg.fast()                                                 # = robot -Fast (coil_chain.Cfg.fast, same values)
+    if not a.legacy and not a.slow: arm_ik.WRIST_GAIN, arm_ik.W_ROT = 1.08, 0.4   # = the -CoilVision robot policy (wrist slightly faster)
+    if not a.assist and not a.legacy: cfg.manual_grasp()                  # operator 15/11: manual grasp (no snap, light pull); --assist = old
+    REC = None
+    if not a.no_record and not a.replay:                                  # every live session is saved: video + all data per tick
+        REC = os.path.join(ROOT, "data", "live", time.strftime("sim_%Y%m%d_%H%M%S")); os.makedirs(REC, exist_ok=True)
+        a.video = a.video or os.path.join(REC, "video.mp4"); a.metrics = a.metrics or os.path.join(REC, "metrics.json")
+        rec_f = open(os.path.join(REC, "ticks.jsonl"), "w"); print(f"[record] saving to {REC}", flush=True)
+    raw_in = {}
     cfg.gain = a.gain
     if a.zoff is not None: cfg.zoff = a.zoff
     objs = [(n.split(":")[0], [float(v) for v in n.split(":")[1].split(",")]) for n in a.objs.split(";")]
@@ -140,6 +158,21 @@ def main():
         o["seen"] = seen
         print(f"[camera] {name}: " + ("NOT seen" if seen is None else f"seen, error {100 * np.linalg.norm((seen - o['p0'])[:2]):.1f} cm"), flush=True)
         o["G"] = {h: (T.grasp_pose(name, h, seen, rest) if seen is not None and D.best_grasp(name) else None) for h in hands}
+    VIS = {}; CAMT = None
+    if a.vision:                                                 # same recognition as g1/live_policy_v2_vision.py (CAP_HARD caps)
+        from g1.perception_v1 import perceive as pv_perceive, pinhole_pixel_to_pelvis, robot_mask
+        Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
+        pos_c, R_c = PC.cam_pose(m, d); CAMT = np.eye(4); CAMT[:3, :3] = R_c @ np.diag([1, -1, -1]); CAMT[:3, 3] = pos_c - kin.base
+        rgb_v, dep_v = PC.render_head(m, d); sm = robot_mask([kin.a.q[n] for n in arm_ik.ARM_NAMES], None, Ks, CAMT)(dep_v)
+        t_v = time.time(); res_v = pv_perceive(rgb_v, dep_v, pinhole_pixel_to_pelvis(Ks, CAMT), self_mask=sm); t_v = time.time() - t_v
+        CAP_HARD = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: egg 0.60 (accepted risk: this sim breaks it from 0.53), can 0.90, ball 1.0
+        for name, o in O.items():
+            best = None
+            for r in res_v["objects"]:
+                dd = float(np.hypot(*(np.array(r["p_pelvis"][:2]) - (o["p0"] - kin.base)[:2])))
+                if dd < 0.06 and (best is None or dd < best[0]): best = (dd, r)
+            lab = best[1]["label"] if best else "unknown"; VIS[name] = (lab, CAP_HARD.get(lab, 0.5))
+            print(f"[vision] {name}: recognised as {lab} -> finger cap {VIS[name][1]:.2f}  ({t_v:.2f} s)", flush=True)
     # Mirror the right-hand Cartesian can grasp across the sagittal plane, then solve it on the left.
     if "can_empty" in O and "left" in hands and O["can_empty"]["G"].get("left") is not None:
         M = np.diag([1.0, -1.0, 1.0])
@@ -159,7 +192,10 @@ def main():
     if not a.replay: CC.load_neutral(arm_ik.CALIB, hands)
     for h in hands:
         n = assigned[h]; gr = None
-        if n is not None and O[n]["G"].get(h): gp, gR, pin_t = O[n]["G"][h]; gr = (gp, gR, pin_t, n, D.PROFILE.get(n, D.PROFILE["unknown"]))
+        if n is not None and O[n]["G"].get(h):
+            gp, gR, pin_t = O[n]["G"][h]; prof = dict(D.PROFILE.get(n, D.PROFILE["unknown"]))
+            if n in VIS: prof["cap"] = min(prof["cap"], VIS[n][1])          # vision: cap of the RECOGNISED object
+            gr = (gp, gR, pin_t, n, prof)
         chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], gr, cfg, floor)
         print(f"[map] {h} hand -> {n}; start pose = robot rest pose (hand flat on your table)", flush=True)
     # input: live gloves or scripted replay (sim time, deterministic)
@@ -186,7 +222,7 @@ def main():
     if not a.headless:
         from mujoco import viewer as mjv
         viewer = mjv.launch_passive(m, d)
-    rend = mujoco.Renderer(m, 240, 320) if a.cam and not a.headless else None
+    rend = mujoco.Renderer(m, 480, 640) if a.cam and not a.headless else None
     spt = int(round(1 / RATE / m.opt.timestep)); f6 = np.zeros(6); t0 = time.time(); tick = 0
     hand_bodies = {h: {b for b in range(m.nbody) if (mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_BODY, b) or "").startswith(f"{h}_hand_")} for h in ("left", "right")}
 
@@ -224,7 +260,16 @@ def main():
             s = read(h, tick)
             if s is None or s[1] is None or s[2] is None or np.isnan(s[1]).any(): status.append(f"{h}: no Coil"); continue
             F, P, Q = s; ch = chains[h]; name = ch.grasp[3] if ch.grasp else None
-            if not cfg.fixed_target and ch.stage is None:                     # legacy A5: nearest seen object every tick
+            raw_in[h] = (np.asarray(F, float).round(3).tolist(), np.asarray(P, float).round(4).tolist(), np.asarray(Q, float).round(4).tolist())
+            if VIS and ch.stage is None:                                       # vision: object nearest to the pinch -> cap + target
+                pin = T.pinch(kin, h); cands = [(float(np.linalg.norm(pin - O[n]["seen"])), n) for n in O if O[n]["seen"] is not None and O[n]["G"].get(h)]
+                if cands:
+                    dn, n = min(cands); gp, gR, pin_t = O[n]["G"][h]; prof = dict(D.PROFILE.get(n, D.PROFILE["unknown"]))
+                    prof["cap"] = VIS[n][1] if dn <= 0.15 else min(VIS[n][1], 0.60)
+                    if not ch.grasp or ch.grasp[3] != n or abs(ch.grasp[4]["cap"] - prof["cap"]) > 1e-6:
+                        events.append((round(t_now, 2), h, f"target {n} cap {prof['cap']:.2f} ({100 * dn:.0f} cm)"))
+                    ch.grasp = (gp, gR, pin_t, n, prof); name = n
+            elif not cfg.fixed_target and ch.stage is None:                     # legacy A5: nearest seen object every tick
                 pin = T.pinch(kin, h); cands = [(np.hypot(*(pin - O[n]["seen"])[:2]), n) for n in O if O[n]["seen"] is not None and O[n]["G"].get(h)]
                 if cands and min(cands)[1] != name:
                     n = min(cands)[1]; gp, gR, pin_t = O[n]["G"][h]; ch.grasp = (gp, gR, pin_t, n, D.PROFILE.get(n, D.PROFILE["unknown"])); name = n
@@ -236,7 +281,8 @@ def main():
             if out["ev"]: events.append((round(t_now, 2), h, out["ev"])); print(f"[{h}] {out['ev']}", flush=True)
             near = near_egg_v(T.pinch(kin, h)) is not None
             step0 = arm_ik.ARM_STEP; arm_ik.ARM_STEP = (min(cfg.joint_speed, FRAGILE_JOINT) if near else cfg.joint_speed) / RATE
-            why = CC.solve_arm(kin, h, out, cfg, rest, unsafe, floor, T.palm); arm_ik.ARM_STEP = step0
+            why = CC.solve_arm(kin, h, out, cfg, rest, (lambda k_: [x for x in unsafe(k_) if x.startswith("self")]) if a.fast else unsafe, floor, T.palm); arm_ik.ARM_STEP = step0
+            if EVAL is not None: CC.NATURAL[h].append(EVAL.naturalness(kin, h))
             mode = out["mode"]
             if why:
                 blocked[h] += 1; consec[h] += 1; max_consec = max(max_consec, consec[h]); mode += f" [BLOCKED: {why[0]}]"
@@ -245,18 +291,24 @@ def main():
             g = out["g"]; c = out["c"]
             if name == "egg":                                                          # force limiter in EVERY state
                 cap_now = egg_grip_cap[h]; mean_force = egg_force_mean(h)
-                if mean_force > EGG_SAFE_N: cap_now = max(0.40, cap_now - 0.03)
+                if mean_force > EGG_SAFE_N: cap_now = max(0.50, cap_now - 0.02)
                 elif mean_force < EGG_SAFE_N - 4: cap_now = min(0.70, cap_now + 0.01)
                 egg_grip_cap[h] = cap_now; c = min(c, cap_now)
             if near: c = float(np.clip(c, c_prev.get(h, 0.0) - FRAGILE_CLOSE / RATE, c_prev.get(h, 0.0) + FRAGILE_CLOSE / RATE))
             c_prev[h] = c
-            fingers[h] = [c, c, c, 0, 0]; status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
+            fingers[h] = CC.finger_cmd(ch.grasp[4] if ch.grasp else None, F, c) if not cfg.legacy else [c, c, c, 0, 0]   # thumb/index/middle independent
+            status.append(f"{h}: {mode}, grip {g:.2f}->{c:.2f}")
             log[h].append(dict(t=t_now, engaged=ch.P0 is not None, p_raw=out["p_raw"], p_filt=out["p_filt"], p_tel=ch.p_tel.copy(), p_cmd=kin.a.d.xpos[kin.a.ee[h]].copy(),
                                q=[kin.a.q[n] for n in kin.a.arm[h]], mode=out["mode"], stage=ch.stage, blocked=bool(why),
                                pin_err=(T.pinch(kin, h) - ch.grasp[2]) if ch.grasp else np.zeros(3), tgt=out["p"].copy(), c=c,
                                oz=float(d.qpos[O[name]["adr"] + 2] - O[name]["p0"][2]) if name else 0.0,
                                rot_err=float(np.degrees(np.linalg.norm(arm_ik.rot_err(out["R"], kin.a.d.xmat[kin.a.ee[h]].reshape(3, 3)))))))
         hq = rt.step(left=fingers["left"], right=fingers["right"])
+        if REC is not None:
+            rec_f.write(json.dumps({"t": round(tick / RATE, 3), "in": raw_in, "status": status,
+                                    "target": {h: (chains[h].grasp[3], round(chains[h].grasp[4]["cap"], 2), chains[h].stage) if chains[h].grasp else None for h in hands},
+                                    "fingers": {h: fingers[h] for h in hands}, "arm_q": [round(kin.a.q[n], 4) for n in arm_ik.ARM_NAMES],
+                                    "hand_q": [round(float(x), 4) for x in hq], "wrist": {h: kin.a.d.xpos[kin.a.ee[h]].round(4).tolist() for h in hands}}) + "\n")
         for n, v in kin.a.q.items():
             if n in act and "_hand_" not in n: d.ctrl[act[n]] = v
         for n, v in zip(names, hq): d.ctrl[act[n]] = v
@@ -293,10 +345,67 @@ def main():
                 viewer.set_texts([(mujoco.mjtFontScale.mjFONTSCALE_150, mujoco.mjtGridPos.mjGRID_TOPLEFT, "teleop", line)])
             viewer.sync()
         if tick % (90 if a.replay else 15) == 0: print(line, flush=True)
+        if not a.replay and tick == int(2.0 * RATE):                       # automatic ALIGN 2 s after start (no keyboard needed)
+            for h in hands: chains[h] = CC.HandChain(h, Rh[h], rest_pose[h], chains[h].grasp, cfg, floor)
+            print("[align] AUTO: put both hands FLAT and STILL on the table for 1 s", flush=True)
+        if a.video and tick % 2 == 0:
+            if "vw" not in locals():
+                m.vis.global_.offwidth, m.vis.global_.offheight = 1920, 1080
+                vrend = mujoco.Renderer(m, 760, 1100); hrend = mujoco.Renderer(m, 480, 640); vcam = mujoco.MjvCamera()
+                vcam.lookat[:] = [0.28, 0.0, D.PELVIS_Z + 0.05]; vcam.distance, vcam.azimuth, vcam.elevation = 1.5, 200, -24
+                vw = cv2.VideoWriter(a.video, cv2.VideoWriter_fourcc(*"mp4v"), 15, (1920, 1080))
+            fr = np.full((1080, 1920, 3), (28, 24, 22), np.uint8)
+            cv2.rectangle(fr, (0, 0), (1920, 70), (44, 36, 38), -1)
+            cv2.putText(fr, "G1  x  ROKOKO GLOVES + COIL PRO  x  COMPUTER VISION", (28, 46), cv2.FONT_HERSHEY_SIMPLEX, 1.05, (240, 235, 235), 2, cv2.LINE_AA)
+            vrend.update_scene(d, vcam); fr[90:850, 20:1120] = vrend.render()[:, :, ::-1]
+            hrend.update_scene(d, "head_cam"); himg = hrend.render()[:, :, ::-1].copy()
+            if VIS and CAMT is not None:
+                Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
+                for name, o in O.items():
+                    pc_ = CAMT[:3, :3].T @ (d.xpos[o["body"]] - kin.base - CAMT[:3, 3])
+                    if pc_[2] <= 0.05: continue
+                    u, v, w = Ks @ pc_; u, v = int(u / w), int(v / w); lab, capv = VIS[name]; txt = f"{lab.upper().replace('_', ' ')}  max {capv:.2f}"
+                    cv2.rectangle(himg, (u - 34, v - 34), (u + 34, v + 34), (130, 30, 0), 2)
+                    (tw, th_), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                    cv2.rectangle(himg, (u - 37, v - 40 - th_), (u - 31 + tw, v - 36), (245, 245, 245), -1)
+                    cv2.putText(himg, txt, (u - 34, v - 38), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 30, 0), 2, cv2.LINE_AA)
+            fr[90:660, 1140:1900] = cv2.resize(himg, (760, 570))
+            cv2.putText(fr, "G1 HEAD CAMERA + object recognition", (1150, 685), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (235, 235, 240), 1, cv2.LINE_AA)
+            fp = cv2.resize(force_plot(hist), (760, 260)); fr[720:980, 1140:1900] = fp
+            # glove panel (bottom-left corner of the robot view): the 5 finger closures of each glove + Coil state
+            gx, gy = 30, 610; cv2.rectangle(fr, (gx - 10, gy - 30), (gx + 520, gy + 225), (40, 34, 36), -1)
+            cv2.putText(fr, "ROKOKO GLOVES (live)", (gx, gy - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (235, 235, 240), 1, cv2.LINE_AA)
+            for j, h in enumerate(("left", "right")):
+                ri = raw_in.get(h); x0 = gx + j * 260
+                cv2.putText(fr, f"{h.upper()} {'Coil ok' if ri else 'no Coil'}", (x0, gy + 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (120, 220, 140) if ri else (80, 80, 255), 1, cv2.LINE_AA)
+                Fv = ri[0] if ri else [0] * 5
+                for i, (fn, fv) in enumerate(zip(("thumb", "index", "middle", "ring", "little"), Fv)):
+                    y = gy + 45 + i * 34; cv2.putText(fr, fn, (x0, y + 14), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 210), 1, cv2.LINE_AA)
+                    cv2.rectangle(fr, (x0 + 62, y), (x0 + 232, y + 18), (70, 66, 72), -1)
+                    cv2.rectangle(fr, (x0 + 62, y), (x0 + 62 + int(170 * float(np.clip(fv, 0, 1))), y + 18), (90, 200, 120), -1)
+            for i, (h, st) in enumerate(zip(hands, status)):
+                cv2.putText(fr, st[:95], (28, 900 + 40 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (235, 235, 240), 1, cv2.LINE_AA)
+            cv2.putText(fr, f"t {tick / RATE:5.1f} s   blocked {sum(blocked.values())}   " + " ".join(f"{n}: {'BROKEN' if o['broken'] else 'ok'}" for n, o in O.items()),
+                        (28, 1000), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (120, 220, 140), 1, cv2.LINE_AA)
+            cv2.putText(fr, "MuJoCo simulation - operator's recorded glove + Coil takes" if a.replay else "MuJoCo simulation - live gloves + Coil",
+                        (24, 1070), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 140, 150), 1, cv2.LINE_AA)
+            vw.write(fr)
+            if not a.headless: cv2.imshow("G1 dashboard (recorded)", cv2.resize(fr, (1280, 720)))
         if not a.headless and tick % 3 == 0:
-            cv2.imshow("forze", force_plot(hist))
+            if not a.video: cv2.imshow("forze", force_plot(hist))
             if rend is not None:
-                rend.update_scene(d, "head_cam"); cv2.imshow("camera in testa G1", rend.render()[:, :, ::-1].copy())
+                rend.update_scene(d, "head_cam"); cimg = rend.render()[:, :, ::-1].copy()
+                if VIS and CAMT is not None:                         # recognised label + cap on each object, following it
+                    Ks = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
+                    for name, o in O.items():
+                        pc = CAMT[:3, :3].T @ (d.xpos[o["body"]] - kin.base - CAMT[:3, 3])
+                        if pc[2] <= 0.05: continue
+                        u, v, w = Ks @ pc; u, v = int(u / w), int(v / w); lab, capv = VIS[name]; txt = f"{lab}  max {capv:.2f}"
+                        cv2.rectangle(cimg, (u - 34, v - 34), (u + 34, v + 34), (130, 30, 0), 2)
+                        (tw, th_), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                        cv2.rectangle(cimg, (u - 37, v - 40 - th_), (u - 31 + tw, v - 36), (245, 245, 245), -1)
+                        cv2.putText(cimg, txt, (u - 34, v - 38), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (130, 30, 0), 2, cv2.LINE_AA)
+                if not a.video: cv2.imshow("G1 head camera", cimg)
             k = cv2.waitKey(1) & 0xFF
             if k != 255: print(f"[key] {chr(k) if 32 <= k < 127 else k}", flush=True)
             if k in (ord("a"), ord("A"), ord("c"), ord("C")):             # manual re-anchor: hands flat + still on the table for 1 s
@@ -334,8 +443,12 @@ def main():
         lift = o["zmax"] - o["p0"][2]
         res["objects"][n] = dict(lift_cm=round(100 * lift, 1), broken=o["broken"], crush_pct=round(100 * o["crush"]),
                                  grasp_success=bool(lift > 0.03 and not o["broken"]))
+    for h in hands:
+        if CC.NATURAL[h]: res["hands"][h]["natural_rms_rad"] = round(float(np.median(CC.NATURAL[h])), 3); res["hands"][h]["natural_p95_rad"] = round(float(np.percentile(CC.NATURAL[h], 95)), 3)
     print("[metrics] " + json.dumps(res["hands"]) + " " + json.dumps(res["objects"]) + f" blocked {blocked}", flush=True)
     if a.metrics: json.dump(res, open(a.metrics, "w"), indent=1, default=float)
+    if a.video and "vw" in locals(): vw.release(); print("video:", a.video, flush=True)
+    if REC is not None: rec_f.close(); print(f"[record] session saved: {REC}", flush=True)
 
 
 if __name__ == "__main__":
