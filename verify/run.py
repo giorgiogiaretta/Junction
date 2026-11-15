@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import statistics
 import math
+import sys
 
 MODELS = {'nemotron': 'nemotron_run2.json', 'gemma': 'gemma4_api.json',
           'paligemma': 'paligemma2_local.json'}
@@ -57,7 +58,7 @@ def recompute(root):
     from ai.recognize import decide
     runs = {}
     for name, filename in MODELS.items():
-        rows = json.loads((root / 'docs/evidence/recognition' / filename).read_text())
+        rows = json.loads((root / 'docs/evidence/recognition' / filename).read_text(encoding='utf-8'))
         if not isinstance(rows, list) or not rows:
             raise ValueError(f'{name}: expected nonempty row array')
         index = {}
@@ -199,6 +200,7 @@ def check(root, registry, values, strict=False):
 
 
 def main(argv=None):
+    if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8", errors="replace")   # Windows console/pipe is cp1252
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument('--registry', type=Path, default=Path(__file__).with_name('claims.json'))
@@ -208,7 +210,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         values, details = recompute(args.root)
-        registry = json.loads(args.registry.read_text())
+        registry = json.loads(args.registry.read_text(encoding='utf-8'))
         results = check(args.root, registry, values, strict=args.strict)
         for key, expected in registry['expected_metrics'].items():
             results.insert(0, ('PASS' if values.get(key) == expected else 'FAIL', key,

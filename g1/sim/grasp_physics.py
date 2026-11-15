@@ -31,6 +31,9 @@ ARM = {"right_shoulder_pitch_joint": -0.4, "right_shoulder_roll_joint": -0.25, "
 
 
 def build(obj, kp, kv):
+    if not os.path.exists(ASSETS):   # first run on a fresh clone: fetch the official G1 + Dex3 model (pinned, Apache-2.0)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import g1_sim
+        g1_sim.ensure_assets(os.path.dirname(os.path.dirname(ASSETS)))
     spec = mujoco.MjSpec.from_file(ASSETS)
     spec.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
     spec.delete(spec.joint("floating_base_joint"))

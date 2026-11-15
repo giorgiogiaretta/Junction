@@ -25,7 +25,7 @@ def repo(tmp_path):
 
 def change(repo, model, fn):
     path = repo / 'docs/evidence/recognition' / model
-    rows = json.loads(path.read_text())
+    rows = json.loads(path.read_text(encoding='utf-8'))
     fn(rows)
     path.write_text(json.dumps(rows))
 
@@ -116,7 +116,7 @@ def test_cli_success_failure_and_invalid_json(repo, tmp_path, capsys):
 
 
 def test_registry_contains_current_text_and_valid_traces():
-    registry = json.loads((ROOT / 'verify/claims.json').read_text())
+    registry = json.loads((ROOT / 'verify/claims.json').read_text(encoding='utf-8'))
     values, _ = recompute(ROOT)
     results = check(ROOT, registry, values)
     assert not any(r[0] == 'FAIL' and ('exact text' in r[2] or 'document trace' in r[2])
