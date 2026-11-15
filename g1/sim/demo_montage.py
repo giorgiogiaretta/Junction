@@ -6,7 +6,7 @@ Ball: pure physics take, cut just before it starts to slip (object height drops 
 Can: scan + approach + grasp, cut 0.7 s after the first lift reaches its peak (nothing after: no second grasp).
 Egg: scan + grasp, cut as soon as it is lifted (peak) and that frame is held for 2 s.
 Egg without vision: until it breaks, plus 1.5 s."""
-import json, os
+import json, os, sys
 import cv2
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,7 +33,8 @@ def peak_end(meta, idx, drop=1.0):
 
 
 def main():
-    out = cv2.VideoWriter(os.path.join(ROOT, "media", "g1_cv_demo.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), RATE, (1920, 1080)); n = 0
+    OUT = os.path.join(ROOT, "media", sys.argv[1] if len(sys.argv) > 1 else "g1_cv_demo.mp4")
+    out = cv2.VideoWriter(OUT, cv2.VideoWriter_fourcc(*"mp4v"), RATE, (1920, 1080)); n = 0
     def write(fs):
         nonlocal n
         for f in fs: out.write(f); n += 1
@@ -68,7 +69,7 @@ def main():
     brk = next((i for i in idx if ma[i].get("broken")), idx[-1])
     end = min(brk + int(1.5 * RATE), idx[-1])
     write(fa[idx[0]:end + 1]); print("noCV  frames", idx[0], end, "broken at", brk)
-    out.release(); print("total s", round(n / RATE, 1), "->", os.path.join(ROOT, "media", "g1_cv_demo.mp4"))
+    out.release(); print("total s", round(n / RATE, 1), "->", OUT)
 
 
 if __name__ == "__main__":

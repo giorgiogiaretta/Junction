@@ -23,6 +23,7 @@ K_SIM = np.array([[PC.FX, 0, PC.CX], [0, PC.FX, PC.CY], [0, 0, 1.0]])
 SPOT = (0.35, -0.15)                                     # work spot of the right hand (pelvis frame, m)
 PARK = {"stress_ball": (0.33, 0.10), "can_empty": (0.43, 0.18), "egg": (0.46, 0.00)}    # waiting objects, in view, left side
 TAKES = {"stress_ball": 80, "can_empty": 85, "egg": 77}  # operator's real right-glove takes of 14/11, one per object
+NOFORCE = False   # set by --no-force-panel
 NAME = {"stress_ball": "STRESS BALL", "can_empty": "EMPTY CAN", "egg": "EGG", "unknown": "UNKNOWN"}
 COL = {"stress_ball": (40, 140, 255), "can_empty": (60, 200, 230), "egg": (235, 235, 235), "unknown": (160, 160, 160)}   # BGR
 # closure cap per RECOGNISED object in this simulation (sim egg holds 0.55 and breaks from 0.60, measured with take 77; ball 0.70 and
@@ -227,7 +228,7 @@ class Demo:
         elif rec is not None:
             put(fr, f"seen: {NAME.get(rec['label'], rec['label'])}   max closure {rec['cap']:.2f}   why: {str(rec.get('why', ''))[:60]}", (1150, 708), 0.5, COL.get(rec["label"], TXT), 1)
         else:
-            put(fr, "vision OFF: no closure limit (full force)", (1150, 708), 0.55, (80, 80, 255), 2)
+            put(fr, "vision OFF: no closure limit" if NOFORCE else "vision OFF: no closure limit (full force)", (1150, 708), 0.55, (80, 80, 255), 2)
         # glove fingers + closure gauge
         cv2.rectangle(fr, (20, 870), (560, 1060), PANEL, -1); put(fr, "ROKOKO GLOVE (operator, recorded 14 Nov)", (32, 896), 0.55, TXT, 1)
         for i, (nm, fv) in enumerate(zip(("thumb", "index", "middle"), F[:3])):
@@ -239,8 +240,15 @@ class Demo:
         xc = 600 + int(500 * np.clip(cap, 0, 1)); cv2.line(fr, (xc, 918), (xc, 982), (60, 60, 255), 3)
         put(fr, "limit: waiting for the camera" if state == "SCANNING" else (f"command {c:.2f}   NO limit (vision off)" if rec is None else f"command {c:.2f}   limit from vision {cap:.2f}"), (600, 1010), 0.6, TXT, 1)
         put(fr, f"object lifted {max(lift, 0):4.1f} cm", (600, 1045), 0.6, TXT, 1)
-        # force plot
-        cv2.rectangle(fr, (1140, 730), (1900, 1060), PANEL, -1); put(fr, "HAND-OBJECT FORCE (N)", (1152, 756), 0.55, TXT, 1)
+        # force plot (hidden with --no-force-panel: the N values are model outputs, not measurements; show the outcome instead)
+        cv2.rectangle(fr, (1140, 730), (1900, 1060), PANEL, -1)
+        if NOFORCE:
+            put(fr, "OUTCOME (simulation)", (1152, 756), 0.55, TXT, 1)
+            put(fr, "EGG BROKEN" if broken else ("object held" if lift > 0.5 else "no lift yet"), (1152, 860), 1.4, (60, 60, 255) if broken else (120, 220, 120), 3)
+            put(fr, f"object lifted {max(lift, 0):4.1f} cm", (1152, 920), 0.8, TXT, 2)
+            put(fr, "MuJoCo simulation" + ("  |  grasp assist ON" if self.assist else ""), (24, 1074), 0.42, (130, 130, 140), 1)
+            return fr
+        put(fr, "HAND-OBJECT FORCE (N)", (1152, 756), 0.55, TXT, 1)
         x0, y0, pw, ph, fmax = 1160, 1040, 720, 260, 40.0
         if brk:
             yb = int(y0 - ph * brk / fmax); cv2.line(fr, (x0, yb), (x0 + pw, yb), (60, 60, 255), 1)
@@ -287,11 +295,12 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--live", action="store_true"); ap.add_argument("--no-show", action="store_true")
     ap.add_argument("--vlm", default=""); ap.add_argument("--engine", default="g1", choices=["g1", "ai"], help="g1 = geometry+colour (offline); ai = + Tommaso ai.perceive ensemble (with --vlm nemotron: NVIDIA)"); ap.add_argument("--out", default=os.path.join(ROOT, "data", "video", "demo_cv.mp4"))
     ap.add_argument("--no-compare", action="store_true", help="skip the final egg-without-vision comparison")
+    ap.add_argument("--no-force-panel", action="store_true", help="hide the force plot and N values (show the held/broken outcome instead)")
     ap.add_argument("--no-assist", action="store_true", help="pure physics: no grasp assist (objects may slip)")
     ap.add_argument("--only", default="", help="comma list of objects to show (default all three)")
     ap.add_argument("--caps", default="", help="override caps, e.g. stress_ball=0.7,can_empty=0.6")
     ap.add_argument("--meta", default="", help="write per-frame state JSON (for cutting a montage)")
-    a = ap.parse_args(); show = not a.no_show
+    a = ap.parse_args(); show = not a.no_show; globals()["NOFORCE"] = a.no_force_panel
     demo = Demo(vlm=[b for b in a.vlm.split(",") if b], engine=a.engine); demo.det = {}; demo.assist = not a.no_assist
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     writer = None if a.live else cv2.VideoWriter(a.out, cv2.VideoWriter_fourcc(*"mp4v"), RATE, (W, H))
@@ -311,7 +320,7 @@ def main():
             summary.append((work, lab, cap, r)); print(f"[grasp] {work}: {r}", flush=True)
         if not a.no_compare and not a.live:
             demo.place("egg"); demo.det = {}; demo.seg = "compare"; demo.vision_off = True
-            r = demo.grasp("egg", TakeGlove(TAKES["egg"]), 1.0, "egg", "COMPARISON: EGG WITHOUT VISION", "same glove take, no limit: full force 1.00", writer, show, None)
+            r = demo.grasp("egg", TakeGlove(TAKES["egg"]), 1.0, "egg", "COMPARISON: EGG WITHOUT VISION", ("same glove take, no closure limit" if NOFORCE else "same glove take, no limit: full force 1.00"), writer, show, None)
             summary.append(("egg (no vision)", "-", 1.0, r)); print(f"[grasp] egg WITHOUT vision: {r}", flush=True)
     except KeyboardInterrupt:
         print("stopped", flush=True)
