@@ -123,7 +123,7 @@ def recompute(root):
         details[prefix] = {'disagreements': scored, 'shared_errors': shared,
                            'unflagged_errors': sorted(set(errors) - set(scored))}
     for name, models in [('pair', ['nemotron', 'gemma']), ('triple', list(runs))]:
-        decisions = {k: decide([runs[m][k] for m in models]) for k in labelled}
+        decisions = {k: decide([dict(runs[m][k], name=m) for m in models]) for k in labelled}
         values[name + '.accuracy'] = f'{sum(decisions[k]["object"] == first[k]["expected"] for k in labelled)}/{len(labelled)}'
         eggs = [k for k in labelled if first[k]['expected'] == 'egg']
         balls = [k for k in labelled if first[k]['expected'] == 'stress_ball']
