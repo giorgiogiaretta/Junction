@@ -60,6 +60,19 @@ VLM = tuple(v for v in os.environ.get("G1_VLM", "").split(",") if v)       # e.g
 LOG_FLUSH_S = 0.5                                                    # s for routine tick lines; events and blocked ticks flush at once
 # hard finger caps per object (the camera label can only LOWER the CLI object's cap): egg 0.70 never more; empty can = perception_v1's
 # rule (0.45, object_profiles.json); stress_ball keeps demo_e2e's 1.0 (cannot break, the real grip is weak: a lower cap only drops it)
+CAP_DEFAULT = 0.60     # no recognised object near the hand (or only the CLI fallback): the most careful cap
+SELECT_R = 0.15        # m: the object nearest to the robot pinch within this radius gives the cap and the assist/snap target
+REDETECT_S = 3.0       # s: the head camera re-detects all objects in the background while no hand is grasping
+_GP = {}
+
+
+def gpose(name, side, seen, rest):
+    """T.grasp_pose is linear in the object position: cache the offsets per (object, hand) (a fresh one costs ~190 ms)."""
+    if (name, side) not in _GP: _GP[(name, side)] = T.grasp_pose(name, side, np.zeros(3), rest)
+    g = _GP[(name, side)]
+    return None if g is None else (g[0] + seen, g[1], g[2] + seen)
+
+
 CAP_HARD = {"egg": 0.60, "can_empty": 0.90, "stress_ball": 1.0}   # operator 15/11: camera sees egg -> never above 0.60, can 0.90, ball 1.0
 LABELS = {"can": "can_empty", "ball": "stress_ball", "egg": "egg", "can_empty": "can_empty", "stress_ball": "stress_ball"}
 LIVE = os.path.join(ROOT, "data", "live")
@@ -150,6 +163,7 @@ class LivePolicyV2(Policy):
         self.started = False; self.stall = 0; self.t_last = None; self.t_flush = time.time()
         with self.ep_lock: self.ep += 1; self.perc = None
         self.vision_future = None; self.vision_started = None; self.vision_logged = False; self.pose_failed = set()
+        self.chains_fallback = {}; self.cands = {}; self.sel = {}; self.objs = []; self.redetect = None; self.t_detect = time.time()
         self.head_busy = False; self.head_err = None
 
     def _ws_safe(self, q):
@@ -234,7 +248,11 @@ class LivePolicyV2(Policy):
                                                     "conf": o.get("conf"), "pv_cap": o.get("cap"), "depth_ok": bool(o.get("depth_ok")),
                                                     "p": None if o.get("p_pelvis") is None else np.asarray(o["p_pelvis"], float)}
                 except Exception as e: out[s] = None; print("[v2] vision object error:", s, e, flush=True)
-            payload = (out, res.get("table_z"), res.get("engine"), res.get("error") or res.get("ai_error"), time.time() - t0)
+            objs = []
+            for o in res.get("objects", []):
+                lb = LABELS.get(str(o.get("label")), "unknown")
+                if o.get("p_pelvis") is not None and o.get("depth_ok"): objs.append({"label": lb, "p": np.asarray(o["p_pelvis"], float)})
+            payload = (out, res.get("table_z"), res.get("engine"), res.get("error") or res.get("ai_error"), time.time() - t0, objs)
         except Exception as e:
             payload = ({}, None, None, f"{type(e).__name__}: {e}", time.time() - t0)
         with self.ep_lock:
@@ -253,8 +271,9 @@ class LivePolicyV2(Policy):
                 if self.t_wait is None: self.t_wait = time.time()
                 if time.time() - self.t_wait < 3.0 or any(self.xy[s] is None for s in self.obj): return False
             elif time.time() - self.vision_started < VISION_TIMEOUT: return False
-        found, table_z, engine, error, lat = self.perc if self.perc is not None else \
+        found, table_z, engine, error, lat = self.perc[:5] if self.perc is not None else \
             ({}, None, None, "vision timeout" if self.vision_future is not None else "no camera frame", time.time() - (self.vision_started or time.time()))
+        self.objs = list(self.perc[5]) if self.perc is not None and len(self.perc) > 5 else []
         if not self.vision_logged:
             self.vision_logged = True
             self._write({"event": "VISION", "engine": engine, "error": error, "table_z": table_z, "latency_s": round(lat, 2),
@@ -281,10 +300,40 @@ class LivePolicyV2(Policy):
             self.seen[side] = seen
             pr = dict(D.PROFILE.get(name, D.PROFILE["unknown"])); pr["cap"] = cap     # the chain and the finger command both read pr["cap"]
             self.chains[side] = CC.HandChain(side, self.Rh[side], self.rest_pose[side], (gp, gR, pin_t, name, pr), self.cfg, self.floor)
+            self.chains_fallback[side] = {"name": name, "seen": seen.copy(), "grasp": (gp, gR, pin_t),
+                                          "cap": cap if lab is not None else min(cap, CAP_DEFAULT), "src": "camera" if lab is not None else "cli"}
             self._write({"event": "POSE", "hand": side, "object": name, "camera_label": lab, "cap": round(cap, 3), "source": origin,
                          "position_pelvis": (seen - self.kin.base).round(4).tolist()})
         if self.src.takes is not None: self.src.prepare_replay(self.chains)
-        return all(s in self.chains for s in self.obj)
+        ok = all(s in self.chains for s in self.obj)
+        if ok: self._build_cands()
+        return ok
+
+    def _build_cands(self):
+        """Per hand: every object the camera recognised (its own cap) + the CLI/assigned one (careful cap unless the camera confirmed it)."""
+        self.cands = {}
+        for side, ch in self.chains.items():
+            c = []
+            for o in getattr(self, "objs", []):
+                if o["label"] not in CAP_HARD: continue
+                seen = self.kin.base + o["p"]; g = gpose(o["label"], side, seen, self.rest)
+                if g is not None: c.append({"name": o["label"], "seen": seen, "grasp": g, "cap": CAP_HARD[o["label"]], "src": "camera"})
+            fb = self.chains_fallback.get(side)
+            if fb is not None and not any(np.linalg.norm(x["seen"][:2] - fb["seen"][:2]) < 0.06 for x in c): c.append(fb)
+            self.cands[side] = c
+        self._write({"event": "CANDIDATES", "objects": {s: [(x["name"], x["src"], round(x["cap"], 2), np.round(x["seen"] - self.kin.base, 3).tolist()) for x in v] for s, v in self.cands.items()}})
+
+    def _select(self, side, ch, pin):
+        """While the hand is not grasping: the candidate nearest to the robot pinch becomes the target; cap = its cap if within SELECT_R,
+        else CAP_DEFAULT (nothing recognised near the hand)."""
+        if ch.stage is not None or not self.cands.get(side): return
+        best = min(self.cands[side], key=lambda x: np.linalg.norm(pin - x["seen"])); d = float(np.linalg.norm(pin - best["seen"]))
+        cap = best["cap"] if d <= SELECT_R else min(best["cap"], CAP_DEFAULT)
+        pr = dict(D.PROFILE.get(best["name"], D.PROFILE["unknown"])); pr["cap"] = cap
+        gp, gR, pin_t = best["grasp"]; ch.grasp = (gp, gR, pin_t, best["name"], pr); self.seen[side] = best["seen"]
+        key = (best["name"], round(cap, 2))
+        if self.sel.get(side) != key:
+            self.sel[side] = key; self._write({"event": "TARGET", "hand": side, "object": best["name"], "cap": round(cap, 2), "dist_cm": round(100 * d, 1), "src": best["src"]})
 
     def _unsafe(self, k):
         r = T.unsafe(k)
@@ -299,6 +348,7 @@ class LivePolicyV2(Policy):
         # so every filter / timer of coil_chain was 1.5x slower (OneEuro 5 Hz -> 3.3 Hz, grip tau 40 -> 60 ms, assist 0.4 -> 0.6 s).
         # Sub-ticks stay exactly 1/RATE apart and catch-up is bounded (dt <= 2/RATE); offline (fast loop) it equals tick/RATE.
         # The per-target joint step (ARM_STEP = JOINT_SPEED/RATE) and the arm_speed check do not depend on t: unchanged.
+        self._redetect(obs)
         wall = time.time() - self.t0; lag = (CHUNK - 1) / RATE
         if self.t_last is None: base = max(0.0, wall - lag)
         else: base = min(max(self.t_last + 1.0 / RATE, wall - lag), self.t_last + 2.0 / RATE)
@@ -306,6 +356,24 @@ class LivePolicyV2(Policy):
             r = self._act1(o, base + i / RATE); arms.append(r[0]); hands.append(r[1]); o["arm_q"] = r[0]; o["hand_q"] = r[1]
         self.t_last = base + lag
         return {"arm_q_target": np.array(arms), "hand_q_target": np.array(hands)}
+
+    def _redetect(self, obs):
+        if not (self.initialized and self.started) or PV is None: return
+        if self.redetect is not None:
+            if not self.redetect.done(): return
+            try:
+                res = self.redetect.result()
+                if res is not None: self.objs = res; self._build_cands(); self.sel = {}
+            except Exception as e: self._write({"event": "REDETECT_ERROR", "error": str(e)})
+            self.redetect = None; self.t_detect = time.time(); return
+        if time.time() - self.t_detect < REDETECT_S or any(ch.stage is not None for ch in self.chains.values()): return
+        rgb, depth = obs.get("head_rgb"), obs.get("head_depth")
+        if not (_valid_image(rgb) and depth is not None and np.asarray(depth).any()): return
+        ep = self.ep; a = np.asarray(obs["arm_q"], float).copy(); h = np.asarray(obs["hand_q"], float).copy()
+        def job():
+            self._vision(np.asarray(rgb).copy(), np.asarray(depth).copy(), a, h, ep)
+            return list(self.perc[5]) if self.perc is not None and len(self.perc) > 5 and ep == self.ep else None
+        self.redetect = self.worker.submit(job)
 
     def _act1(self, obs, t):
         arm = np.asarray(obs["arm_q"], float); hand = np.asarray(obs["hand_q"], float); self.tick += 1
@@ -323,6 +391,7 @@ class LivePolicyV2(Policy):
                     info[side] = "no wrist"; out = None
                     s = (np.zeros(5) if s is None else s[0], None, None)
                 else:
+                    self._select(side, ch, T.pinch(self.kin, side))
                     near = lambda p: (FRAGILE_V if np.linalg.norm(p - self.seen[side]) > FRAGILE_R / 2 else FRAGILE_V / 2) \
                         if ch.grasp[3] == "egg" and np.linalg.norm(p - self.seen[side]) < FRAGILE_R else None
                     pin = T.pinch(self.kin, side)
